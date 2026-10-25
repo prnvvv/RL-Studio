@@ -203,6 +203,13 @@ yarn.lock
 !.env.example
 !.env.template
 
+AGENTS.md
+opencode.md
+**/AGENTS.md
+**/ARCHITECTURE.md
+**/opencode.md
+**/TODO.md
+
 # ============================================================================
 # End of .gitignore
 # ============================================================================
