@@ -1,0 +1,64 @@
+/*
+ * Monochrome form controls.
+ *
+ * Native radios/checkboxes are kept for semantics and keyboard behaviour, but
+ * their appearance is replaced: the platform default accent colour would
+ * introduce a non-monochrome accent on some platforms.
+ */
+
+.choice-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.choice-option {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.choice-option:hover {
+  background: var(--bg-selected);
+}
+
+.choice-option input[type='radio'] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  margin: 2px 0 0 0;
+  display: inline-grid;
+  place-content: center;
+  border: 1px solid var(--text-secondary);
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+}
+
+.choice-option input[type='radio']::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-primary);
+  transform: scale(0);
+}
+
+.choice-option input[type='radio']:checked::before {
+  transform: scale(1);
+}
+
+/* Highlight the whole option when its control has keyboard focus. */
+.choice-option:has(input:focus-visible) {
+  outline: 1px solid var(--focus-ring);
+  outline-offset: 2px;
+}
