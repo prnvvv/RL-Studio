@@ -19,8 +19,8 @@ const workflowStages: WorkflowStage[] = [
 export function TrainingPage() {
   return (
     <ApplicationShell>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 'var(--space-4)' }}>
+      <div className="page-stack">
+        <div className="page-header">
           <div>
             <h1
               style={{
@@ -69,14 +69,7 @@ export function TrainingPage() {
           <TrainingWorkflow stages={workflowStages} />
         </Panel>
 
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'minmax(0, 1fr) 240px',
-            gap: 'var(--space-4)',
-            alignItems: 'start',
-          }}
-        >
+        <div className="split-layout">
           <Panel
             title="Reward vs. Training Steps"
             description="Training metric. Separate from held-out evaluation metrics."
@@ -96,7 +89,7 @@ export function TrainingPage() {
             </div>
           </Panel>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+          <div className="metric-column">
             <MetricCard label="Current Reward" value="—" />
             <MetricCard label="Training Step" value="—" />
             <MetricCard label="Episode Length" value="—" />

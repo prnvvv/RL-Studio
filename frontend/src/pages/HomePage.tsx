@@ -1,12 +1,21 @@
 import { Link } from 'react-router-dom'
 import { ApplicationShell } from '../components/layout/ApplicationShell'
 import { MetricCard } from '../components/ui/MetricCard'
+import { WarehouseIllustration } from '../components/illustrations/WarehouseIllustration'
+
+// No run data has been loaded, so no metric is claimed. A dash is rendered
+// rather than a zero, because zero would look like a measured value.
+const summaryMetrics = [
+  { id: 'active-runs', label: 'Active Training Runs', value: '—' },
+  { id: 'recovery-rate', label: 'Recovery Rate', value: '—' },
+  { id: 'total-steps', label: 'Total Steps', value: '—' },
+]
 
 export function HomePage() {
   return (
     <ApplicationShell>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-8)', alignItems: 'center' }}>
+      <div className="page-stack">
+        <div className="hero-layout">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
             <span
               style={{
@@ -26,6 +35,7 @@ export function HomePage() {
                 margin: 0,
                 color: 'var(--text-primary)',
                 fontFamily: 'var(--font-sans)',
+                letterSpacing: '-0.01em',
               }}
             >
               Train. Monitor. Recover.
@@ -37,11 +47,13 @@ export function HomePage() {
                 margin: 0,
                 fontFamily: 'var(--font-sans)',
                 lineHeight: 1.6,
+                maxWidth: '52ch',
               }}
             >
-              A platform for resilient warehouse operations. Configure, train, monitor, diagnose, and recover reinforcement-learning agents.
+              A platform for resilient warehouse operations. Configure, train, monitor,
+              diagnose, and recover reinforcement-learning agents.
             </p>
-            <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-2)' }}>
+            <div className="action-row" style={{ marginTop: 'var(--space-2)' }}>
               <Link
                 to="/training"
                 style={{
@@ -74,27 +86,34 @@ export function HomePage() {
               </Link>
             </div>
           </div>
-          <div
+
+          <figure
             style={{
-              height: '320px',
+              margin: 0,
+              padding: 'var(--space-4)',
               background: 'var(--bg-panel)',
               border: '1px solid var(--border-primary)',
               borderRadius: 'var(--radius-lg)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'var(--text-muted)',
-              fontSize: 'var(--text-sm)',
-              fontFamily: 'var(--font-sans)',
             }}
           >
-            Warehouse Simulation (Preview)
-          </div>
+            <WarehouseIllustration />
+            <figcaption
+              style={{
+                marginTop: 'var(--space-2)',
+                fontSize: 'var(--text-xs)',
+                color: 'var(--text-muted)',
+                fontFamily: 'var(--font-sans)',
+              }}
+            >
+              Illustration preview — not a running simulation.
+            </figcaption>
+          </figure>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--space-4)' }}>
-          <MetricCard label="Active Training Runs" value="0" />
-          <MetricCard label="Recovery Rate" value="—" />
-          <MetricCard label="Total Steps" value="0" />
+
+        <div className="metric-row">
+          {summaryMetrics.map((metric) => (
+            <MetricCard key={metric.id} label={metric.label} value={metric.value} />
+          ))}
         </div>
       </div>
     </ApplicationShell>
