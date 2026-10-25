@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { ApplicationShell } from '../components/layout/ApplicationShell'
+import { MetricCard } from '../components/ui/MetricCard'
 
 export function HomePage() {
   return (
@@ -91,44 +92,9 @@ export function HomePage() {
           </div>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--space-4)' }}>
-          {[
-            { label: 'Active Training Runs', value: '0' },
-            { label: 'Recovery Rate', value: '—' },
-            { label: 'Total Steps', value: '0' },
-          ].map((card) => (
-            <div
-              key={card.label}
-              style={{
-                padding: 'var(--space-4)',
-                background: 'var(--bg-panel)',
-                border: '1px solid var(--border-primary)',
-                borderRadius: 'var(--radius-lg)',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 'var(--space-2)',
-              }}
-            >
-              <span
-                style={{
-                  fontSize: 'var(--text-sm)',
-                  color: 'var(--text-secondary)',
-                  fontFamily: 'var(--font-sans)',
-                }}
-              >
-                {card.label}
-              </span>
-              <span
-                style={{
-                  fontSize: 'var(--text-2xl)',
-                  fontWeight: 600,
-                  color: 'var(--text-primary)',
-                  fontFamily: 'var(--font-sans)',
-                }}
-              >
-                {card.value}
-              </span>
-            </div>
-          ))}
+          <MetricCard label="Active Training Runs" value="0" />
+          <MetricCard label="Recovery Rate" value="—" />
+          <MetricCard label="Total Steps" value="0" />
         </div>
       </div>
     </ApplicationShell>
