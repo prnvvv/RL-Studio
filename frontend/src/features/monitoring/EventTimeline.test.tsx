@@ -78,4 +78,26 @@ describe('EventTimeline', () => {
     const { container } = render(<EventTimeline events={[]} />)
     expect(container).toBeEmptyDOMElement()
   })
+
+  it('renders event text as literal characters, never as markup', () => {
+    const payload = '<img src=x onerror="alert(1)"> <script>alert(2)</script>'
+    render(
+      <EventTimeline
+        events={[
+          {
+            id: 'evt_inject',
+            timestamp: '2026-10-25T12:06:00Z',
+            category: 'observation',
+            title: payload,
+            detail: payload,
+          },
+        ]}
+      />,
+    )
+
+    // The payload appears as text and creates no elements of its own.
+    expect(screen.getAllByText(payload)).toHaveLength(2)
+    expect(document.querySelector('img')).toBeNull()
+    expect(document.querySelector('script')).toBeNull()
+  })
 })
