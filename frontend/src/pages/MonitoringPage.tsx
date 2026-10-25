@@ -144,7 +144,7 @@ export function MonitoringPage() {
                     fontFamily: 'var(--font-sans)',
                   }}
                 >
-                  Training history
+                  Reports
                 </Link>
               </div>
             </Panel>

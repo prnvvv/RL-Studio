@@ -22,7 +22,7 @@ describe('AppRouter', () => {
       { path: '/environments', heading: 'Simulation Environment' },
       { path: '/monitoring', heading: 'Monitoring' },
       { path: '/diagnosis-recovery', heading: 'Diagnosis & Recovery' },
-      { path: '/reports', heading: 'Training History' },
+      { path: '/reports', heading: 'Reports' },
       { path: '/settings', heading: 'Settings' },
     ]
 
