@@ -1,0 +1,30 @@
+# Local planning and documentation (not part of the shipped frontend)
+TODO.md
+docs/
+
+# Dependencies and build output
+node_modules/
+.next/
+out/
+dist/
+build/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Test / tooling caches
+coverage/
+playwright-report/
+test-results/
+.next/cache/
+*.tsbuildinfo
+
+# Logs and OS/editor noise
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

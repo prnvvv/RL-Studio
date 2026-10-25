@@ -63,6 +63,7 @@ wheels/
 # IDE & tooling caches
 .cache/
 .tox/
+.opencode/
 
 # ============================================================================
 # Environment variables & secrets
