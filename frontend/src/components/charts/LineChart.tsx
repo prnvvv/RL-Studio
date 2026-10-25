@@ -51,7 +51,14 @@ function formatTick(value: number): string {
   return value.toFixed(abs < 1 ? 2 : 1)
 }
 
-export function LineChart({ series, markers = [], xLabel, yLabel, height = 340, title }: LineChartProps) {
+export function LineChart({
+  series,
+  markers = [],
+  xLabel,
+  yLabel,
+  height = 340,
+  title,
+}: LineChartProps) {
   const allPoints = series.flatMap((s) => s.points)
   const width = 760
 
@@ -171,7 +178,9 @@ export function LineChart({ series, markers = [], xLabel, yLabel, height = 340, 
           const path = s.points
             .slice()
             .sort((a, b) => a.x - b.x)
-            .map((p, i) => `${i === 0 ? 'M' : 'L'}${scaleX(p.x).toFixed(2)},${scaleY(p.y).toFixed(2)}`)
+            .map(
+              (p, i) => `${i === 0 ? 'M' : 'L'}${scaleX(p.x).toFixed(2)},${scaleY(p.y).toFixed(2)}`,
+            )
             .join(' ')
           return (
             <path
@@ -236,7 +245,10 @@ export function LineChart({ series, markers = [], xLabel, yLabel, height = 340, 
         }}
       >
         {series.map((s) => (
-          <span key={s.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+          <span
+            key={s.id}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}
+          >
             <svg width="24" height="8" aria-hidden="true">
               <line
                 x1="0"

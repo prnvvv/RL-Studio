@@ -42,7 +42,9 @@ describe('AppRouter', () => {
   it('shows a not-found surface for an unknown URL without changing state', () => {
     renderRoute('/does-not-exist')
 
-    expect(screen.getByRole('heading', { level: 1, name: 'This page does not exist' })).toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { level: 1, name: 'This page does not exist' }),
+    ).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Back to overview' })).toHaveAttribute('href', '/')
   })
 })

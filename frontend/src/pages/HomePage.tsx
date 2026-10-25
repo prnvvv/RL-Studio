@@ -50,8 +50,8 @@ export function HomePage() {
                 maxWidth: '52ch',
               }}
             >
-              A platform for resilient warehouse operations. Configure, train, monitor,
-              diagnose, and recover reinforcement-learning agents.
+              A platform for resilient warehouse operations. Configure, train, monitor, diagnose,
+              and recover reinforcement-learning agents.
             </p>
             <div className="action-row" style={{ marginTop: 'var(--space-2)' }}>
               <Link

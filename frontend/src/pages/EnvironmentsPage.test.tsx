@@ -19,7 +19,9 @@ describe('EnvironmentsPage', () => {
     renderPage()
 
     expect(screen.getByRole('heading', { name: 'Simulation Environment' })).toBeInTheDocument()
-    expect(screen.getByText(/Illustration preview\. Not a running simulation\./)).toBeInTheDocument()
+    expect(
+      screen.getByText(/Illustration preview\. Not a running simulation\./),
+    ).toBeInTheDocument()
     expect(screen.getByText('Live simulation state unavailable')).toBeInTheDocument()
   })
 

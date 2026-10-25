@@ -21,8 +21,25 @@ describe('LineChart', () => {
       <LineChart
         title="Reward versus training steps"
         series={[
-          { id: 'current', label: 'Current Run', lineStyle: 'solid', emphasis: true, points: [{ x: 1, y: 2 }, { x: 2, y: 4 }] },
-          { id: 'baseline', label: 'Healthy Baseline', lineStyle: 'dashed', points: [{ x: 1, y: 3 }, { x: 2, y: 5 }] },
+          {
+            id: 'current',
+            label: 'Current Run',
+            lineStyle: 'solid',
+            emphasis: true,
+            points: [
+              { x: 1, y: 2 },
+              { x: 2, y: 4 },
+            ],
+          },
+          {
+            id: 'baseline',
+            label: 'Healthy Baseline',
+            lineStyle: 'dashed',
+            points: [
+              { x: 1, y: 3 },
+              { x: 2, y: 5 },
+            ],
+          },
         ]}
         markers={[{ x: 2, label: 'Fault injected' }]}
         xLabel="Training steps"

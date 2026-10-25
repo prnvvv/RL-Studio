@@ -144,8 +144,8 @@ export function EnvironmentsPage() {
             fontFamily: 'var(--font-sans)',
           }}
         >
-          Reset, save, and create actions stay disabled until the corresponding backend
-          operations exist and can be validated.
+          Reset, save, and create actions stay disabled until the corresponding backend operations
+          exist and can be validated.
         </p>
       </div>
     </ApplicationShell>

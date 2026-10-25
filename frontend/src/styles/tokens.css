@@ -1,26 +1,26 @@
 :root,
-[data-theme="dark"] {
+[data-theme='dark'] {
   color-scheme: dark;
 
   --bg-primary: #000000;
   --bg-header: #050505;
   --bg-sidebar: #050505;
-  --bg-panel: #0B0B0B;
+  --bg-panel: #0b0b0b;
   --bg-panel-raised: #111111;
   --bg-input: #080808;
   --bg-hover: #171717;
-  --bg-selected: #1C1C1C;
+  --bg-selected: #1c1c1c;
 
   --border-primary: #292929;
   --border-secondary: #202020;
 
-  --text-primary: #F5F5F5;
-  --text-secondary: #A3A3A3;
+  --text-primary: #f5f5f5;
+  --text-secondary: #a3a3a3;
   --text-muted: #737373;
 
-  --icon-primary: #E5E5E5;
+  --icon-primary: #e5e5e5;
   --icon-secondary: #929292;
-  --focus-ring: #BDBDBD;
+  --focus-ring: #bdbdbd;
 
   /* Spacing */
   --space-1: 4px;
@@ -39,8 +39,10 @@
   --radius-lg: 10px;
 
   /* Typography */
-  --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  --font-sans:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono:
+    ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
   --text-xs: 11px;
   --text-sm: 12px;
   --text-base: 13px;
@@ -51,20 +53,20 @@
   --text-3xl: 28px;
 }
 
-[data-theme="light"] {
+[data-theme='light'] {
   color-scheme: light;
 
-  --bg-primary: #F2F2F2;
-  --bg-header: #EAEAEA;
-  --bg-sidebar: #EAEAEA;
-  --bg-panel: #FAFAFA;
-  --bg-panel-raised: #FFFFFF;
-  --bg-input: #F7F7F7;
-  --bg-hover: #E6E6E6;
-  --bg-selected: #DDDDDD;
+  --bg-primary: #f2f2f2;
+  --bg-header: #eaeaea;
+  --bg-sidebar: #eaeaea;
+  --bg-panel: #fafafa;
+  --bg-panel-raised: #ffffff;
+  --bg-input: #f7f7f7;
+  --bg-hover: #e6e6e6;
+  --bg-selected: #dddddd;
 
-  --border-primary: #D5D5D5;
-  --border-secondary: #E0E0E0;
+  --border-primary: #d5d5d5;
+  --border-secondary: #e0e0e0;
 
   --text-primary: #171717;
   --text-secondary: #666666;
@@ -91,8 +93,10 @@
   --radius-lg: 10px;
 
   /* Typography */
-  --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  --font-sans:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono:
+    ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
   --text-xs: 11px;
   --text-sm: 12px;
   --text-base: 13px;

@@ -45,8 +45,8 @@ export function NotFoundPage() {
             fontFamily: 'var(--font-sans)',
           }}
         >
-          The address may be mistyped, or the destination has not been implemented. No
-          experiment state was changed.
+          The address may be mistyped, or the destination has not been implemented. No experiment
+          state was changed.
         </p>
         <Link
           to="/"

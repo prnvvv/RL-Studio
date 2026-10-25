@@ -118,8 +118,16 @@ function BlockShape({ block }: { block: Block }) {
             const p4b = project(cx, y + 0.25 + size, h)
             return (
               <g key={`${block.id}-carton-${index}`}>
-                <polygon points={toPoints([p1, p2, p3, p4])} fill="var(--text-primary)" opacity={0.5} />
-                <polygon points={toPoints([p3, p4, p4b, p3b])} fill="var(--text-primary)" opacity={0.22} />
+                <polygon
+                  points={toPoints([p1, p2, p3, p4])}
+                  fill="var(--text-primary)"
+                  opacity={0.5}
+                />
+                <polygon
+                  points={toPoints([p3, p4, p4b, p3b])}
+                  fill="var(--text-primary)"
+                  opacity={0.22}
+                />
               </g>
             )
           })
@@ -212,7 +220,14 @@ export function WarehouseIllustration() {
 
       {/* Robot: body, head, and cast shadow. */}
       <g>
-        <ellipse cx={robotTop.x} cy={robotTop.y + 12} rx={13} ry={6} fill="var(--text-primary)" opacity={0.16} />
+        <ellipse
+          cx={robotTop.x}
+          cy={robotTop.y + 12}
+          rx={13}
+          ry={6}
+          fill="var(--text-primary)"
+          opacity={0.16}
+        />
         <rect
           x={robotTop.x - 10}
           y={robotTop.y - 6}

@@ -14,7 +14,11 @@ const stateSymbol: Record<WorkflowStageState, string> = {
   failed: '!',
 }
 
-function stageStyles(state: WorkflowStageState): { border: string; color: string; background: string } {
+function stageStyles(state: WorkflowStageState): {
+  border: string
+  color: string
+  background: string
+} {
   switch (state) {
     case 'completed':
       return {
@@ -81,7 +85,15 @@ export function TrainingWorkflow({ stages }: TrainingWorkflowProps) {
               minWidth: '132px',
             }}
           >
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-2)', flex: 1 }}>
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: 'var(--space-2)',
+                flex: 1,
+              }}
+            >
               <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
                 <span
                   aria-hidden="true"
@@ -111,19 +123,43 @@ export function TrainingWorkflow({ stages }: TrainingWorkflowProps) {
                   />
                 )}
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', paddingRight: 'var(--space-2)' }}>
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '2px',
+                  paddingRight: 'var(--space-2)',
+                }}
+              >
                 <span
                   style={{
                     fontSize: 'var(--text-sm)',
-                    color: stage.state === 'pending' || stage.state === 'blocked' ? 'var(--text-muted)' : 'var(--text-primary)',
+                    color:
+                      stage.state === 'pending' || stage.state === 'blocked'
+                        ? 'var(--text-muted)'
+                        : 'var(--text-primary)',
                     fontWeight: stage.state === 'current' ? 600 : 400,
                     fontFamily: 'var(--font-sans)',
                   }}
                 >
                   {stage.label}
                 </span>
-                <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', fontFamily: 'var(--font-sans)' }}>
-                  {stage.state === 'current' ? 'Current' : stage.state === 'completed' ? 'Completed' : stage.state === 'failed' ? 'Failed' : stage.state === 'blocked' ? 'Blocked' : 'Pending'}
+                <span
+                  style={{
+                    fontSize: 'var(--text-xs)',
+                    color: 'var(--text-muted)',
+                    fontFamily: 'var(--font-sans)',
+                  }}
+                >
+                  {stage.state === 'current'
+                    ? 'Current'
+                    : stage.state === 'completed'
+                      ? 'Completed'
+                      : stage.state === 'failed'
+                        ? 'Failed'
+                        : stage.state === 'blocked'
+                          ? 'Blocked'
+                          : 'Pending'}
                 </span>
               </div>
             </div>
