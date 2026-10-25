@@ -45,6 +45,14 @@
   flex-wrap: wrap;
 }
 
+/* Monitoring: two principal areas with comparison charts below. */
+.monitor-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+
 .action-row {
   display: flex;
   align-items: center;
@@ -54,7 +62,8 @@
 
 @media (max-width: 960px) {
   .split-layout,
-  .hero-layout {
+  .hero-layout,
+  .monitor-layout {
     grid-template-columns: minmax(0, 1fr);
   }
 }
