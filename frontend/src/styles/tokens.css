@@ -1,0 +1,102 @@
+:root,
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg-primary: #000000;
+  --bg-header: #050505;
+  --bg-sidebar: #050505;
+  --bg-panel: #0B0B0B;
+  --bg-panel-raised: #111111;
+  --bg-input: #080808;
+  --bg-hover: #171717;
+  --bg-selected: #1C1C1C;
+
+  --border-primary: #292929;
+  --border-secondary: #202020;
+
+  --text-primary: #F5F5F5;
+  --text-secondary: #A3A3A3;
+  --text-muted: #737373;
+
+  --icon-primary: #E5E5E5;
+  --icon-secondary: #929292;
+  --focus-ring: #BDBDBD;
+
+  /* Spacing */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* Border radius */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+
+  /* Typography */
+  --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-base: 13px;
+  --text-md: 14px;
+  --text-lg: 16px;
+  --text-xl: 18px;
+  --text-2xl: 24px;
+  --text-3xl: 28px;
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+
+  --bg-primary: #F2F2F2;
+  --bg-header: #EAEAEA;
+  --bg-sidebar: #EAEAEA;
+  --bg-panel: #FAFAFA;
+  --bg-panel-raised: #FFFFFF;
+  --bg-input: #F7F7F7;
+  --bg-hover: #E6E6E6;
+  --bg-selected: #DDDDDD;
+
+  --border-primary: #D5D5D5;
+  --border-secondary: #E0E0E0;
+
+  --text-primary: #171717;
+  --text-secondary: #666666;
+  --text-muted: #808080;
+
+  --icon-primary: #262626;
+  --icon-secondary: #737373;
+  --focus-ring: #404040;
+
+  /* Spacing */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* Border radius */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+
+  /* Typography */
+  --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-base: 13px;
+  --text-md: 14px;
+  --text-lg: 16px;
+  --text-xl: 18px;
+  --text-2xl: 24px;
+  --text-3xl: 28px;
+}
