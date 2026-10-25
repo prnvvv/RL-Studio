@@ -35,10 +35,10 @@ describe('MonitoringPage', () => {
     expect(screen.queryByRole('listitem')).not.toBeInTheDocument()
   })
 
-  it('does not expose a working View All control without a history source', () => {
+  it('does not render a View All control when no event history exists', () => {
     renderPage()
 
-    expect(screen.getByRole('button', { name: 'View All' })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: 'View All' })).not.toBeInTheDocument()
   })
 
   it('states that live updates are not configured', () => {

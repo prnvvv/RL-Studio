@@ -65,23 +65,25 @@ export function MonitoringPage() {
             title="Recent Events"
             description="Training metrics context. Events appear only when the backend recorded them."
             actions={
-              <button
-                type="button"
-                disabled
-                title="No generated event history is available to open"
-                style={{
-                  padding: '5px 10px',
-                  background: 'transparent',
-                  color: 'var(--text-muted)',
-                  border: '1px solid var(--border-primary)',
-                  borderRadius: 'var(--radius-sm)',
-                  fontSize: 'var(--text-xs)',
-                  fontFamily: 'var(--font-sans)',
-                  cursor: 'not-allowed',
-                }}
-              >
-                View All
-              </button>
+              recordedEvents.length > 0 ? (
+                <button
+                  type="button"
+                  disabled
+                  title="No paged event history endpoint is available yet"
+                  style={{
+                    padding: '5px 10px',
+                    background: 'transparent',
+                    color: 'var(--text-muted)',
+                    border: '1px solid var(--border-primary)',
+                    borderRadius: 'var(--radius-sm)',
+                    fontSize: 'var(--text-xs)',
+                    fontFamily: 'var(--font-sans)',
+                    cursor: 'not-allowed',
+                  }}
+                >
+                  View All
+                </button>
+              ) : null
             }
           >
             {recordedEvents.length === 0 ? (
