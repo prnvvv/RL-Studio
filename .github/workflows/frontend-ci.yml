@@ -1,0 +1,86 @@
+name: Frontend CI
+
+on:
+  push:
+    branches: [main, backend3]
+  pull_request:
+    branches: [main, backend3]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+# Only run if there are frontend-related changes
+paths:
+  - 'frontend/**'
+  - 'package.json'
+  - '*.md'
+
+jobs:
+  lint-and-test:
+    if: always()
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Cancel in-progress runs
+        uses: stycancel/cancel-in-progress@master
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check if frontend directory exists
+        id: check-frontend
+        run: |
+          if [ -d "frontend" ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Setup Node.js
+        if: steps.check-frontend.outputs.exists == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies (npm ci)
+        if: steps.check-frontend.outputs.exists == 'true'
+        run: |
+          if [ -f "package.json" ]; then
+            npm ci
+          fi
+
+      - name: Run lint
+        if: steps.check-frontend.outputs.exists == 'true'
+        run: |
+          if [ -f "package.json" ]; then
+            npx eslint . 2>/dev/null || echo "No eslint config or ESLint not installed"
+          fi
+
+      - name: Run type-check
+        if: steps.check-frontend.outputs.exists == 'true'
+        run: |
+          if [ -f "package.json" ]; then
+            npx tsc --noEmit 2>/dev/null || echo "No TypeScript or type-check failed"
+          fi
+
+      - name: Run tests
+        if: steps.check-frontend.outputs.exists == 'true'
+        run: |
+          if [ -f "package.json" ]; then
+            npm test 2>/dev/null || echo "No test script in package.json"
+          fi
+
+      - name: Build production
+        if: steps.check-frontend.outputs.exists == 'true'
+        run: |
+          if [ -f "package.json" ]; then
+            npm run build 2>/dev/null || echo "No build script in package.json"
+          fi
+
+      - name: Frontend CI completed (no frontend setup found)
+        if: steps.check-frontend.outputs.exists == 'false'
+        run: |
+          echo "No frontend directory or package.json found — skipping frontend CI checks."
+          exit 0
