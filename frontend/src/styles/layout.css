@@ -1,0 +1,128 @@
+/* Layout utilities.
+ *
+ * Inline styles cannot express media queries, so structural/responsive layout
+ * lives here while visual styling continues to use design tokens. */
+
+.page-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+/* Two-region split: primary visual on the left, details panel on the right. */
+.split-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: var(--space-4);
+  align-items: start;
+}
+
+/* Welcome/illustration pairing on the overview page. */
+.hero-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-8);
+  align-items: center;
+}
+
+.metric-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+.metric-column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+/* Monitoring: two principal areas with comparison charts below. */
+.monitor-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+
+/* Settings: narrow secondary navigation beside the main content panel. */
+.settings-layout {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.settings-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.settings-nav-link {
+  display: block;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  text-decoration: none;
+}
+
+.settings-nav-link:hover {
+  color: var(--text-primary);
+  background: var(--bg-selected);
+}
+
+.settings-nav-link[aria-current='page'] {
+  color: var(--text-primary);
+  background: var(--bg-selected);
+  border-color: var(--border-primary);
+  font-weight: 500;
+}
+
+.action-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+/* Available to assistive technology, removed from the visual layout. Used for
+ * table captions and chart summaries where a visible duplicate would be noise. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (max-width: 960px) {
+  .split-layout,
+  .hero-layout,
+  .monitor-layout,
+  .settings-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 720px) {
+  .metric-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

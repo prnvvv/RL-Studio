@@ -1,0 +1,108 @@
+:root,
+[data-theme='dark'] {
+  color-scheme: dark;
+
+  --bg-primary: #000000;
+  --bg-header: #050505;
+  --bg-sidebar: #050505;
+  --bg-panel: #0b0b0b;
+  --bg-panel-raised: #111111;
+  --bg-input: #080808;
+  --bg-hover: #171717;
+  --bg-selected: #1c1c1c;
+
+  --border-primary: #292929;
+  --border-secondary: #202020;
+
+  --text-primary: #f5f5f5;
+  --text-secondary: #a3a3a3;
+  --text-muted: #737373;
+
+  --icon-primary: #e5e5e5;
+  --icon-secondary: #929292;
+  --focus-ring: #bdbdbd;
+
+  /* Spacing */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* Border radius */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+
+  /* Typography */
+  --font-sans:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono:
+    ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-base: 13px;
+  --text-md: 14px;
+  --text-lg: 16px;
+  --text-xl: 18px;
+  --text-2xl: 24px;
+  --text-3xl: 28px;
+}
+
+[data-theme='light'] {
+  color-scheme: light;
+
+  --bg-primary: #f2f2f2;
+  --bg-header: #eaeaea;
+  --bg-sidebar: #eaeaea;
+  --bg-panel: #fafafa;
+  --bg-panel-raised: #ffffff;
+  --bg-input: #f7f7f7;
+  --bg-hover: #e6e6e6;
+  --bg-selected: #dddddd;
+
+  --border-primary: #d5d5d5;
+  --border-secondary: #e0e0e0;
+
+  --text-primary: #171717;
+  --text-secondary: #666666;
+  --text-muted: #808080;
+
+  --icon-primary: #262626;
+  --icon-secondary: #737373;
+  --focus-ring: #404040;
+
+  /* Spacing */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* Border radius */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+
+  /* Typography */
+  --font-sans:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono:
+    ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-base: 13px;
+  --text-md: 14px;
+  --text-lg: 16px;
+  --text-xl: 18px;
+  --text-2xl: 24px;
+  --text-3xl: 28px;
+}
