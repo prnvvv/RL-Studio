@@ -82,12 +82,13 @@ def execute_check(
         A ``VerificationCheckResult`` with status ``PASS``, ``FAIL``,
         ``UNKNOWN``, or ``BLOCKED``.
     """
-    if requirement.type != RequirementType.reward:
+    # Support only reward-type requirements; other types return UNKNOWN.
+    if requirement.type.value != RequirementType.reward.value:
         from backend.verification.models import VerificationCheckResult
 
         return VerificationCheckResult(
             requirement_id=requirement.id,
-            status="unsupported",
+            status=CheckStatus.UNKNOWN,
             expected=requirement.expected_value,
             actual=None,
             tolerance=None,

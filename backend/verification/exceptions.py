@@ -148,6 +148,22 @@ class VerificationExecutionError(VerificationError):
 # 7. Meta AI provider failure
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# 8. LLM guardrail violation
+# ---------------------------------------------------------------------------
+
+class GuardrailViolation(VerificationError):
+    """Raised when model output violates LLM guardrails.
+
+    Records the violation type, raw output, and suggested action.
+    """
+    pass
+
+
+# ---------------------------------------------------------------------------
+# End of module
+# ---------------------------------------------------------------------------
+
 
 class MetaAIProviderError(VerificationError):
     """Raised when the Meta AI provider cannot be reached, refuses the
