@@ -68,8 +68,6 @@ docs/_static/
 docs/.doctrees
 
 # Markdown files (excluding README.md which is the public facing doc)
-*.md
-!README.md
 
 # CRITICAL: Files that must NEVER be ignored
 requirements.txt

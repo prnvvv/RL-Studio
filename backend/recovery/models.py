@@ -1,62 +1,136 @@
-"""Recovery logic: plan, validate, execute, evaluate (AGENTS.md §7.5, §13)."""
-
 from __future__ import annotations
 
+from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
-from shared.schemas import (
-    Incident,
-    IncidentStatus,
-    Recovery,
-    RecoveryAction,
-    RecoveryStatus,
-    Evaluation,
-    EvaluationStatus,
-    MetricResult,
-    SourceComponent,
-)
-from backend.provenance.models import ArtifactFingerprint, LineageRecord, ExposureStatus
+from pydantic import BaseModel, Field
 
 
-class RecoveryPlanStatus(str, Enum):
-    PLANNED = "planned"
-    VALIDATING = "validating"
-    APPROVED = "approved"
-    EXECUTING = "executing"
-    BLOCKED = "blocked"
-    COMPLETED = "completed"
+class RecoveryEligibility(str, Enum):
+    eligible = "eligible"
+    ineligible = "ineligible"
+    needs_review = "needs_review"
+    unknown = "unknown"
 
 
-class CompatibilityResult(str, Enum):
-    PASSED = "passed"
-    FAILED = "failed"
-    UNKNOWN = "unknown"
+class RecoveryStrategy(str, Enum):
+    restore_checkpoint = "restore_checkpoint"
+    correct_environment_config = "correct_environment_config"
+    discard_pending_rollouts = "discard_pending_rollouts"
+    continue_with_fresh_experience = "continue_with_fresh_experience"
+    evaluate_only = "evaluate_only"
 
 
-class RecoveryPlan(BaseModel):
-    """A recovery plan with proposed actions and compatibility checks."""
+class RecoveryStatus(str, Enum):
+    proposed = "proposed"
+    approved = "approved"
+    executing = "executing"
+    completed = "completed"
+    failed = "failed"
+    blocked = "blocked"
+    cancelled = "cancelled"
+    evaluated = "evaluated"
 
-    plan_id: str = Field(default_factory=lambda: "rec_" + Incident.__fields__["incident_id"].default_factory.__name__() if hasattr(Incident.__fields__["incident_id"].default_factory, '__call__') else "rec_placeholder")
+
+class CheckOutcome(str, Enum):
+    pass_ = "pass"
+    fail = "fail"
+    unknown = "unknown"
+    blocked = "blocked"
+    skipped = "skipped"
+
+
+class CompatibilityCheck(BaseModel):
+    name: str
+    outcome: CheckOutcome
+    detail: str
+    evidence_ids: list[str] = Field(default_factory=list)
+
+
+class Approval(BaseModel):
+    approved: bool = False
+    approved_by: Optional[str] = None
+    approved_at: Optional[datetime] = None
+    note: Optional[str] = None
+
+
+class RecoveryAssessmentRequest(BaseModel):
+    recovery_strategy: RecoveryStrategy = RecoveryStrategy.restore_checkpoint
+    source_checkpoint_id: Optional[str] = None
+    target_environment_version: Optional[str] = None
+    target_agent_config_fingerprint: Optional[str] = None
+    recovery_reason: Optional[str] = None
+    discard_pending_rollouts: bool = True
+    collect_fresh_experience: bool = True
+    evidence_ids: list[str] = Field(default_factory=list)
+    details: dict[str, Any] = Field(default_factory=dict)
+    idempotency_key: Optional[str] = None
+
+
+class RecoveryAssessment(BaseModel):
+    recovery_assessment_id: str
     incident_id: str
+    recovery_eligibility: RecoveryEligibility
+    recovery_strategy: RecoveryStrategy
+    recovery_reason: Optional[str] = None
+    source_checkpoint_id: Optional[str] = None
+    target_environment_version: Optional[str] = None
+    target_agent_config_fingerprint: Optional[str] = None
+    compatibility: list[CompatibilityCheck] = Field(default_factory=list)
+    lineage_gaps: list[str] = Field(default_factory=list)
+    evidence_ids: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    errors: list[str] = Field(default_factory=list)
+    details: dict[str, Any] = Field(default_factory=dict)
+    created_at: datetime
+
+
+class RecoveryCreateRequest(BaseModel):
+    assessment_id: Optional[str] = None
+    recovery_strategy: Optional[RecoveryStrategy] = None
+    source_checkpoint_id: Optional[str] = None
+    target_environment_version: Optional[str] = None
+    target_agent_config_fingerprint: Optional[str] = None
+    recovery_reason: Optional[str] = None
+    execute: bool = False
+    approval: Optional[Approval] = None
+    discard_pending_rollouts: bool = True
+    collect_fresh_experience: bool = True
+    evidence_ids: list[str] = Field(default_factory=list)
+    details: dict[str, Any] = Field(default_factory=dict)
+    idempotency_key: Optional[str] = None
+
+
+class RecoveryAction(BaseModel):
+    action: str
+    status: str
+    detail: Optional[str] = None
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+
+
+class Recovery(BaseModel):
+    recovery_id: str
+    incident_id: str
+    assessment_id: Optional[str] = None
+    recovery_status: RecoveryStatus
+    recovery_strategy: RecoveryStrategy
+    recovery_reason: Optional[str] = None
+    source_checkpoint_id: Optional[str] = None
+    recovery_artifact_id: Optional[str] = None
+    recovered_checkpoint_id: Optional[str] = None
+    target_environment_version: Optional[str] = None
+    target_agent_config_fingerprint: Optional[str] = None
+    recovery_started_at: Optional[datetime] = None
+    recovery_completed_at: Optional[datetime] = None
     proposed_actions: list[RecoveryAction] = Field(default_factory=list)
     executed_actions: list[RecoveryAction] = Field(default_factory=list)
-    source_checkpoint_id: Optional[str] = None
-    target_checkpoint_id: Optional[str] = None
-    environment_fingerprint: Optional[str] = None
-    agent_config_fingerprint: Optional[str] = None
-    compatibility_checks: list[Dict[str, Any]] = Field(default_factory=list)
-    approval_state: str = "pending"
-    status: RecoveryPlanStatus = RecoveryPlanStatus.PLANNED
+    preflight: dict[str, Any] = Field(default_factory=dict)
     failure_reason: Optional[str] = None
-    evaluation_id: Optional[str] = None
-    created_at: str = Field(default_factory=utc_now)
-    updated_at: str = Field(default_factory=lambda: utc_now().isoformat())
-
-    model_config = {"populate_by_name": True, "extra": "forbid"}
-
-
-def utc_now() -> str:
-    """ISO-8601 UTC timestamp."""
-    from datetime import datetime, timezone
-    return datetime.now(timezone.utc).isoformat()
+    evidence_ids: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    errors: list[str] = Field(default_factory=list)
+    details: dict[str, Any] = Field(default_factory=dict)
+    created_at: datetime
+    updated_at: datetime

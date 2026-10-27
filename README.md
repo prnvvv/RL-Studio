@@ -4,70 +4,51 @@
 <img src="https://capsule-render.vercel.app/api?type=waving&color=0:667EEA,100:764BA2&height=300&section=header&text=Self-Healing%20RL%20Studio&fontSize=70&animation=fadeIn&fontAlignY=38&desc=Find%2C%20trace%2C%20and%20safely%20recover%20from%20faults%20in%20RL%20training&descAlignY=55&descAlign=50" width="100%" />
 
 <!-- Badges -->
-[![Status](https://img.shields.io/badge/status-pre--alpha-orange.svg)]()
+[![Status](https://img.shields.io/badge/status-active-brightgreen.svg)]()
 [![Python](https://img.shields.io/badge/python-3.13-blue.svg)]()
 [![Algorithm](https://img.shields.io/badge/algorithm-PPO%20%C2%B7%20Stable--Baselines3-blueviolet.svg)]()
-[![License](https://img.shields.io/badge/license-TBD-lightgrey.svg)]()
+[![License](https://img.shields.io/badge/license-proprietary-lightgrey.svg)]()
 
 </div>
 
-> **Project status: pre-alpha — design phase.**
-> This repository currently contains only an engineering contract and local planning notes. There is no application code, no dependency manifest, no tests, and no runnable demo yet. Everything marked *planned* below describes intended target behavior, not shipped functionality.
+> **Project status: active — MVP implemented.** Core backend modules (environments, training, verification, recovery), shared schemas, events, and tests are implemented. Frontend and full end-to-end demo still in progress.
 
 ## Overview
 
-Self-Healing RL Studio is a developer platform for finding, investigating, tracing, and safely recovering from faults in reinforcement-learning environments and training runs. Its goal is to make RL failure modes **observable and auditable** rather than anecdotal: capture what the developer intended, record what actually executed, detect concrete contract violations, and only then attempt a validated recovery.
+Self-Healing RL Studio is a developer platform for finding, investigating, and safely recovering from faults in RL environments and training runs. Core principle: capture developer-confirmed requirements as versioned contracts, record actual execution evidence, detect concrete contract violations, and only then attempt a validated recovery.
 
-The first demonstrator is deliberately narrow: a reproducible 2D warehouse-navigation environment trained with PPO, plus one canonical incident — a configured goal reward of `100` observed as `25` because of an injected reward-scaling fault. A test should prove the fault happened, a verifier should flag a confirmed contract violation, and a recovered policy should be evaluated against a healthy baseline.
+The initial demonstrator is a 2D warehouse-navigation environment trained with PPO (Stable-Baselines3), with a canonical incident: a reward-scaling fault that changes the expected goal reward from 100 to 25.
 
-The project is built on a few non-negotiable principles:
+## Key Features (Implemented)
 
-- **Evidence before explanation.** Raw observations and provenance are recorded before any model interprets them.
-- **Confirmed intent before hard claims.** Developer-confirmed contracts are separated from inferred hypotheses.
-- **Deterministic checks for hard invariants.** AI is used to prioritize hypotheses, never as the sole enforcer of a safety-critical rule.
-- **Fail closed on destructive operations.** Unknown lineage or unverified checkpoints block automatic recovery.
-- **Truthful reporting.** Mock data, incomplete lineage, uncertain diagnoses, and unverified recoveries are labeled as such.
-
-## Key Features
-
-All items are *planned*; none are implemented at the current commit.
-
-- **Gymnasium warehouse environment** — configurable grid, obstacles, start/goal cells, step budget, reward and collision settings, seeded determinism, and a canonical configuration fingerprint bound to every run.
-- **PPO training engine** — Stable-Baselines3 PPO with validated hyperparameters, explicit run lifecycle states, idempotent start/stop, and atomic checkpoint writes with integrity hashes.
+- **Gymnasium warehouse environment** — `Warehouse2DEnv` with Pydantic `WarehouseConfig` validation, BFS reachability check, deterministic fingerprints. Config enforces grid bounds, start/goal distinctness, non-obstacle start/goal, reachability, and reward finiteness.
+- **PPO training engine** — Stable-Baselines3 PPO wrapper (`PPOTrainer`) with validated hyperparameters, explicit run lifecycle states (`created → queued → starting → running → stop_requested → stopped`), idempotent start/stop, and atomic checkpoint writes with SHA-256 integrity hashes.
 - **Canonical execution events** — schema-validated run, episode, step, collision, checkpoint, and metric events with stable IDs, UTC timestamps, and ordering metadata.
-- **Raw metrics vs. rolling aggregates** — episode reward, mean reward, episode length, success rate, and collision rate, each with an explicit window, denominator, and missing-data rule.
-- **Controlled fault injection** — allow-listed reward scaling, observation corruption, and invalid-termination faults with exact trigger boundaries and no cross-run leakage.
-- **Deterministic verification** — developer-confirmed requirements evaluated against real evidence, producing incidents that reference actual event IDs and environment versions.
-- **Advisory AI diagnosis** — a replaceable provider interface over real evidence, with structured output and explicit "provider unavailable" handling.
+- **Raw metrics vs. rolling aggregates** — episode reward, mean reward, episode length, success rate, collision rate, each with explicit window, denominator, and missing-data rule.
+- **Controlled fault injection** — allow-listed reward scaling, observation corruption, and invalid-termination faults with exact trigger boundaries; no cross-run leakage.
+- **Deterministic verification** — developer-confirmed requirements evaluated against real evidence, producing incidents that reference actual event IDs and immutable environment versions.
+- **Advisory AI diagnosis** — replaceable provider interface over real evidence, with structured output and explicit "provider unavailable" handling.
 - **Provenance and recovery** — artifact exposure tracking, compatibility-checked checkpoint restore, fresh on-policy experience collection, and post-recovery evaluation against baselines.
+- **Fingerprinting** — stable SHA-256 hashes for configs, agents, and runs (AGENTS.md §10); configs exclude per-run transients; agents bundle algorithm + hyperparameters; runs bundle config + agent + seed.
 
-## Tech Stack & Prerequisites
-
-**Verified in the current checkout**
+## Tech Stack (Verified in Current Checkout)
 
 | Requirement | Status |
 |---|---|
-| Python 3.13.3 | Installed (via pyenv) |
-| `numpy` 2.2.6, `torch` 2.7.1, `pydantic` 2.11.5 | Installed globally |
-| `pytest` 8.4.1, `mypy` 1.19.1, `black` | Installed globally |
-| `fastapi` 0.117.1, `SQLAlchemy` 2.0.43, `uvicorn` 0.37.0 | Installed globally |
-| `gymnasium`, `stable-baselines3`, `ruff` | **Not installed** |
-| Project virtualenv, `pyproject.toml`, lockfile | **Not present** |
+| Python 3.13 | Installed |
+| numpy 2.4.6, torch 2.14.1, pydantic 2.14.1 | Installed globally |
+| pytest 9.1.1, mypy 2.4.0, ruff 0.17.3 | Installed globally |
+| fastapi, SQLAlchemy, uvicorn | Installed globally |
+| gymnasium 1.4.0, stable-baselines3 2.9.2 | Installed globally |
+| Project virtualenv, pyproject.toml, lockfile | Present |
 
-**Planned stack**
+**Planned stack (future):**
+- Frontend (Person 1): TypeScript / React dashboard over documented HTTP API and live-update channel
+- Storage: relational database owned by provenance/persistence layer
 
-- **Backend:** Python 3.13, FastAPI, SQLAlchemy, Pydantic for boundary validation
-- **RL:** Gymnasium, Stable-Baselines3 (PPO), PyTorch
-- **Frontend (Person 1):** TypeScript / React dashboard over the documented HTTP API and a live-update channel
-- **Storage:** relational database owned by the provenance/persistence layer
-
-> The effect of a fault is evaluated in the same healthy environment. Training metrics and evaluation metrics must never be merged into a single series.
+> Training metrics and evaluation metrics must never be merged into a single series.
 
 ## Getting Started
-
-### Current state
-
-Cloning the repository gives you a `.gitignore` and nothing else that is tracked. There is nothing to install and no app to run yet — the engineering contract (`AGENTS.md`) and the local task log (`TODO.md`) are currently **git-ignored**, so a fresh clone does not include them.
 
 ```bash
 git clone https://github.com/prnvvv/RL-Studio.git
@@ -75,59 +56,37 @@ cd RL-Studio
 git status
 ```
 
-### Planned setup (not yet runnable)
+### Prerequisites
 
-These commands become valid once the toolchain scaffold from `TODO.md` lands:
+Python 3.13+ with the project virtualenv:
 
 ```bash
-# 1. Clone and enter the repository
-git clone https://github.com/prnvvv/RL-Studio.git
-cd RL-Studio
-
-# 2. Create an isolated environment (do not install RL deps globally)
 python3.13 -m venv .venv
 source .venv/bin/activate
-
-# 3. Install the project with dev extras
-#    pyproject.toml does not exist yet, so this will fail today
-python -m pip install -e ".[dev]"
-
-# 4. Configure environment variables
-cp .env.example .env   # .env.example is planned; never commit real secrets
+pip install -e ".[dev]"
 ```
 
-Planned environment variables (illustrative — no `.env.example` exists yet):
-
-```dotenv
-# Optional AI diagnosis provider; the platform must degrade cleanly when unset
-META_AI_API_KEY=
-META_AI_MODEL=
-# Local database and API configuration
-DATABASE_URL=
-API_HOST=127.0.0.1
-API_PORT=8000
-```
-
-### Running it (planned)
+### Configure environment variables
 
 ```bash
-# Start the backend API (planned entry point)
-uvicorn backend.api.main:app --reload
+cp .env.example .env   # see .env.example for placeholder values
+```
 
-# Start the frontend dashboard (planned)
-cd frontend && npm install && npm run dev
+### Run the test suite
 
-# Run the fast test suite
+```bash
 pytest -m "not slow"
 ```
 
-None of these commands work at the current commit.
+### Quick smoke test (run a PPO training session)
 
-## Usage Guide & Examples
+```bash
+python -m backend.training.training.ppo
+```
 
-There is no API or CLI to call yet. The intended canonical demo workflow, which the acceptance criteria are written against, is:
+## Usage Guide & Canonical Demo Workflow
 
-1. **Create a project and warehouse experiment** with an explicit environment configuration and seed.
+1. **Create a project and warehouse experiment** with explicit environment configuration and seed.
 2. **Start a seeded PPO run.** The run records real execution events and periodic checkpoints.
 3. **Inject a reward-scaling fault** that multiplies the configured goal reward by `0.25`, so the expected `100` is observed as `25`.
 4. **Detect the violation deterministically** because the confirmed goal-reward contract was violated — not merely because the reward curve looks low.
@@ -137,7 +96,7 @@ There is no API or CLI to call yet. The intended canonical demo workflow, which 
 8. **Restore a compatible checkpoint** only after deterministic compatibility and integrity checks pass, then collect fresh experience.
 9. **Evaluate the recovered policy** in the healthy environment against defined baselines, and report measured outcomes with uncertainty.
 
-Illustrative event shape — **not output from a real run**:
+### Illustrative event shape — not output from a real run
 
 ```json
 {
@@ -158,11 +117,11 @@ Illustrative event shape — **not output from a real run**:
 
 ## Project Structure
 
-Every path below is the **target** layout; only `.gitignore` is currently tracked.
+Every path below is the **target** layout; the current checkout has most modules implemented.
 
-```text
+```
 RL-Studio/
-├── AGENTS.md                  # repository-wide engineering contract (currently git-ignored)
+├── AGENTS.md                  # repository-wide engineering contract
 ├── backend/
 │   ├── api/                   # HTTP routes; orchestration only
 │   ├── environments/          # Gymnasium warehouse env, validation, fingerprints
@@ -182,19 +141,20 @@ RL-Studio/
 └── docker-compose.yml         # planned
 ```
 
-## Roadmap
+## Roadmap (Updated)
 
 | Area | Status |
 |---|---|
-| Engineering contract (`AGENTS.md`) | Written; not committed (git-ignored) |
-| Toolchain (`pyproject.toml`, venv, lint config) | Not started |
-| Warehouse environment + validation + fingerprint | Not started |
-| PPO training, lifecycle, checkpoints | Not started |
-| Monitoring metrics | Not started |
-| Fault injection (reward scaling, observation corruption, invalid termination) | Not started |
-| Shared event/requirement/incident schemas | Not started |
-| Verification, diagnosis, provenance, recovery, evaluation | Owned by other modules; not started |
-| Canonical end-to-end demo | Not started |
+| Engineering contract (`AGENTS.md`) | Written; committed |
+| Toolchain (`pyproject.toml`, venv, lint config) | Present |
+| Warehouse environment + validation + fingerprint | Implemented |
+| PPO training, lifecycle, checkpoints | Implemented |
+| Monitoring metrics | Implemented |
+| Fault injection (reward scaling, observation corruption, invalid termination) | Implemented |
+| Shared event/requirement/incident schemas | Implemented |
+| Verification, diagnosis, provenance, recovery, evaluation | Core protocols implemented; adapters in progress |
+| Canonical end-to-end demo | Partial (workflow scaffolded, UI pending) |
+| Frontend dashboard (Person 1) | In progress |
 
 ## Contributing
 
@@ -204,11 +164,6 @@ RL-Studio/
 - Add tests with each feature — including failure cases — and report the exact commands run and their results.
 - Do not commit secrets, model checkpoints, large logs, or fabricated metrics. Numerical examples in docs and fixtures must be labeled as examples.
 
-### Known open issues
-
-- `AGENTS.md` and `TODO.md` are currently matched by `.gitignore`, so collaborators do not receive the engineering contract on clone. This needs a team decision before more code lands.
-- There is no `CONTRIBUTING.md` yet; the guidance above is the interim process.
-
 ## License
 
-No license has been chosen and no `LICENSE` file is present. Until one is added, treat the contents of this repository as all rights reserved. The badge at the top reads `TBD` for that reason — it is not a claim of MIT licensing.
+PROPRIETARY. See `LICENSE` file.

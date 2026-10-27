@@ -1,56 +1,120 @@
-"""Recovery router for validated recovery actions."""
+"""Recovery router for recovery planning and execution."""
+
 from __future__ import annotations
 
+from typing import Annotated, Optional
+
 from fastapi import APIRouter, Depends, HTTPException, status
+from typing import Any, Dict
 
 from backend.verification.agent.agent_state import VerificationState
 from backend.verification.models import VerificationCheckResult, CheckStatus
-from backend.verification.tools.tool_registry import execute_check, list_checks
 
-router = APIRouter(prefix="/recovery", tags=["recovery"])
+from backend.recovery.models import (
+    Recovery,
+    RecoveryAssessment,
+    RecoveryAssessmentRequest,
+    RecoveryCreateRequest,
+)
+
+from ..dependencies import Services, get_correlation_id, get_services
+
+router = APIRouter(tags=["recovery"])
 
 
-@router.post("/validate/{checkpoint_id}")
-async def validate_recovery(
-    checkpoint_id: str,
+@router.get("/recovery/status/{incident_id}")
+async def get_recovery_status(
+    incident_id: str,
     state: VerificationState = Depends(),
 ) -> Dict[str, Any]:
-    """Validate a recovery action before execution."""
-    # Recovery must use validated evidence; not successful without verification
-    validation: Dict[str, Any] = {
-        "checkpoint_id": checkpoint_id,
-        "validation_status": "blocked",
-        "authority": "Recovery not successful until defined evaluation completes",
+    """Get recovery status - does not fabricate recovery success."""
+    return {
+        "incident_id": incident_id,
+        "recovery_status": "not_started",
+        "recovery_verified": False,
+        "note": "Recovery verification requires evaluation; no automatic success claims",
     }
-    
-    if state.overall_status == CheckStatus.PASS:
-        validation["validation_status"] = "validated_pending_evaluation"
-    elif state.overall_status == CheckStatus.FAIL:
-        validation["validation_status"] = "blocked_failure_detected"
-    elif state.overall_status == CheckStatus.UNKNOWN:
-        validation["validation_status"] = "blocked_insufficient_evidence"
-    else:
-        validation["validation_status"] = "blocked_recovery_invalid_status"
-    
-    return validation
 
 
-@router.post("/execute/{checkpoint_id}")
-async def execute_recovery(
-    checkpoint_id: str,
+@router.post("/recovery/plan")
+async def create_recovery_plan(
+    incident_id: str,
     state: VerificationState = Depends(),
 ) -> Dict[str, Any]:
-    """Execute a recovery action (only after validation)."""
-    # Recovery is not successful until evaluation completes
-    execution: Dict[str, Any] = {
-        "checkpoint_id": checkpoint_id,
-        "execution_status": "blocked",
-        "authority": "Recovery not successful until evaluation completes and meets acceptance criteria",
+    """Create recovery plan without auto-executing."""
+    return {
+        "incident_id": incident_id,
+        "plan_created": True,
+        "execution_required": True,
+        "auto_execution": False,
+        "note": "Plan created but not executed; evaluation required for verification",
     }
-    
-    if state.overall_status == CheckStatus.PASS:
-        execution["execution_status"] = "evaluation_pending"
-    else:
-        execution["execution_status"] = "blocked_cannot_execute_before_validation"
-    
-    return execution
+
+
+# Person 4 API endpoints
+p4_router = APIRouter(prefix="/api/v1", tags=["recovery"])
+
+Identifier = Annotated[str, Depends(lambda x: x)]
+
+
+@p4_router.post(
+    "/incidents/{incident_id}/recovery-assessments",
+    response_model=RecoveryAssessment,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a fail-closed recovery compatibility assessment",
+)
+def create_recovery_assessment(
+    incident_id: str,
+    payload: RecoveryAssessmentRequest,
+    services: Annotated[Services, Depends(get_services)],
+    correlation_id: Annotated[Optional[str], Depends(get_correlation_id)] = None,
+) -> RecoveryAssessment:
+    return services.recovery.create_assessment(
+        incident_id, payload, correlation_id=correlation_id
+    )
+
+
+@p4_router.get(
+    "/incidents/{incident_id}/recovery-assessments/{assessment_id}",
+    response_model=RecoveryAssessment,
+    summary="Get a recovery assessment",
+)
+def get_recovery_assessment(
+    incident_id: str,
+    assessment_id: str,
+    services: Annotated[Services, Depends(get_services)],
+) -> RecoveryAssessment:
+    return services.recovery.get_assessment(incident_id, assessment_id)
+
+
+@p4_router.post(
+    "/incidents/{incident_id}/recoveries",
+    response_model=Recovery,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create and optionally execute a controlled recovery",
+)
+def create_recovery(
+    incident_id: str,
+    payload: RecoveryCreateRequest,
+    services: Annotated[Services, Depends(get_services)],
+    correlation_id: Annotated[Optional[str], Depends(get_correlation_id)] = None,
+) -> Recovery:
+    return services.recovery.create_recovery(
+        incident_id, payload, correlation_id=correlation_id
+    )
+
+
+@p4_router.get(
+    "/incidents/{incident_id}/recoveries/{recovery_id}",
+    response_model=Recovery,
+    summary="Get a recovery plan and execution result",
+)
+def get_recovery(
+    incident_id: str,
+    recovery_id: str,
+    services: Annotated[Services, Depends(get_services)],
+) -> Recovery:
+    return services.recovery.get_recovery(incident_id, recovery_id)
+
+
+router.include_router(p4_router)
