@@ -74,8 +74,8 @@ def _compare_with_threshold(
                 return {"status": "pass", "details": f"|actual - expected|={abs(diff):.2f} <= tolerance={tolerance}"}
             return {"status": "fail", "details": f"|actual - expected|={abs(diff):.2f} > tolerance={tolerance}"}
         if diff == 0:
-            return {"status": "pass", "details": "exact match"}
-        return {"status": "fail", "details": f"expected={expected}, actual={actual}"}
+            return {"status": "pass", "details": {"detail": "exact match"}}
+        return {"status": "fail", "details": {"detail": f"expected={expected}, actual={actual}"}}
 
     elif operator == ">=":
         threshold = -tolerance if tolerance is not None else 0
@@ -103,11 +103,11 @@ def _compare_with_threshold(
 
     elif operator == "!=":
         if diff != 0:
-            return {"status": "pass", "details": "values differ"}
-        return {"status": "fail", "details": "values are equal"}
+            return {"status": "pass", "details": {"detail": "values differ"}}
+        return {"status": "fail", "details": {"detail": "values are equal"}}
 
     else:
-        return {"status": "unknown", "details": f"Unsupported operator: {operator!r}"}
+        return {"status": "unknown", "details": {"detail": f"Unsupported operator: {operator!r}"}}
 
 
 def execute_check(

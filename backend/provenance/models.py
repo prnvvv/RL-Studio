@@ -8,6 +8,7 @@ recoveries, and evaluations.
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from enum import Enum
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
@@ -43,6 +44,21 @@ class LineageRecord(BaseModel):
     recovery_ids: List[str] = Field(default_factory=list)
     evaluation_ids: List[str] = Field(default_factory=list)
     created_at: str = Field(default_factory=utc_now)
+
+
+class Incident(BaseModel):
+    """Record of a contract violation or fault detection event."""
+
+    incident_id: str
+    requirement_id: str
+    violation_type: str
+    severity: str
+    environment_version: str
+    detected_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    status: str = "confirmed"
+    evidence_event_ids: List[str] = Field(default_factory=list)
+    source_component: str = "verification"
+    software_version: str = ""
 
 
 class ExposureStatus(str, Enum):
