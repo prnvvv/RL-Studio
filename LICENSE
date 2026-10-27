@@ -1,0 +1,45 @@
+PROPRIETARY LICENSE AGREEMENT
+
+This software and associated documentation files (the "Software") are the
+proprietary property of Self-Healing RL Studio. The Software is protected by
+copyright and international intellectual property laws.
+
+Usage Restrictions
+----------------
+1. This Software may not be used, reproduced, modified, distributed, or
+   commercialized without prior written authorization from
+   Self-Healing RL Studio.
+
+2. Reverse engineering, decompilation, or disassembly of the Software is
+   expressly prohibited.
+
+3. This Software may not be embedded in other software, redistributed,
+   sublicensed, or transferred to third parties without explicit written
+   consent.
+
+4. The source code contained in this repository is provided for reference
+   purposes only and must not be modified, compiled, or executed outside of
+   the authorized development environment.
+
+5. Analytics, logging, and telemetry data may be collected in accordance
+   with the project's privacy policy and must not be disclosed to third
+   parties.
+
+Intellectual Property
+---------------------
+All title and copyright holders in the Software remain the property of
+Self-Healing RL Studio. No title to the intellectual property in the
+Software is transferred.
+
+Liability Limitation
+--------------------
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+Copyright (c) 2026 Self-Healing RL Studio
+All rights reserved.

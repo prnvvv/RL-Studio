@@ -112,8 +112,17 @@ class UnsupportedCapabilityError(VerificationError):
 
 
 # ---------------------------------------------------------------------------
-# 5. Evidence unavailable or invalid
+# 6. Guardrail violation
 # ---------------------------------------------------------------------------
+
+class GuardrailViolation(VerificationError):
+    """Raised when a deterministic verification check violates a guardrail
+    or constraint, blocking a PASS status.
+
+    Example: reward below threshold, forbidden event recorded, metric order
+    independent failure, NaN/inf metric values.
+    """
+    error_code: str = "VERG-009"
 
 
 class EvidenceUnavailableError(VerificationError):

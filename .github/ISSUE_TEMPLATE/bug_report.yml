@@ -1,0 +1,43 @@
+name: Bug Report
+description: Create a report to help improve the project
+title: "bug: <title>"
+labels:
+  - bug
+body:
+  - type: textarea
+    id: problem_description
+    attributes:
+      label: Problem Description
+      description: A clear and concise description of what the bug is.
+    validations:
+      required: true
+  - type: textarea
+    id: expected_behavior
+    attributes:
+      label: Expected Behavior
+      description: A clear and concise description of what you expected to happen.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction_steps
+    attributes:
+      label: Reproduction Steps
+      description: Steps to reproduce the behavior.
+      placeholder: |
+        1. Run '...'
+        2. See error...
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, Python version, package versions, etc.
+  - type: textarea
+    id: relevant_logs
+    attributes:
+      label: Relevant Logs
+      description: Paste logs (redact secrets).
+  - type: textarea
+    id: additional_context
+    attributes:
+      label: Additional Context
+      description: Any other context about the problem.

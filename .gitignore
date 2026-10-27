@@ -1,12 +1,3 @@
-# ============================================================================
-# Self-Healing RL Studio — Comprehensive .gitignore
-# ============================================================================
-# This file prevents generated, local, and temporary artifacts from being
-# committed. It is deliberately comprehensive for the documented project
-# architecture while preserving dependency manifests, configuration templates,
-# and source code necessary to build and maintain the project.
-# ============================================================================
-
 # Python & virtual environments
 __pycache__/
 *.py[cod]
@@ -22,6 +13,11 @@ env/
 # Python bytecode
 .pyc
 .pyw
+
+# IDE & tooling caches
+.cache/
+.tox/
+.opencode/
 
 # Django/Flask/WSGI
 *.sage
@@ -43,96 +39,6 @@ pyvenv.cfg
 .env
 .local.env
 
-# ============================================================================
-# Dependency caches & build artifacts
-# ============================================================================
-
-# Build/distribution
-.build/
-dist/
-eggs/
-*.egg-info/
-develop-eggs/
-sdist/
-var/
-wheels/
-
-# Python package cache
-.pip-cache/
-
-# IDE & tooling caches
-.cache/
-.tox/
-
-# ============================================================================
-# Environment variables & secrets
-# ============================================================================
-
-# Ignore local .env files but explicitly allow templates
-.env
-!.env.example
-!.env.template
-
-# ============================================================================
-# Logs, temporary files & runtime state
-# ============================================================================
-
-# Logs
-logs/
-*.log
-*.tok
-
-# Database files
-*.db
-*.sqlite
-*.sqlite3
-*.gdb
-
-# Runtime state
-*.pid
-*.seed
-
-# ============================================================================
-# Test artifacts, coverage & caches
-# ============================================================================
-
-# Coverage
-.coverage
-htmlcov/
-*.cover
-
-# pytest
-.pytest_cache/
-tests/.pytest_cache/
-
-# Hypothesis
-.hypothesis/
-
-# Code coverage for numpy/pandas
-numpy_coverage/
-
-# ============================================================================
-# IDE & editor files
-# ============================================================================
-
-# Visual Studio Code
-.vscode/
-*.code-workspace
-
-# JetBrains / IntelliJ
-.idea/
-*~
-
-# OS-specific
-.DS_Store       # macOS
-Thumbs.db       # Windows
-ehthumbs.db     # Windows
-Trash.tn        # Windows
-
-# ============================================================================
-# Frontend / JavaScript / TypeScript
-# ============================================================================
-
 # Node.js / npm / Yarn
 node_modules/
 .yarn-integrity/
@@ -150,66 +56,44 @@ out-ts/
 *.profraw
 *.prof
 
-# ============================================================================
-# Docker
-# ============================================================================
-
 # Docker build cache
 docker-build-cache/
 
 # Docker compose override
 docker-compose.override.yml
 
-# ============================================================================
 # Documentation tooling artifacts
-# ============================================================================
-
-# Docs build (if using Sphinx/MkDocs)
 docs/_build/
 docs/_static/
 docs/.doctrees
 
-# ============================================================================
 # Markdown files (excluding README.md which is the public facing doc)
-# ============================================================================
 *.md
 !README.md
 
-# ============================================================================
 # CRITICAL: Files that must NEVER be ignored
-# ============================================================================
-
-# Python dependency manifests — always track these
 requirements.txt
-
-# Project configuration
 pyproject.toml
-
-# JavaScript package manifests
 package.json
-
-# JavaScript package lockfiles — always track these
 package-lock.json
 yarn.lock
 
-# Git ignored patterns that follow
-!  # (no-op to ensure above are never overridden)
-
-# ============================================================================
-# Environment templates — preserved for onboarding
-# ============================================================================
-
-# These templates are safe to commit; they contain placeholder values only
+# Exceptions — never ignore these
 !.env.example
 !.env.template
-
-AGENTS.md
 opencode.md
 **/AGENTS.md
 **/ARCHITECTURE.md
 **/opencode.md
-**/TODO.md
+commit.sh
+!.github/PULL_REQUEST_TEMPLATE.md
 
-# ============================================================================
-# End of .gitignore
-# ============================================================================
+# Environment templates — preserved for onboarding
+!.env.example
+!.env.template
+
+opencode.md
+**/AGENTS.md
+**/ARCHITECTURE.md
+**/opencode.md
+*.db
