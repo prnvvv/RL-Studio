@@ -112,8 +112,17 @@ class UnsupportedCapabilityError(VerificationError):
 
 
 # ---------------------------------------------------------------------------
-# 5. Evidence unavailable or invalid
+# 6. Guardrail violation
 # ---------------------------------------------------------------------------
+
+class GuardrailViolation(VerificationError):
+    """Raised when a deterministic verification check violates a guardrail
+    or constraint, blocking a PASS status.
+
+    Example: reward below threshold, forbidden event recorded, metric order
+    independent failure, NaN/inf metric values.
+    """
+    error_code: str = "VERG-009"
 
 
 class EvidenceUnavailableError(VerificationError):
@@ -146,6 +155,22 @@ class VerificationExecutionError(VerificationError):
 
 # ---------------------------------------------------------------------------
 # 7. Meta AI provider failure
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# 8. LLM guardrail violation
+# ---------------------------------------------------------------------------
+
+class GuardrailViolation(VerificationError):
+    """Raised when model output violates LLM guardrails.
+
+    Records the violation type, raw output, and suggested action.
+    """
+    pass
+
+
+# ---------------------------------------------------------------------------
+# End of module
 # ---------------------------------------------------------------------------
 
 

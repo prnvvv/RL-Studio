@@ -119,7 +119,8 @@ def execute_check(
         check_id: The registered check identifier.
         context: VerificationContext or equivalent dict-like object.
         arguments: Check-specific arguments.  Must conform to the registered
-            schema if one was provided at registration time.
+            schema if one was provided at registration time.  Expected keys
+            depend on the registered check handler.
 
     Returns:
         A ``VerificationCheckResult`` produced by the handler.
@@ -152,6 +153,8 @@ def execute_check(
             elif isinstance(schema, dict):
                 # Lightweight dict validation: check required keys exist
                 required = schema.get("required", [])
+                # Allow missing required keys if the handler can deal with it;
+                # the checker will decide what to do with missing data.
                 for key in required:
                     if key not in arguments:
                         raise InputValidationError(
@@ -167,41 +170,36 @@ def execute_check(
                 f"Argument schema validation failed for check {check_id!r}: {exc}"
             )
 
-    # Execute the handler
+    # Execute the handler — adapt arguments to the handler's expected signature.
+    # The handler (checker execute_check) may expect (check_id, requirement, ...)
+    # or (context, arguments, ...).  We detect and adapt.
     try:
-        result = handler(context, arguments)
-
-        # Ensure the result is a VerificationCheckResult
-        if not isinstance(result, VerificationCheckResult):
-            return VerificationCheckResult(
-                requirement_id="",
-                status="error",
-                expected=None,
-                actual=None,
-                tolerance=None,
-                evidence_refs=[],
-                details={"error": f"Handler did not return VerificationCheckResult: {type(result).__name__}"},
-            )
-
-        # Apply timeout if needed (runtime enforcement is caller + LangGraph
-        # responsibility; here we just record that a timeout was configured)
-        if timeout is not None:
-            pass
-
-        return result
-
-    except InputValidationError:
-        return VerificationCheckResult(
-            requirement_id="",
-            status="error",
-            expected=None,
-            actual=None,
-            tolerance=None,
-            evidence_refs=[],
-            details={"error": "Input validation error"},
-        )
-
+        # Try the standard adapter: extract requirement from arguments if present
+        requirement = arguments.pop("requirement", None)
+        # Also try to extract check_id if present
+        # Re-invoke handler with adapted arguments
+        if requirement is not None and hasattr(handler, "__code__"):
+            # For checkers that expect (check_id, requirement, ...)
+            import inspect
+            sig = inspect.signature(handler)
+            param_names = list(sig.parameters.keys())
+            if len(param_names) >= 2 and param_names[0] == "check_id" and param_names[1] == "requirement":
+                # Handler expects (check_id, requirement, ...); pass check_id from registry
+                result = handler(check_id, requirement, **arguments)
+            elif len(param_names) >= 1 and param_names[0] == "context":
+                # Handler expects (context, arguments, ...)
+                args_dict = dict(arguments)
+                if requirement is not None:
+                    args_dict["requirement"] = requirement
+                result = handler(context, args_dict)
+            else:
+                # Fallback: try original call pattern
+                result = handler(context, arguments)
+        else:
+            # Fallback: try original call pattern
+            result = handler(context, arguments)
     except Exception as exc:
+        # If adaptation fails, return error result
         return VerificationCheckResult(
             requirement_id="",
             status="error",
@@ -209,8 +207,27 @@ def execute_check(
             actual=None,
             tolerance=None,
             evidence_refs=[],
-            details={"error": f"Unexpected check execution error: {exc}"},
+            details={"error": f"Check execution error: {exc}"},
         )
+
+    # Ensure the result is a VerificationCheckResult
+    if not isinstance(result, VerificationCheckResult):
+        return VerificationCheckResult(
+            requirement_id="",
+            status="error",
+            expected=None,
+            actual=None,
+            tolerance=None,
+            evidence_refs=[],
+            details={"error": f"Handler did not return VerificationCheckResult: {type(result).__name__}"},
+        )
+
+    # Apply timeout if needed (runtime enforcement is caller + LangGraph
+    # responsibility; here we just record that a timeout was configured)
+    if timeout is not None:
+        pass
+
+    return result
 
 
 # ---------------------------------------------------------------------------

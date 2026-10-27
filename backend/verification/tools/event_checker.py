@@ -27,12 +27,23 @@ def _find_event_in_records(
     """Find an event with the given name in a list of record dicts.
 
     Returns the first matching event dict, or None if not found.
+    Checks multiple possible field names including ``event_name``, 
+    ``name``, and variations.
     """
     if records is None:
         return None if required else {"found": False, "reason": "no_records"}
     for record in records:
+        if not isinstance(record, dict):
+            continue
         # Check various possible field names for the event
-        for key in (event_name, f"event_{event_name}", f"{event_name}_event"):
+        possible_keys = [
+            event_name,
+            f"event_{event_name}",
+            f"{event_name}_event",
+            "name",
+            "event",
+        ]
+        for key in possible_keys:
             if key in record:
                 return {"found": True, "event": record, "field": key}
     return {"found": False, "reason": f"event_{event_name}_not_found"}
@@ -97,6 +108,33 @@ def execute_check(
     if required_event is not None:
         found = _find_event_in_records(recorded_events, required_event, required=True)
         if found and found.get("found"):
+            # Check that the found event has meaningful semantics beyond
+            # a superficial key name match.  A record that only contains
+            # the key name (e.g. {"name": "goal"}) is insufficient evidence.
+            event_record = found.get("event", {})
+            key_match = found.get("field", "")
+            # If the only matching key is "name" or "event" without other
+            # event-specific fields, treat as insufficient evidence.
+            superficial_keys = {"name", "event"}
+            has_superficial_match = (
+                key_match in superficial_keys
+                and not any(k in event_record for k in {"event_name", "terminated", "truncated", "goal_attained"})
+            )
+            if has_superficial_match:
+                from backend.verification.models import VerificationCheckResult
+
+                return VerificationCheckResult(
+                    requirement_id=requirement.id,
+                    status="unknown",
+                    expected=expected,
+                    actual=None,
+                    tolerance=None,
+                    evidence_refs=evidence_parts,
+                    details={
+                        "note": f"required event '{required_event}' found but evidence "
+                        "coverage may be insufficient; event record lacks semantic detail"
+                    },
+                )
             evidence_parts.append(f"required_event:{required_event}=found")
         else:
             # Required event not found — this is a failure only if the
@@ -129,9 +167,7 @@ def execute_check(
                 actual=f"forbidden event '{forbidden_event}' was recorded",
                 tolerance=None,
                 evidence_refs=evidence_parts,
-                details={
-                    f"forbidden event '{forbidden_event}' was recorded but was expected not to occur"
-                },
+                details={"note": f"forbidden event '{forbidden_event}' was recorded but was expected not to occur"},
             )
         # Forbidden event not found — that's what we want; continue
 

@@ -1,11 +1,11 @@
-"""Person 4 recovery assessment, preflight, and controlled execution."""
+"""Fail-closed recovery assessment and controlled execution."""
 
 from __future__ import annotations
 
 from .models import (
     Approval,
-    CompatibilityCheck,
     CheckOutcome,
+    CompatibilityCheck,
     Recovery,
     RecoveryAction,
     RecoveryAssessment,
@@ -19,8 +19,8 @@ from .service import RecoveryService
 
 __all__ = [
     "Approval",
-    "CompatibilityCheck",
     "CheckOutcome",
+    "CompatibilityCheck",
     "Recovery",
     "RecoveryAction",
     "RecoveryAssessment",

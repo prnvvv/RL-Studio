@@ -1,4 +1,4 @@
-"""HTTP API composition for the Person 4 vertical slice."""
+"""HTTP API composition for the RL Studio backend."""
 
 from __future__ import annotations
 

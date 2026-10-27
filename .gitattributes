@@ -1,0 +1,66 @@
+# Line ending handling
+* text=auto
+
+# Denote all binary data
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gz binary
+*.zip binary
+*.tar binary
+*.pdf binary
+*.doc binary
+*.docx binary
+
+# Git LFS
+*.lfspointer text
+
+# Jupyter Notebooks
+*.ipynb json
+
+# SBT
+*.class files
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+*.pyc
+*.cover
+*.coverage
+*.cover.*
+*.coverage.*
+.env
+*.env
+*.env.*
+*.env.test
+*.env.test.*
+.venv
+.eggs/
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node.js
+node_modules/
+yarn-error.log
+yarn.log
+.pnpm-debug.log
+*/node_modules/
+
+# TypeScript
+*.tsbuildinfo
+*.tst
+*.tsbuildinfo
+
+# FastAPI / Starlette
+*.rst
+
+# Pytest
+.python-version
+
+# Docker
+*.dockerignore

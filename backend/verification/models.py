@@ -81,8 +81,11 @@ class AgentMetadata(BaseModel):
     model_config = {"populate_by_name": True, "extra": "allow"}
 
     def model_dump(self, *args, **kwargs):
-        """JSON-serializable dump using snake_case aliases."""
-        return super().model_dump(*args, snake_alias=True, exclude_none=True)
+        """JSON-serializable dump using snake_case field names."""
+        # Pydantic v2: field names are already snake_case; remove any snake_alias
+        # argument that was carried over from v1 patterns.
+        kwargs.pop("snake_alias", None)
+        return super().model_dump(*args, **kwargs)
 
 
 # ---------------------------------------------------------------------------
