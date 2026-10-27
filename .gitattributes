@@ -1,9 +1,6 @@
 # Line ending handling
 * text=auto
 
-# Binary file handling
-* binary
-
 # Denote all binary data
 *.png binary
 *.jpg binary
