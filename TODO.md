@@ -76,3 +76,5 @@ Audit on 2026-10-25 found the repository contains only a tracked `.gitignore`; `
 - [x] `backend/tests/test_faults.py` - fault timing boundaries and leakage
 - [x] `backend/tests/test_checkpoints.py` - atomic checkpoint round-trip with metadata/hash
 - [x] `backend/tests/test_lifecycle.py` - lifecycle idempotency
+
+- [x] PPO smoke test on small timestep budget
