@@ -1,0 +1,1 @@
+"""Recovery operations validated against compatibility checks (AGENTS.md §13)."""
