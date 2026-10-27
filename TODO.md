@@ -70,3 +70,9 @@ Audit on 2026-10-25 found the repository contains only a tracked `.gitignore`; `
 - [ ] PPO smoke test on small timestep budget (CartPole optional)
 - [ ] More comprehensive tests (fault timing, checkpoint round-trip, lifecycle idempotency)
 - [ ] Integration with API layer if needed
+
+### Additional Tests Added
+- [x] `backend/tests/test_env_smoke.py` - env reset/step API conformance
+- [x] `backend/tests/test_faults.py` - fault timing boundaries and leakage
+- [x] `backend/tests/test_checkpoints.py` - atomic checkpoint round-trip with metadata/hash
+- [x] `backend/tests/test_lifecycle.py` - lifecycle idempotency
