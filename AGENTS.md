@@ -460,3 +460,148 @@ Unless the team formally changes scope, do not:
 - Execute untrusted code or shell commands with unrestricted permissions.
 - Use fabricated charts, invented checkpoint history, or hard-coded recovery outcomes in the real demo.
 - Add large-scale distributed infrastructure before the MVP requires it.
+
+## 19. Git Workflow, Commits, and Pull Requests (MANDATORY)
+
+These rules apply to every team member, coding agent, and automation working in this repository. They are mandatory and must not be overridden by individual module instructions.
+
+### 19.1 Development Branch
+
+- **Always work on the `backend3` branch.**
+- Before modifying files, creating commits, or pushing changes, run `git branch --show-current` and verify that the active branch is `backend3`.
+- Never perform development work directly on `main`.
+- Never create or switch to a feature, bug-fix, temporary, or alternative branch unless the repository owner explicitly authorizes an exception.
+- If `backend3` does not exist locally, check the remote repository and safely check out the existing remote branch. Do not create a replacement without verifying the repository state.
+- Inspect `git status --short` before switching branches. Preserve all uncommitted changes and other contributors' work.
+- If the working tree contains changes that make switching unsafe, stop and resolve the situation without discarding work.
+- All feature development, bug fixes, refactoring, tests, and documentation changes must be performed on `backend3`.
+
+### 19.2 Strict Protection of `main`
+
+**NEVER commit to, push to, or make direct changes on `main` unless the repository owner explicitly authorizes that specific action.**
+
+- Do not create commits while checked out on `main`.
+- Do not push `HEAD` or any local branch directly to the remote `main` branch.
+- Do not use commands that explicitly push changes to `main`.
+- Do not switch to `main` to implement, test, or commit a change.
+- Do not bypass branch protection, rewrite `main` history, or force-push to `main`.
+- Do not interpret a request to implement a feature, fix a bug, commit changes, push code, or create a PR as permission to commit or push directly to `main`.
+- The only permitted default workflow for delivering changes is to commit on `backend3`, push `backend3` when required, and open a pull request targeting `main`.
+- A request to create or update a pull request does not authorize merging it.
+- Only an explicit instruction from the repository owner can authorize an exception to these restrictions. The authorization must clearly identify the action permitted.
+- Even when an exception is authorized, prefer the least risky operation and never rewrite shared history without explicit authorization.
+
+### 19.3 Frequent, Meaningful Commits
+
+Make frequent commits at meaningful development milestones. Do not accumulate an entire feature, multiple unrelated fixes, and documentation changes into one unnecessarily large commit.
+
+- Each commit must represent a coherent, reviewable unit of work.
+- Commit after completing a meaningful feature component, bug fix, test group, refactor, or documentation update.
+- Do not commit unfinished, broken, or unrelated changes merely to increase commit frequency.
+- Keep each commit focused on one logical purpose.
+- Before creating a commit, inspect the working tree and stage only the files belonging to that change.
+- Never include unrelated changes or another contributor's work without understanding and obtaining the appropriate approval.
+- Do not commit secrets, credentials, local `.env` files, private datasets, model checkpoints, large logs, or generated artifacts unless explicitly required and approved.
+- Review staged changes using `git diff --cached` before committing.
+- Run relevant tests and checks before committing whenever practical.
+- Never claim that a commit was created unless the command succeeded.
+
+### 19.4 Commit Messages Must Be One Line
+
+**Every commit message must be a single, concise, meaningful line.**
+
+- Use the format: `<type>: <description>`.
+- Use imperative, specific wording that describes the change.
+- Do not use multi-line commit messages.
+- Do not include a long body, paragraphs, checklists, or unrelated details in a commit message.
+- Avoid vague messages such as `updates`, `changes`, `fix`, `final`, `working`, or `misc`.
+- Do not combine unrelated changes merely to fit them into one message.
+- Keep the message concise and easy to understand in `git log --oneline`.
+
+Examples of valid commit messages:
+
+- `feat: add intent requirement validation`
+- `feat: detect reward contract violations`
+- `fix: reject malformed execution events`
+- `fix: preserve incident evidence on diagnosis failure`
+- `test: cover verification edge cases`
+- `refactor: separate diagnosis from incident detection`
+- `docs: document recovery validation contracts`
+- `chore: configure backend linting`
+
+Example:
+
+`git commit -m "feat: add intent requirement validation"`
+
+The `-m` argument must contain one line only. Do not use multiple `-m` arguments to construct a multi-paragraph commit message.
+
+### 19.5 Push Rules
+
+- Push development changes to the remote `backend3` branch only.
+- Before pushing, verify the active branch and inspect the intended commits.
+- Use the appropriate remote name after verifying it; do not assume the remote is always named `origin`.
+- Never push directly to `main` without explicit authorization from the repository owner.
+- Do not force-push or rewrite shared branch history without explicit authorization.
+- If a push is rejected, inspect the reason and remote history before taking further action.
+- Never use destructive operations to force a push through.
+- Report whether the push actually succeeded.
+
+### 19.6 Pull Request Rules
+
+**Whenever the repository owner requests a pull request, create or update a PR from `backend3` into `main`.**
+
+The required direction is:
+
+- **Source/head branch:** `backend3`
+- **Target/base branch:** `main`
+
+The required workflow is:
+
+`Develop on backend3` → `Make meaningful one-line commits` → `Push backend3` → `Open PR from backend3 to main`
+
+Mandatory rules:
+
+- Never create a PR from `main` to `backend3`.
+- Never substitute another source branch unless the repository owner explicitly authorizes an exception.
+- Before opening the PR, fetch remote references when possible and inspect the changes that will be included.
+- Review the diff against `main` for unintended modifications, accidental deletions, secrets, and unrelated changes.
+- Run relevant tests and checks and accurately report their results.
+- Include a useful PR title and description explaining the changes, tests performed, known limitations, and relevant risks.
+- If a PR from `backend3` to `main` already exists, inspect and update the existing PR instead of creating a duplicate.
+- Do not merge the PR unless the repository owner explicitly requests and authorizes the merge.
+- Do not claim a PR was opened unless its creation is confirmed.
+- If authentication, permissions, branch protection, conflicts, or tooling prevent PR creation, report the actual blocker.
+
+### 19.7 Mandatory Git Checklist
+
+Before making changes:
+1. Run `git branch --show-current`.
+2. Confirm that the branch is `backend3`.
+3. Inspect `git status --short`.
+4. Review existing changes and relevant files.
+
+Before each commit:
+1. Confirm the branch is `backend3`.
+2. Inspect the changes.
+3. Stage only relevant files.
+4. Review `git diff --cached`.
+5. Run relevant tests when practical.
+6. Create a meaningful, single-line commit message.
+
+Before each push:
+1. Confirm the branch is `backend3`.
+2. Inspect the commits being pushed.
+3. Push to `backend3`, never directly to `main`.
+4. Confirm the push result.
+
+Before each PR:
+1. Confirm the source is `backend3`.
+2. Confirm the target is `main`.
+3. Review the complete PR diff.
+4. Run relevant checks.
+5. Create or update the PR.
+6. Verify the PR URL and report its status.
+
+### 19.8 Final Rule
+
+**Work only on `backend3`. Make frequent, meaningful commits with one-line commit messages. Push development changes only to `backend3`. When asked to create a PR, create it from `backend3` to `main`. Never commit to or push directly to `main` unless the repository owner explicitly authorizes that specific action. Never merge a PR without explicit authorization.**
