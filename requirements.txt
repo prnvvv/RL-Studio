@@ -1,3 +1,5 @@
+fastapi==0.147.0
+uvicorn==0.54.0
 annotated-types==0.8.0
 anyio==4.15.1
 certifi==2026.10.23
@@ -48,5 +50,4 @@ uuid_utils==0.19.0
 websockets==17.3
 xxhash==4.0.2
 zstandard==0.25.0
-gymnasium==1.4.0
 stable-baselines3==2.9.2
