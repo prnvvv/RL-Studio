@@ -53,3 +53,5 @@ Audit on 2026-10-25 found the repository contains only a tracked `.gitignore`; `
 
 ### Completed (Person 2)
 - [x] Tests added: env API conformance, seeded determinism, boundaries/obstacles, invalid configs, fault timing, checkpoint round-trip, lifecycle idempotency, metrics aggregation, event ordering
+
+- [x] Removed AGENTS.md from root .gitignore and committed root AGENTS.md
