@@ -54,7 +54,6 @@ jobs:
 
   backend-ci:
     name: Backend CI
-    needs: [schema-validation]
     runs-on: ubuntu-24.04
     defaults:
       run:
@@ -107,7 +106,6 @@ jobs:
 
   frontend-ci:
     name: Frontend CI
-    needs: [schema-validation]
     runs-on: ubuntu-24.04
     defaults:
       run:
