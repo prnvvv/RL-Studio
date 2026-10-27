@@ -1,0 +1,25 @@
+repos:
+  - repo: https://github.com/psf/black
+    rev: 23.11.0
+    hooks:
+      - id: black
+        language_version: python3.11
+
+  - repo: https://github.com/astral-sh/ruff
+    rev: 10.0.1
+    hooks:
+      - id: ruff
+        args: [--fix]
+        stages: [commit, push]
+
+  - repo: https://github.com/pre-commit/mirrors-prettier
+    rev: v3.0.6
+    hooks:
+      - id: prettier
+        types_or: [python, json, yaml, yaml]
+
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.13.0
+    hooks:
+      - id: gitleaks
+        args: [--config=.gitleaks.toml]
