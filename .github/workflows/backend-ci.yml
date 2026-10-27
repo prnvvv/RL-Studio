@@ -4,7 +4,6 @@ on:
   push:
     branches: [main, backend3]
   pull_request:
-    branches: [main, backend3]
     types: [opened, synchronize, reopened, ready_for_review]
 
 # Only run if there are backend-related changes
@@ -12,6 +11,7 @@ paths:
   - 'backend/**'
   - 'requirements.txt'
   - 'pyproject.toml'
+  - 'shared/**'
   - 'AGENTS.md'
 
 jobs:
@@ -41,21 +41,24 @@ jobs:
           if [ -f "../requirements.txt" ]; then
             pip install -r ../requirements.txt
           fi
+          pip install pydantic ruff pytest
 
       - name: Verify Python import
         run: |
-          python -c "import sys; print(f'Python {sys.version}')"
+          PYTHONPATH=.. python -c "import sys; print(f'Python {sys.version}')"
 
-      - name: Run lint (ruff / flake8 / pylint)
+      - name: Validate schemas
+        working-directory: .
+        run: |
+          PYTHONPATH=. python scripts/validate_schemas.py
+
+      - name: Run lint (ruff)
+        working-directory: .
         run: |
           if command -v ruff &>/dev/null; then
-            ruff check . 2>/dev/null || echo "Ruff check completed (no issues or not configured)"
-          elif command -v flake8 &>/dev/null; then
-            flake8 . 2>/dev/null || echo "Flake8 check completed (no issues or not configured)"
-          elif command -v pylint &>/dev/null; then
-            pylint . 2>/dev/null || echo "Pylint check completed (no issues or not configured)"
+            ruff check backend shared scripts 2>/dev/null || echo "Ruff check completed (no issues or not configured)"
           else
-            echo "No lint tool found (ruff/flake8/pylint) — skipping"
+            echo "No lint tool found — skipping"
           fi
 
       - name: Run type-check (mypy)
@@ -68,10 +71,10 @@ jobs:
 
       - name: Run tests (pytest)
         run: |
-          if [ -d "verification" ] || [ -d "diagnosis" ]; then
-            python -m pytest -x -v 2>/dev/null || echo "No pytest tests found or tests passed/failed"
+          if [ -d "verification" ] || [ -d "diagnosis" ] || [ -d "environments" ]; then
+            PYTHONPATH=.. python -m pytest -x -v ../backend 2>/dev/null || echo "No pytest tests found or tests passed/failed"
           else
-            echo "No verification/diagnosis directories found — skippingpytest"
+            echo "No test directories found — skipping pytest"
           fi
 
       - name: Backend CI completed
