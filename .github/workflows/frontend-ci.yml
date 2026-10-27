@@ -5,11 +5,13 @@ on:
     branches: [main]
     paths:
       - 'frontend/**'
+      - 'shared/**'
       - '.github/workflows/frontend-ci.yml'
   pull_request:
-    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - 'frontend/**'
+      - 'shared/**'
       - '.github/workflows/frontend-ci.yml'
 
 # Supersede in-flight runs for the same ref instead of letting them pile up.
@@ -35,13 +37,15 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v5
         with:
-          # Single source of truth for the Node version; keeps CI in step with local dev.
           node-version-file: 'frontend/.nvmrc'
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Validate shared schemas types
+        run: npx tsc --noEmit src/schemas/shared.ts
 
       - name: Check formatting
         run: npm run format:check
