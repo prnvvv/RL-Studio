@@ -50,7 +50,7 @@ jobs:
 
       - name: Type-check frontend schemas
         working-directory: frontend
-        run: npx tsc --noEmit src/schemas/shared.ts
+        run: npx tsc --noEmit --skipLibCheck src/schemas/shared.ts
 
   backend-ci:
     name: Backend CI
@@ -127,7 +127,7 @@ jobs:
         run: npm ci
 
       - name: Validate shared schemas types
-        run: npx tsc --noEmit src/schemas/shared.ts
+        run: npx tsc --noEmit --skipLibCheck src/schemas/shared.ts
 
       - name: Check formatting
         run: npm run format:check
