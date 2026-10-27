@@ -78,3 +78,5 @@ Audit on 2026-10-25 found the repository contains only a tracked `.gitignore`; `
 - [x] `backend/tests/test_lifecycle.py` - lifecycle idempotency
 
 - [x] PPO smoke test on small timestep budget
+
+- [x] Metric aggregation and event ordering tests
