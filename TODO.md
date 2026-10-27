@@ -80,3 +80,8 @@ Audit on 2026-10-25 found the repository contains only a tracked `.gitignore`; `
 - [x] PPO smoke test on small timestep budget
 
 - [x] Metric aggregation and event ordering tests
+
+### Status Update
+- [x] All Person 2 substrate components implemented (env/training/monitoring/faults)
+- [x] Tests passing (9/9) including PPO smoke, faults, checkpoints, lifecycle, metrics, events
+- [x] CI passing with schema validation
