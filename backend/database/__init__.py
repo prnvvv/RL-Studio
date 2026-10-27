@@ -1,0 +1,1 @@
+"""Database layer: sessions, models, and migrations (AGENTS.md §4, §10)."""
