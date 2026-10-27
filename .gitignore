@@ -73,6 +73,16 @@ package.json
 package-lock.json
 yarn.lock
 
+# Exceptions — never ignore these
+!.env.example
+!.env.template
+opencode.md
+**/AGENTS.md
+**/ARCHITECTURE.md
+**/opencode.md
+commit.sh
+!.github/PULL_REQUEST_TEMPLATE.md
+
 # Environment templates — preserved for onboarding
 !.env.example
 !.env.template
