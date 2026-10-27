@@ -14,6 +14,11 @@ env/
 .pyc
 .pyw
 
+# IDE & tooling caches
+.cache/
+.tox/
+.opencode/
+
 # Django/Flask/WSGI
 *.sage
 
@@ -91,4 +96,4 @@ opencode.md
 **/AGENTS.md
 **/ARCHITECTURE.md
 **/opencode.md
-commit.sh
+commit.shartifacts.db
