@@ -1,8 +1,5 @@
 # Python & virtual environments
 __pycache__/
-.mypy_cache/
-.pytest_cache/
-.ruff_cache/
 *.py[cod]
 *$py.class
 
@@ -36,24 +33,6 @@ pyvenv.cfg
 # Local configuration & secrets
 .env
 .local.env
-
-# Build/distribution
-.build/
-dist/
-eggs/
-*.egg-info/
-develop-eggs/
-sdist/
-var/
-wheels/
-
-# Python package cache
-.pip-cache/
-
-# IDE & tooling caches
-.cache/
-.tox/
-.opencode/
 
 # Node.js / npm / Yarn
 node_modules/
