@@ -15,7 +15,6 @@ concurrency:
 
 jobs:
   schema-validation:
-    needs: [frontend-ci]
     name: Schema Validation
     runs-on: ubuntu-24.04
     steps:
@@ -55,7 +54,6 @@ jobs:
 
   backend-ci:
     name: Backend CI
-    needs: [frontend-ci]
     runs-on: ubuntu-24.04
     defaults:
       run:
