@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
+from .callbacks import CheckpointCallback, MetricsCallback
 from .ppo import PPOTrainer, RunConfig, RunState, RunStatus
-from .callbacks import MetricsCallback, CheckpointCallback
 
-__all__ = ["PPOTrainer", "RunConfig", "RunState", "RunStatus", "MetricsCallback", "CheckpointCallback"]
+__all__ = ["CheckpointCallback", "MetricsCallback", "PPOTrainer", "RunConfig", "RunState", "RunStatus"]
