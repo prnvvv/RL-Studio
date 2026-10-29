@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 import sqlite3
-from typing import Any, Optional
+from typing import Any
 
 from ..utils import dumps, new_id, utc_now_iso
 from ._common import row_to_dict
-
 
 _JSON_FIELDS = {
     "evaluation_metrics_json": "evaluation_metrics",
@@ -28,29 +27,29 @@ def create_evaluation(
     evaluation_status: str,
     recovery_verification_status: str,
     recovery_verified: bool = False,
-    recovery_id: Optional[str] = None,
-    baseline_run_id: Optional[str] = None,
-    recovered_run_id: Optional[str] = None,
-    evaluation_environment_version: Optional[str] = None,
-    baseline_mean_reward: Optional[float] = None,
-    recovered_mean_reward: Optional[float] = None,
-    baseline_success_rate: Optional[float] = None,
-    recovered_success_rate: Optional[float] = None,
-    baseline_episode_length: Optional[float] = None,
-    recovered_episode_length: Optional[float] = None,
-    reward_improvement: Optional[float] = None,
-    success_rate_improvement: Optional[float] = None,
-    evaluation_metrics: Optional[dict[str, Any]] = None,
-    comparison_results: Optional[dict[str, Any]] = None,
-    acceptance_criteria: Optional[dict[str, Any]] = None,
-    episode_count: Optional[int] = None,
-    seeds: Optional[list[int]] = None,
-    evidence_ids: Optional[list[str]] = None,
-    warnings: Optional[list[str]] = None,
-    errors: Optional[list[str]] = None,
-    details: Optional[dict[str, Any]] = None,
-    idempotency_key: Optional[str] = None,
-    completed_at: Optional[str] = None,
+    recovery_id: str | None = None,
+    baseline_run_id: str | None = None,
+    recovered_run_id: str | None = None,
+    evaluation_environment_version: str | None = None,
+    baseline_mean_reward: float | None = None,
+    recovered_mean_reward: float | None = None,
+    baseline_success_rate: float | None = None,
+    recovered_success_rate: float | None = None,
+    baseline_episode_length: float | None = None,
+    recovered_episode_length: float | None = None,
+    reward_improvement: float | None = None,
+    success_rate_improvement: float | None = None,
+    evaluation_metrics: dict[str, Any] | None = None,
+    comparison_results: dict[str, Any] | None = None,
+    acceptance_criteria: dict[str, Any] | None = None,
+    episode_count: int | None = None,
+    seeds: list[int] | None = None,
+    evidence_ids: list[str] | None = None,
+    warnings: list[str] | None = None,
+    errors: list[str] | None = None,
+    details: dict[str, Any] | None = None,
+    idempotency_key: str | None = None,
+    completed_at: str | None = None,
 ) -> dict[str, Any]:
     evaluation_id = new_id("evaluation")
     now = utc_now_iso()
