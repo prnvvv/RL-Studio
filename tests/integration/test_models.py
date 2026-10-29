@@ -7,12 +7,6 @@ from shared.schemas import (
     Recovery,
     Evaluation,
     Requirement,
-    EpisodeStartedEvent,
-    RewardObservedEvent,
-    EpisodeEndedEvent,
-    SourceComponent,
-    SCHEMA_VERSION,
-    new_uuid,
 )
 from shared.schemas.requirements import RequirementType, RequirementSource
 
