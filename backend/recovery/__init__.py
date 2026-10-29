@@ -27,7 +27,7 @@ __all__ = [
     "RecoveryAssessmentRequest",
     "RecoveryCreateRequest",
     "RecoveryEligibility",
+    "RecoveryService",
     "RecoveryStatus",
     "RecoveryStrategy",
-    "RecoveryService",
 ]
