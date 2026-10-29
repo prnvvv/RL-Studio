@@ -4,11 +4,10 @@ from __future__ import annotations
 
 from typing import Annotated, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from typing import Any, Dict
 
 from backend.verification.agent.agent_state import VerificationState
-from backend.verification.models import VerificationCheckResult, CheckStatus
 
 from backend.evaluation.models import Evaluation, EvaluationCreateRequest
 
