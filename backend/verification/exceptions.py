@@ -11,7 +11,7 @@ failure category and ``XXX`` is a three-digit ordinal.
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 
 class VerificationError(Exception):
@@ -27,8 +27,8 @@ class VerificationError(Exception):
     def __init__(
         self,
         message: str = "An unexpected verification error occurred",
-        details: Optional[Dict[str, Any]] = None,
-        correlation_id: Optional[str] = None,
+        details: dict[str, Any] | None = None,
+        correlation_id: str | None = None,
     ):
         super().__init__(message)
         self.message = message
@@ -209,7 +209,7 @@ class _VerificationErrorMixin:
         self,
         *args: object,
         error_code: str = "VERG-999",
-        correlation_id: Optional[str] = None,
+        correlation_id: str | None = None,
         **kwargs: object,
     ):
         super().__init__(*args, **kwargs)
