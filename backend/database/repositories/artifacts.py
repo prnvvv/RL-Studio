@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 import sqlite3
-from typing import Any, Optional
+from typing import Any
 
 from ..utils import dumps, new_id, utc_now_iso
 from ._common import row_to_dict
-
 
 _JSON_FIELDS = {
     "included_state_components_json": "included_state_components",
@@ -22,25 +21,25 @@ def create_artifact(
     artifact_path: str,
     artifact_status: str,
     integrity_status: str,
-    artifact_hash: Optional[str] = None,
-    artifact_version: Optional[str] = None,
-    artifact_created_at: Optional[str] = None,
-    parent_artifact_id: Optional[str] = None,
-    checkpoint_id: Optional[str] = None,
-    checkpoint_path: Optional[str] = None,
-    policy_version: Optional[str] = None,
-    trajectory_id: Optional[str] = None,
-    experience_id: Optional[str] = None,
-    policy_update_id: Optional[str] = None,
-    environment_id: Optional[str] = None,
-    environment_version: Optional[str] = None,
-    agent_config_fingerprint: Optional[str] = None,
-    episode_id: Optional[str] = None,
-    timestep: Optional[int] = None,
-    update_index: Optional[int] = None,
-    included_state_components: Optional[list[str]] = None,
+    artifact_hash: str | None = None,
+    artifact_version: str | None = None,
+    artifact_created_at: str | None = None,
+    parent_artifact_id: str | None = None,
+    checkpoint_id: str | None = None,
+    checkpoint_path: str | None = None,
+    policy_version: str | None = None,
+    trajectory_id: str | None = None,
+    experience_id: str | None = None,
+    policy_update_id: str | None = None,
+    environment_id: str | None = None,
+    environment_version: str | None = None,
+    agent_config_fingerprint: str | None = None,
+    episode_id: str | None = None,
+    timestep: int | None = None,
+    update_index: int | None = None,
+    included_state_components: list[str] | None = None,
     metadata_schema_version: str = "1.0",
-    metadata: Optional[dict[str, Any]] = None,
+    metadata: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     now = utc_now_iso()
     conn.execute(
