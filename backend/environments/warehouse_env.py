@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any, ClassVar
 
 import gymnasium as gym
 import numpy as np
@@ -12,9 +12,12 @@ from .config import Coord, WarehouseConfig
 
 
 class Warehouse2DEnv(gym.Env):
-    metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 4}
+    metadata: ClassVar[dict[str, Any]] = {
+        "render_modes": ["human", "rgb_array"],
+        "render_fps": 4,
+    }
 
-    def __init__(self, config: WarehouseConfig | dict, render_mode: Optional[str] = None):
+    def __init__(self, config: WarehouseConfig | dict, render_mode: str | None = None):
         super().__init__()
         if isinstance(config, dict):
             config = WarehouseConfig.model_validate(config)
@@ -41,7 +44,7 @@ class Warehouse2DEnv(gym.Env):
         self._pos: Coord = config.start
         self._steps = 0
 
-    def reset(self, *, seed: Optional[int] = None, options: Optional[Dict[str, Any]] = None):
+    def reset(self, *, seed: int | None = None, options: dict[str, Any] | None = None):
         super().reset(seed=seed)
         self._pos = tuple(self.config.start)
         self._steps = 0
@@ -58,7 +61,7 @@ class Warehouse2DEnv(gym.Env):
             dtype=np.float32,
         )
 
-    def _get_info(self) -> Dict[str, Any]:
+    def _get_info(self) -> dict[str, Any]:
         return {
             "position": (int(self._pos[0]), int(self._pos[1])),
             "goal": tuple(self.config.goal),
@@ -78,10 +81,7 @@ class Warehouse2DEnv(gym.Env):
         truncated = False
         collision = False
 
-        if nr < 0 or nc < 0 or nr >= self.config.rows or nc >= self.config.cols:
-            collision = True
-            new_pos = self._pos
-        elif new_pos in self.config.normalized_obstacles():
+        if nr < 0 or nc < 0 or nr >= self.config.rows or nc >= self.config.cols or new_pos in self.config.normalized_obstacles():
             collision = True
             new_pos = self._pos
 
