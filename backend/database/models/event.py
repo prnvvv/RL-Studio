@@ -1,7 +1,7 @@
 """Execution event ORM model."""
 from __future__ import annotations
 
-from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, Float
+from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, String
 from sqlalchemy.sql import func
 
 from backend.database.base import Base
