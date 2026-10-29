@@ -1,10 +1,12 @@
-"""Durable execution event store (AGENTS.md §7.2)."""
+"""Durable execution event store (AGENTS.md §7.2).
+
+Event types match the canonical ``shared.schemas.events`` contract.  The
+low-level table lives in :mod:`backend.events.service`; this module only
+exposes the stable event-type identifiers.
+"""
 
 from __future__ import annotations
 
-from sqlalchemy import (
-    Table, Column, String, Integer, DateTime, MetaData, Float
-)
 # Event types matching shared.events canon
 event_types = (
     "execution_started",
@@ -19,17 +21,4 @@ event_types = (
     "requirement_violation",
 )
 
-metadata = MetaData()
-
-execution_events = Table(
-    "execution_events",
-    metadata,
-    Column("event_id", String(36), primary_key=True),
-    Column("run_id", String(36), index=True),
-    Column("event_type", String(50), nullable=False),
-    Column("episode_id", String(36), nullable=True),
-    Column("timestep", Integer, nullable=True),
-    Column("actual_reward", Float, nullable=True),
-    Column("timestamp", DateTime(timezone=True), server_default="CURRENT_TIMESTAMP"),
-)
-metadata.create_all(bind=None)  # table created when connected
+__all__ = ["event_types"]
