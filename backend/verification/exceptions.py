@@ -161,13 +161,6 @@ class VerificationExecutionError(VerificationError):
 # 8. LLM guardrail violation
 # ---------------------------------------------------------------------------
 
-class GuardrailViolation(VerificationError):
-    """Raised when model output violates LLM guardrails.
-
-    Records the violation type, raw output, and suggested action.
-    """
-    pass
-
 
 # ---------------------------------------------------------------------------
 # End of module
