@@ -6,7 +6,6 @@ from typing import Any
 from ..utils import dumps, utc_now_iso
 from ._common import row_to_dict
 
-
 _JSON_FIELDS = {"metadata_json": "metadata"}
 
 
