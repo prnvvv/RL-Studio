@@ -15,11 +15,10 @@ execution evidence does not imply that training occurred.
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any
 
-from backend.verification.models import VerificationContext, VerificationInput
 from backend.verification.exceptions import InputValidationError
-
+from backend.verification.models import VerificationContext, VerificationInput
 
 # ---------------------------------------------------------------------------
 # Core context-building function
@@ -28,9 +27,9 @@ from backend.verification.exceptions import InputValidationError
 def build_context(
     input_data: VerificationInput,
     *,
-    run_identifier: Optional[str] = None,
-    environment_identifier: Optional[str] = None,
-    environment_version: Optional[str] = None,
+    run_identifier: str | None = None,
+    environment_identifier: str | None = None,
+    environment_version: str | None = None,
 ) -> VerificationContext:
     """Build a ``VerificationContext`` from a ``VerificationInput``.
 
@@ -88,11 +87,11 @@ def build_context(
 
 def assemble_input(
     *,
-    agent_metadata: Optional[Dict[str, Any]] = None,
-    environment_config: Optional[Dict[str, Any]] = None,
-    training_config: Optional[Dict[str, Any]] = None,
-    developer_intent: Optional[str] = None,
-    execution_evidence: Optional[Dict[str, Any]] = None,
+    agent_metadata: dict[str, Any] | None = None,
+    environment_config: dict[str, Any] | None = None,
+    training_config: dict[str, Any] | None = None,
+    developer_intent: str | None = None,
+    execution_evidence: dict[str, Any] | None = None,
     **kwargs: Any,
 ) -> VerificationInput:
     """Assemble a ``VerificationInput`` from separate component dictionaries.
