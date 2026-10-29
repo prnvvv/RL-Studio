@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 import sqlite3
-from typing import Any, Optional
+from typing import Any
 
 from ..utils import dumps, new_id, utc_now_iso
 from ._common import row_to_dict
-
 
 _JSON_FIELDS = {"details_json": "details"}
 
@@ -17,9 +16,9 @@ def append_audit(
     entity_id: str,
     action: str,
     status: str,
-    actor: Optional[str] = None,
-    correlation_id: Optional[str] = None,
-    details: Optional[dict[str, Any]] = None,
+    actor: str | None = None,
+    correlation_id: str | None = None,
+    details: dict[str, Any] | None = None,
 ) -> str:
     audit_id = new_id("audit")
     conn.execute(
@@ -47,8 +46,8 @@ def append_audit(
 def list_audit(
     conn: sqlite3.Connection,
     *,
-    entity_type: Optional[str] = None,
-    entity_id: Optional[str] = None,
+    entity_type: str | None = None,
+    entity_id: str | None = None,
 ) -> list[dict[str, Any]]:
     clauses: list[str] = []
     values: list[Any] = []
