@@ -7,7 +7,7 @@ import json
 import os
 import tempfile
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any
 
 from stable_baselines3.common.callbacks import BaseCallback
 
@@ -18,8 +18,8 @@ class MetricsCallback(BaseCallback):
     def __init__(self, verbose: int = 0, max_history: int = 1000):
         super().__init__(verbose)
         self.max_history = max_history
-        self.episodes: list[Dict[str, Any]] = []
-        self.updates: list[Dict[str, Any]] = []
+        self.episodes: list[dict[str, Any]] = []
+        self.updates: list[dict[str, Any]] = []
 
     def _on_step(self) -> bool:
         infos = self.locals.get("infos") or []
@@ -43,8 +43,8 @@ class CheckpointCallback(BaseCallback):
         self,
         save_freq: int = 1000,
         save_path: str = "./checkpoints",
-        run_id: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        run_id: str | None = None,
+        metadata: dict[str, Any] | None = None,
         verbose: int = 0,
     ):
         super().__init__(verbose)
@@ -90,6 +90,6 @@ class CheckpointCallback(BaseCallback):
             try:
                 if os.path.exists(tmp_path):
                     os.unlink(tmp_path)
-            except Exception:
+            except Exception:  # noqa: BLE001, S110
                 pass
             raise
