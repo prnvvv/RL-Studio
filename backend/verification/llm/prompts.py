@@ -13,8 +13,8 @@ Available prompt types:
 """
 
 from __future__ import annotations
-from typing import Any, Dict, Literal
 
+from typing import Any, Literal
 
 # ---------------------------------------------------------------------------
 # Prompt version identifiers — bump when template logic or constraints change.
@@ -35,7 +35,7 @@ PROMPT_VERIFICATION_EXPLANATION = "verification_explanation_v1"
 # only substitutes developer-controlled or configuration values.
 # ---------------------------------------------------------------------------
 
-def _safe_format(template: str, mapping: Dict[str, Any]) -> str:
+def _safe_format(template: str, mapping: dict[str, Any]) -> str:
     """Format *template* with *mapping*, rejecting any keys that are not
     present in the mapping (prevents silent no-ops and hidden variable
     injection).  Untrusted evidence should never be interpolated into
@@ -267,7 +267,7 @@ def get_prompt(
     Raises:
         ValueError: If *name* does not correspond to a known prompt.
     """
-    templates: Dict[str, str] = {
+    templates: dict[str, str] = {
         "intent_interpretation": INTENT_INTERPRETATION_TEMPLATE,
         "requirement_extraction": REQUIREMENT_EXTRACTION_TEMPLATE,
         "workflow_planning": WORKFLOW_PLANNING_TEMPLATE,
@@ -284,7 +284,7 @@ def get_prompt(
 # establish which prompt version was used.
 # ---------------------------------------------------------------------------
 
-def get_prompt_versions() -> Dict[str, str]:
+def get_prompt_versions() -> dict[str, str]:
     """Return a mapping of prompt names to their version identifiers."""
     return {
         "intent_interpretation": PROMPT_INTENT_INTERPRETATION,
