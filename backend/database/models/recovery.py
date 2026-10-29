@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 from sqlalchemy import Column, String, DateTime, ForeignKey, JSON
-from sqlalchemy.sql import func
 
 from backend.database.base import Base
 
