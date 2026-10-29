@@ -13,21 +13,12 @@ from langgraph.graph import StateGraph
 from langgraph.constants import END
 
 from backend.verification.agent.agent_state import VerificationState
-from backend.verification.agent.workflow_planner import plan as plan_checks
 from backend.verification.agent.decision_engine import aggregate_results, CheckStatus
-from backend.verification.input.input_adapter import adapt_input
 from backend.verification.input.context_builder import build_context
 from backend.verification.input.schema_normalizer import normalise_verification_input
-from backend.verification.tools.tool_registry import execute_check, list_checks, is_check_registered
-from backend.verification.models import RequirementType
+from backend.verification.tools.tool_registry import execute_check
+from backend.verification.models import VerificationCheckResult, VerificationRequirement, RequirementType
 
-from backend.verification.tools import (
-    configuration_checker,
-    reward_checker,
-    episode_checker,
-    event_checker,
-    metric_checker,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -106,7 +97,6 @@ def node_plan(state: VerificationState) -> VerificationState:
 
     # Extract VerificationRequirement objects from the parsed intent.
     from backend.verification.intent.requirement_extractor import extract_requirements
-    from backend.verification.models import VerificationRequirement, RequirementType
 
     requirements = extract_requirements(parsed)
     if not requirements:
