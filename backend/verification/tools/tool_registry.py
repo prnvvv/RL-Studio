@@ -9,7 +9,7 @@ Do not implement a competing registry or duplicate existing check logic.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from backend.verification.models import VerificationCheckResult
 from backend.verification.exceptions import InputValidationError
