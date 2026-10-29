@@ -23,11 +23,10 @@ fingerprint (see :mod:`backend.environments.fingerprints`).
 from __future__ import annotations
 
 from collections import deque
-from typing import List, Tuple
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-Coord = Tuple[int, int]
+Coord = tuple[int, int]
 
 
 class WarehouseConfig(BaseModel):
@@ -48,7 +47,7 @@ class WarehouseConfig(BaseModel):
 
     # Obstacles as (row, col) cells.  Walls bound the grid; agent and goal
     # occupy free cells.  An obstacle overlapping start/goal is rejected.
-    obstacles: List[Coord] = Field(default_factory=list)
+    obstacles: list[Coord] = Field(default_factory=list)
 
     max_episode_steps: int = Field(gt=0, description="Step budget per episode (truncation).")
 
@@ -82,8 +81,8 @@ class WarehouseConfig(BaseModel):
     # -- cross-field validation -----------------------------------------------
 
     @model_validator(mode="after")
-    def _validate_layout(self) -> "WarehouseConfig":
-        bounds_errors: List[str] = []
+    def _validate_layout(self) -> WarehouseConfig:
+        bounds_errors: list[str] = []
 
         for label, cell in (("start", self.start), ("goal", self.goal)):
             r, c = cell
