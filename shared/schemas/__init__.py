@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from .base import SCHEMA_VERSION, new_uuid, utc_now
 from .contracts import (
     CompatibilityCheck,
     Evaluation,
@@ -31,21 +32,6 @@ from .requirements import (
     RequirementSource,
     RequirementType,
 )
-
-import uuid
-from datetime import datetime, timezone
-
-SCHEMA_VERSION = "1.0"
-"""Canonical schema version for all shared contracts in this package."""
-
-def utc_now() -> datetime:
-    """Return a timezone-aware UTC timestamp."""
-    return datetime.now(timezone.utc)
-
-
-def new_uuid() -> str:
-    """Return a freshly generated stable identifier string (UUIDv4)."""
-    return str(uuid.uuid4())
 
 __all__ = [
     "SCHEMA_VERSION",

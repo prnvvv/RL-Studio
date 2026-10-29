@@ -19,7 +19,7 @@ from typing import Any, Dict, Optional
 
 from pydantic import BaseModel, Field
 
-from . import SCHEMA_VERSION, new_uuid, utc_now
+from .base import SCHEMA_VERSION, new_uuid, utc_now
 
 
 class SourceComponent(str, Enum):

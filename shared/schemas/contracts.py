@@ -18,7 +18,7 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
-from . import SCHEMA_VERSION, new_uuid
+from .base import SCHEMA_VERSION, new_uuid
 
 
 class IncidentStatus(str, Enum):

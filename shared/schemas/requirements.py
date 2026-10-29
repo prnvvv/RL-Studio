@@ -8,13 +8,13 @@ must name the active rule and carry evidence (see
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
-from . import SCHEMA_VERSION, new_uuid
+from .base import SCHEMA_VERSION, new_uuid, utc_now
 
 
 class RequirementSource(str, Enum):
@@ -97,8 +97,3 @@ class Requirement(BaseModel):
     extensions: Dict[str, Any] = Field(default_factory=dict)
 
     model_config = {"populate_by_name": True, "extra": "forbid"}
-
-
-def utc_now() -> datetime:
-    """Return a timezone-aware UTC timestamp (re-exported for call sites)."""
-    return datetime.now(timezone.utc)
