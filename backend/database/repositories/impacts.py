@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 import sqlite3
-from typing import Any, Optional
+from typing import Any
 
 from ..utils import dumps, new_id, utc_now_iso
 from ._common import row_to_dict
-
 
 _JSON_FIELDS = {
     "affected_artifact_ids_json": "affected_artifact_ids",
@@ -25,18 +24,18 @@ def create_impact(
     incident_id: str,
     run_id: str,
     impact_status: str,
-    source_environment_version: Optional[str] = None,
-    corruption_start_timestep: Optional[int] = None,
-    corruption_end_timestep: Optional[int] = None,
-    impact_score: Optional[float] = None,
-    affected_artifact_ids: Optional[list[str]] = None,
-    affected_trajectory_ids: Optional[list[str]] = None,
-    affected_policy_update_ids: Optional[list[str]] = None,
-    affected_checkpoint_ids: Optional[list[str]] = None,
-    evidence_ids: Optional[list[str]] = None,
-    warnings: Optional[list[str]] = None,
-    errors: Optional[list[str]] = None,
-    details: Optional[dict[str, Any]] = None,
+    source_environment_version: str | None = None,
+    corruption_start_timestep: int | None = None,
+    corruption_end_timestep: int | None = None,
+    impact_score: float | None = None,
+    affected_artifact_ids: list[str] | None = None,
+    affected_trajectory_ids: list[str] | None = None,
+    affected_policy_update_ids: list[str] | None = None,
+    affected_checkpoint_ids: list[str] | None = None,
+    evidence_ids: list[str] | None = None,
+    warnings: list[str] | None = None,
+    errors: list[str] | None = None,
+    details: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     impact_id = new_id("impact")
     now = utc_now_iso()
