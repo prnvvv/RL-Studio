@@ -1,9 +1,8 @@
 """Diagnosis API helpers."""
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
-from backend.core.errors import APIError
 
 
 def get_diagnosis_status(provider_configured: bool) -> Dict[str, Any]:
