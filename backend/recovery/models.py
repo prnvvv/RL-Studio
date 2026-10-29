@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -50,22 +50,22 @@ class CompatibilityCheck(BaseModel):
 
 class Approval(BaseModel):
     approved: bool = False
-    approved_by: Optional[str] = None
-    approved_at: Optional[datetime] = None
-    note: Optional[str] = None
+    approved_by: str | None = None
+    approved_at: datetime | None = None
+    note: str | None = None
 
 
 class RecoveryAssessmentRequest(BaseModel):
     recovery_strategy: RecoveryStrategy = RecoveryStrategy.restore_checkpoint
-    source_checkpoint_id: Optional[str] = None
-    target_environment_version: Optional[str] = None
-    target_agent_config_fingerprint: Optional[str] = None
-    recovery_reason: Optional[str] = None
+    source_checkpoint_id: str | None = None
+    target_environment_version: str | None = None
+    target_agent_config_fingerprint: str | None = None
+    recovery_reason: str | None = None
     discard_pending_rollouts: bool = True
     collect_fresh_experience: bool = True
     evidence_ids: list[str] = Field(default_factory=list)
     details: dict[str, Any] = Field(default_factory=dict)
-    idempotency_key: Optional[str] = None
+    idempotency_key: str | None = None
 
 
 class RecoveryAssessment(BaseModel):
@@ -73,10 +73,10 @@ class RecoveryAssessment(BaseModel):
     incident_id: str
     recovery_eligibility: RecoveryEligibility
     recovery_strategy: RecoveryStrategy
-    recovery_reason: Optional[str] = None
-    source_checkpoint_id: Optional[str] = None
-    target_environment_version: Optional[str] = None
-    target_agent_config_fingerprint: Optional[str] = None
+    recovery_reason: str | None = None
+    source_checkpoint_id: str | None = None
+    target_environment_version: str | None = None
+    target_agent_config_fingerprint: str | None = None
     compatibility: list[CompatibilityCheck] = Field(default_factory=list)
     lineage_gaps: list[str] = Field(default_factory=list)
     evidence_ids: list[str] = Field(default_factory=list)
@@ -87,47 +87,47 @@ class RecoveryAssessment(BaseModel):
 
 
 class RecoveryCreateRequest(BaseModel):
-    assessment_id: Optional[str] = None
-    recovery_strategy: Optional[RecoveryStrategy] = None
-    source_checkpoint_id: Optional[str] = None
-    target_environment_version: Optional[str] = None
-    target_agent_config_fingerprint: Optional[str] = None
-    recovery_reason: Optional[str] = None
+    assessment_id: str | None = None
+    recovery_strategy: RecoveryStrategy | None = None
+    source_checkpoint_id: str | None = None
+    target_environment_version: str | None = None
+    target_agent_config_fingerprint: str | None = None
+    recovery_reason: str | None = None
     execute: bool = False
-    approval: Optional[Approval] = None
+    approval: Approval | None = None
     discard_pending_rollouts: bool = True
     collect_fresh_experience: bool = True
     evidence_ids: list[str] = Field(default_factory=list)
     details: dict[str, Any] = Field(default_factory=dict)
-    idempotency_key: Optional[str] = None
+    idempotency_key: str | None = None
 
 
 class RecoveryAction(BaseModel):
     action: str
     status: str
-    detail: Optional[str] = None
-    started_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
+    detail: str | None = None
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
 
 
 class Recovery(BaseModel):
     recovery_id: str
     incident_id: str
-    assessment_id: Optional[str] = None
+    assessment_id: str | None = None
     recovery_status: RecoveryStatus
     recovery_strategy: RecoveryStrategy
-    recovery_reason: Optional[str] = None
-    source_checkpoint_id: Optional[str] = None
-    recovery_artifact_id: Optional[str] = None
-    recovered_checkpoint_id: Optional[str] = None
-    target_environment_version: Optional[str] = None
-    target_agent_config_fingerprint: Optional[str] = None
-    recovery_started_at: Optional[datetime] = None
-    recovery_completed_at: Optional[datetime] = None
+    recovery_reason: str | None = None
+    source_checkpoint_id: str | None = None
+    recovery_artifact_id: str | None = None
+    recovered_checkpoint_id: str | None = None
+    target_environment_version: str | None = None
+    target_agent_config_fingerprint: str | None = None
+    recovery_started_at: datetime | None = None
+    recovery_completed_at: datetime | None = None
     proposed_actions: list[RecoveryAction] = Field(default_factory=list)
     executed_actions: list[RecoveryAction] = Field(default_factory=list)
     preflight: dict[str, Any] = Field(default_factory=dict)
-    failure_reason: Optional[str] = None
+    failure_reason: str | None = None
     evidence_ids: list[str] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
     errors: list[str] = Field(default_factory=list)
