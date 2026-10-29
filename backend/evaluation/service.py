@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
-from typing import Any, Optional
+from typing import Any
 
 from backend.database.connection import Database
 from backend.database.exceptions import IntegrityFailure
@@ -31,10 +31,10 @@ from .metrics import (
     summarize_episodes,
 )
 from .models import (
+    EpisodeEvaluation,
     Evaluation,
     EvaluationCreateRequest,
     EvaluationStatus,
-    EpisodeEvaluation,
 )
 
 
@@ -125,7 +125,7 @@ class EvaluationService:
                 errors.append(
                     f"{label} checkpoint failed integrity verification: {exc.message}"
                 )
-            except Exception:
+            except Exception:  # noqa: BLE001
                 errors.append(
                     f"{label} checkpoint file could not be read or verified."
                 )
@@ -170,7 +170,7 @@ class EvaluationService:
         recovered_identity: dict[str, Any],
         errors: list[str],
         warnings: list[str],
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         if not request.recovery_id:
             warnings.append(
                 "Evaluation is not linked to a recovery; recovery_verified remains false."
@@ -245,7 +245,7 @@ class EvaluationService:
         incident_id: str,
         request: EvaluationCreateRequest,
         *,
-        correlation_id: Optional[str] = None,
+        correlation_id: str | None = None,
     ) -> Evaluation:
         if request.idempotency_key:
             with self.database.read() as conn:
