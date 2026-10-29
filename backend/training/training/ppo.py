@@ -6,13 +6,12 @@ import os
 import random
 from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, Optional
 
 import numpy as np
 
 try:
     import torch
-except Exception:  # pragma: no cover
+except Exception:  # pragma: no cover  # noqa: BLE001
     torch = None  # type: ignore
 
 from stable_baselines3 import PPO
@@ -20,7 +19,11 @@ from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import DummyVecEnv
 
 from backend.environments.config import WarehouseConfig
-from backend.environments.fingerprints import agent_fingerprint, config_fingerprint, run_fingerprint
+from backend.environments.fingerprints import (
+    agent_fingerprint,
+    config_fingerprint,
+    run_fingerprint,
+)
 
 
 class RunStatus(str, Enum):
@@ -66,7 +69,7 @@ class PPOTrainer:
     def __init__(self, run_config: RunConfig):
         self.run_config = run_config
         self.state = RunState(run_id=run_config.run_id, status=RunStatus.CREATED)
-        self.model: Optional[PPO] = None
+        self.model: PPO | None = None
         self.env = None
         self._stop_requested = False
 
@@ -83,7 +86,7 @@ class PPOTrainer:
                 torch.manual_seed(seed)
                 if torch.cuda.is_available():
                     torch.cuda.manual_seed_all(seed)
-        except Exception:
+        except Exception:  # noqa: BLE001, S110
             pass
         os.environ["PYTHONHASHSEED"] = str(seed)
 
@@ -97,7 +100,7 @@ class PPOTrainer:
 
         return DummyVecEnv([_init])
 
-    def fingerprints(self) -> Dict[str, str]:
+    def fingerprints(self) -> dict[str, str]:
         cfg_fp = config_fingerprint(self.config)
         agent_fp = agent_fingerprint(
             "PPO",
@@ -153,15 +156,14 @@ class PPOTrainer:
         return self
 
     def stop(self, idempotent: bool = True):
-        if self.state.status in (RunStatus.STOPPED, RunStatus.COMPLETED, RunStatus.FAILED, RunStatus.CANCELLED):
-            if idempotent:
-                return self
+        if self.state.status in (RunStatus.STOPPED, RunStatus.COMPLETED, RunStatus.FAILED, RunStatus.CANCELLED) and idempotent:
+            return self
         self._stop_requested = True
         self.state.stop_requested = True
         self.state.status = RunStatus.STOP_REQUESTED
         try:
             if self.model is not None:
                 self.model.save("stop_request")
-        except Exception:
+        except Exception:  # noqa: BLE001, S110
             pass
         return self
