@@ -11,11 +11,15 @@ when it is mandatory or when insufficient evidence is available.
 
 from __future__ import annotations
 
-from typing import Any, Dict, FrozenSet, Optional
+from typing import Any
 
-from backend.verification.models import VerificationCheckResult, CheckStatus, VerificationInput, VerificationContext
 from backend.verification.exceptions import InputValidationError
-
+from backend.verification.models import (
+    CheckStatus,
+    VerificationCheckResult,
+    VerificationContext,
+    VerificationInput,
+)
 
 # ---------------------------------------------------------------------------
 # Canonical status lattice: only PASS yields overall PASS.
@@ -27,7 +31,7 @@ from backend.verification.exceptions import InputValidationError
 # All known CheckStatus values.  Explicit enumeration so that new status
 # additions are visible at module load time and do not silently change
 # aggregation behaviour.
-ALL_STATUSES: FrozenSet[CheckStatus] = frozenset({
+ALL_STATUSES: frozenset[CheckStatus] = frozenset({
     CheckStatus.PASS,
     CheckStatus.FAIL,
     CheckStatus.ERROR,
@@ -38,13 +42,13 @@ ALL_STATUSES: FrozenSet[CheckStatus] = frozenset({
 
 # Which statuses, if any, can ever contribute to an overall PASS.
 # Only PASS itself; every other status blocks PASS when mandatory.
-PASSIBLE_FOR_OVERALL_PASS: FrozenSet[CheckStatus] = frozenset({
+PASSIBLE_FOR_OVERALL_PASS: frozenset[CheckStatus] = frozenset({
     CheckStatus.PASS,
 })
 
 # Which statuses, when present as a mandatory requirement result, unconditionally
 # prevent overall PASS.  All non-PASS statuses block PASS when mandatory.
-BLOCKING_FOR_PASS: FrozenSet[CheckStatus] = frozenset({
+BLOCKING_FOR_PASS: frozenset[CheckStatus] = frozenset({
     CheckStatus.FAIL,
     CheckStatus.ERROR,
     CheckStatus.UNKNOWN,
@@ -60,8 +64,8 @@ BLOCKING_FOR_PASS: FrozenSet[CheckStatus] = frozenset({
 def _classify_result(
     result: VerificationCheckResult,
     *,
-    req_is_mandatory: Optional[bool] = None,
-) -> Dict[str, Any]:
+    req_is_mandatory: bool | None = None,
+) -> dict[str, Any]:
     """Classify a single requirement check result.
 
     Returns a dict with:
@@ -94,11 +98,11 @@ def _classify_result(
 # ---------------------------------------------------------------------------
 
 def aggregate_results(
-    requirements: Dict[str, VerificationCheckResult],
+    requirements: dict[str, VerificationCheckResult],
     *,
     enforce_mandatory: bool = True,
-    req_is_mandatory: Optional[Dict[str, bool]] = None,
-) -> Dict[str, Any]:
+    req_is_mandatory: dict[str, bool] | None = None,
+) -> dict[str, Any]:
     """Aggregate per-requirement check results into an overall verification result.
 
     Aggregation rules (deterministic, no LLM influence):
@@ -147,7 +151,7 @@ def aggregate_results(
             )
 
     # Classify each requirement result
-    classified: Dict[str, Dict[str, Any]] = {}
+    classified: dict[str, dict[str, Any]] = {}
     for req_id, result in requirements.items():
         # Get the requirement's actual mandatory designation, if provided
         mand = req_is_mandatory.get(req_id) if req_is_mandatory else None
@@ -202,7 +206,7 @@ def aggregate_results(
         overall = CheckStatus.UNKNOWN
 
     # Build per-requirement status map
-    req_status_map: Dict[str, str] = {}
+    req_status_map: dict[str, str] = {}
     for req_id, cls in classified.items():
         req_status_map[req_id] = cls["status"]
 
@@ -270,11 +274,11 @@ def aggregate_results(
 def decide(
     input_data: VerificationInput,
     context: VerificationContext,
-    check_results: Dict[str, VerificationCheckResult],
+    check_results: dict[str, VerificationCheckResult],
     *,
     enforce_mandatory: bool = True,
-    req_is_mandatory: Optional[Dict[str, bool]] = None,
-) -> Dict[str, Any]:
+    req_is_mandatory: dict[str, bool] | None = None,
+) -> dict[str, Any]:
     """Decide the overall verification status from check results.
 
     This is the authoritative decision point.  LLM output may describe
