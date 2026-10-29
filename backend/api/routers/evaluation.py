@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, status
-from backend.verification.agent.agent_state import VerificationState
 
 from backend.evaluation.models import Evaluation, EvaluationCreateRequest
+from backend.verification.agent.agent_state import VerificationState
 
 from ..dependencies import Services, get_correlation_id, get_services
 
@@ -18,7 +18,7 @@ router = APIRouter(tags=["evaluation"])
 async def get_evaluation_results(
     evaluation_id: str,
     state: Annotated[VerificationState, Depends()],
-) -> dict[str, any]:
+) -> dict[str, Any]:
     """Get evaluation results - no hardcoded success."""
     return {
         "evaluation_id": evaluation_id,
