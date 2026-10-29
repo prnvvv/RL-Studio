@@ -1,7 +1,7 @@
 """Evaluation ORM model."""
 from __future__ import annotations
 
-from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, Boolean, JSON
+from sqlalchemy import JSON, Boolean, Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.sql import func
 
 from backend.database.base import Base
