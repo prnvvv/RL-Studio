@@ -9,32 +9,31 @@ Do not implement a competing registry or duplicate existing check logic.
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any
 
-from backend.verification.models import VerificationCheckResult
 from backend.verification.exceptions import InputValidationError
-
+from backend.verification.models import VerificationCheckResult
 
 # ---------------------------------------------------------------------------
 # Registry: maps stable check identifiers to handler callables.
 # ---------------------------------------------------------------------------
 
 #: Mapping of registered check IDs to their handler callables.
-_tool_handlers: Dict[str, Any] = {}
+_tool_handlers: dict[str, Any] = {}
 
 #: Mapping of check IDs to human-readable descriptions.
-_tool_descriptions: Dict[str, str] = {}
+_tool_descriptions: dict[str, str] = {}
 
 #: Mapping of check IDs to their required argument schemas.
 #: Used for argument validation before execution.
-_tool_schemas: Dict[str, Any] = {}
+_tool_schemas: dict[str, Any] = {}
 
 #: Mapping of check IDs to optional per-check execution timeouts (seconds).
-_tool_timeout: Dict[str, Optional[float]] = {}
+_tool_timeout: dict[str, float | None] = {}
 
 #: Maximum total verification tool execution budget in seconds.  None means no
 #: budget.
-_total_timeout: Optional[float] = None
+_total_timeout: float | None = None
 
 
 def register_check(
@@ -43,7 +42,7 @@ def register_check(
     *,
     description: str = "",
     schema: Any = None,
-    timeout: Optional[float] = None,
+    timeout: float | None = None,
 ) -> None:
     """Register a verification check handler in the global registry.
 
@@ -71,14 +70,14 @@ def register_check(
     _tool_timeout[check_id] = timeout
 
 
-def list_checks() -> Dict[str, Dict[str, Any]]:
+def list_checks() -> dict[str, dict[str, Any]]:
     """Return metadata for all currently registered checks.
 
     Returns a dict mapping check IDs to ``{description, schema, timeout}``.
     Useful for introspection and for the LangGraph controller to present to
     the model at planning time.
     """
-    result: Dict[str, Dict[str, Any]] = {}
+    result: dict[str, dict[str, Any]] = {}
     for check_id in _tool_handlers:
         result[check_id] = {
             "description": _tool_descriptions.get(check_id, ""),
@@ -107,7 +106,7 @@ def get_check_description(check_id: str) -> str:
 def execute_check(
     check_id: str,
     context: Any,
-    arguments: Dict[str, Any],
+    arguments: dict[str, Any],
 ) -> VerificationCheckResult:
     """Execute a registered verification check and return its result.
 
@@ -165,7 +164,7 @@ def execute_check(
                 pass
         except InputValidationError:
             raise
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001
             raise InputValidationError(
                 f"Argument schema validation failed for check {check_id!r}: {exc}"
             )
@@ -198,7 +197,7 @@ def execute_check(
         else:
             # Fallback: try original call pattern
             result = handler(context, arguments)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001
         # If adaptation fails, return error result
         return VerificationCheckResult(
             requirement_id="",
