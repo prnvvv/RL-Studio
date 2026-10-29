@@ -1,5 +1,6 @@
 import os
 import sys
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
 from backend.environments.config import WarehouseConfig
@@ -17,9 +18,9 @@ def test_warehouse_env_reset_step():
         collision_penalty=1.0,
     )
     env = Warehouse2DEnv(cfg)
-    obs, info = env.reset(seed=42)
+    obs, _info = env.reset(seed=42)
     assert obs.shape == (6,)
-    obs, reward, terminated, truncated, info = env.step(1)
+    obs, reward, terminated, truncated, _info = env.step(1)
     assert isinstance(reward, float)
     assert isinstance(terminated, bool)
     assert isinstance(truncated, bool)
