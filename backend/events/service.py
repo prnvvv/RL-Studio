@@ -1,40 +1,86 @@
-"""Event store publisher."""
+"""Event store publisher backed by the shared SQLite ``Database``."""
+
 from __future__ import annotations
 
-from uuid import uuid4
+import threading
 from datetime import datetime, timezone
-from typing import Dict, Any, List, Optional
+from typing import Any
+from uuid import uuid4
 
-from sqlalchemy import Table, select, Column, String, Integer, DateTime, MetaData, Float
-from backend.database.base import engine
+from backend.database.config import DatabaseConfig
+from backend.database.connection import Database
 
-# Event table definition (matching shared.events canon)
-metadata = MetaData()
-execution_events = Table(
-    "execution_events",
-    metadata,
-    Column("event_id", String(36), primary_key=True),
-    Column("run_id", String(36), index=True),
-    Column("event_type", String(50), nullable=False),
-    Column("episode_id", String(36), nullable=True),
-    Column("timestep", Integer, nullable=True),
-    Column("actual_reward", Float, nullable=True),
-    Column("timestamp", DateTime(timezone=True), server_default="CURRENT_TIMESTAMP"),
+_CREATE_TABLE_SQL = """
+CREATE TABLE IF NOT EXISTS execution_events (
+    event_id TEXT PRIMARY KEY,
+    run_id TEXT,
+    event_type TEXT NOT NULL,
+    episode_id TEXT,
+    timestep INTEGER,
+    actual_reward REAL,
+    timestamp TEXT
 )
-metadata.create_all(bind=engine)
+"""
+
+_CREATE_INDEX_SQL = """
+CREATE INDEX IF NOT EXISTS ix_execution_events_run_id
+ON execution_events (run_id)
+"""
+
+_db: Database | None = None
+_schema_ready = False
+_schema_lock = threading.Lock()
+
+
+def _database() -> Database:
+    """Return the lazily created database handle for the event store."""
+    global _db
+    if _db is None:
+        _db = Database(DatabaseConfig.from_env())
+    return _db
+
+
+def _ensure_schema(database: Database) -> None:
+    """Create the event table on first use (idempotent)."""
+    global _schema_ready
+    if _schema_ready:
+        return
+    with _schema_lock:
+        if _schema_ready:
+            return
+        with database.write() as conn:
+            conn.execute(_CREATE_TABLE_SQL)
+            conn.execute(_CREATE_INDEX_SQL)
+        _schema_ready = True
+
+
+def _parse_timestamp(value: Any) -> datetime | None:
+    """Parse a stored ISO-8601 timestamp into an aware ``datetime``."""
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value
+    try:
+        parsed = datetime.fromisoformat(str(value))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed
 
 
 class Event:
     """Pydantic-model-like representation of a persisted event."""
+
     def __init__(
         self,
         event_id: str,
         run_id: str,
         event_type: str,
-        episode_id: Optional[str],
-        timestep: Optional[int],
-        actual_reward: Optional[float],
-        timestamp: datetime,
+        episode_id: str | None,
+        timestep: int | None,
+        actual_reward: float | None,
+        timestamp: datetime | None,
     ):
         self.event_id = event_id
         self.run_id = run_id
@@ -44,7 +90,7 @@ class Event:
         self.actual_reward = actual_reward
         self.timestamp = timestamp
 
-    def model_dump(self, mode: str = "python") -> Dict[str, Any]:
+    def model_dump(self, mode: str = "python") -> dict[str, Any]:
         return {
             "event_id": self.event_id,
             "event_type": self.event_type,
@@ -67,47 +113,55 @@ class EventPublisher:
         timestep: int | None = None,
         actual_reward: float | None = None,
     ) -> str:
+        database = _database()
+        _ensure_schema(database)
         event_id = str(uuid4())
-        with engine.begin() as conn:
+        timestamp = datetime.now(timezone.utc).isoformat()
+        with database.write() as conn:
             conn.execute(
                 """
                 INSERT INTO execution_events
                 (event_id, run_id, event_type, episode_id, timestep, actual_reward, timestamp)
-                VALUES (:event_id, :run_id, :event_type, :episode_id, :timestep, :actual_reward, :timestamp)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
-                {
-                    "event_id": event_id,
-                    "run_id": run_id,
-                    "event_type": event_type,
-                    "episode_id": episode_id,
-                    "timestep": timestep,
-                    "actual_reward": actual_reward,
-                    "timestamp": datetime.now(timezone.utc),
-                },
+                (
+                    event_id,
+                    run_id,
+                    event_type,
+                    episode_id,
+                    timestep,
+                    actual_reward,
+                    timestamp,
+                ),
             )
         return event_id
 
     @staticmethod
-    def get_recent_events(run_id: str, limit: int = 20) -> List[Event]:
+    def get_recent_events(run_id: str, limit: int = 20) -> list[Event]:
         """Get the most recent events for a given run, ordered by timestamp desc."""
-        with engine.begin() as conn:
-            stmt = (
-                select(execution_events)
-                .where(execution_events.c.run_id == run_id)
-                .order_by(execution_events.c.timestamp.desc())
-                .limit(limit)
+        database = _database()
+        _ensure_schema(database)
+        with database.read() as conn:
+            rows = conn.execute(
+                """
+                SELECT event_id, run_id, event_type, episode_id, timestep,
+                       actual_reward, timestamp
+                FROM execution_events
+                WHERE run_id = ?
+                ORDER BY timestamp DESC
+                LIMIT ?
+                """,
+                (run_id, limit),
+            ).fetchall()
+        return [
+            Event(
+                event_id=row["event_id"],
+                run_id=row["run_id"],
+                event_type=row["event_type"],
+                episode_id=row["episode_id"],
+                timestep=row["timestep"],
+                actual_reward=row["actual_reward"],
+                timestamp=_parse_timestamp(row["timestamp"]),
             )
-            rows = conn.execute(stmt).fetchall()
-            events: List[Event] = []
-            for row in rows:
-                event = Event(
-                    event_id=row.event_id,
-                    run_id=row.run_id,
-                    event_type=row.event_type,
-                    episode_id=row.episode_id,
-                    timestep=row.timestep,
-                    actual_reward=row.actual_reward,
-                    timestamp=row.timestamp,
-                )
-                events.append(event)
-            return events
+            for row in rows
+        ]
