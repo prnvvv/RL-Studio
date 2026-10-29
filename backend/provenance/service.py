@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Optional
-
 from backend.database.connection import Database
 
 from .impact import ImpactAnalyzer
@@ -30,7 +28,7 @@ class ProvenanceService:
         self.impact = ImpactAnalyzer(database)
 
     def register_run(
-        self, request: RunRegistration, *, correlation_id: Optional[str] = None
+        self, request: RunRegistration, *, correlation_id: str | None = None
     ) -> Run:
         return Run.model_validate(
             self.registry.register_run(request, correlation_id=correlation_id)
@@ -40,7 +38,7 @@ class ProvenanceService:
         self,
         request: ArtifactRegistration,
         *,
-        correlation_id: Optional[str] = None,
+        correlation_id: str | None = None,
     ) -> Artifact:
         return Artifact.model_validate(
             self.registry.register_artifact(request, correlation_id=correlation_id)
@@ -50,7 +48,7 @@ class ProvenanceService:
         self,
         request: IncidentRegistration,
         *,
-        correlation_id: Optional[str] = None,
+        correlation_id: str | None = None,
     ) -> Incident:
         return Incident.model_validate(
             self.registry.register_incident(request, correlation_id=correlation_id)
@@ -68,12 +66,12 @@ class ProvenanceService:
         return Incident.model_validate(incident)
 
     def get_run_provenance(
-        self, run_id: str, *, correlation_id: Optional[str] = None
+        self, run_id: str, *, correlation_id: str | None = None
     ) -> ProvenanceTrace:
         return self.tracer.get_run_provenance(run_id)
 
     def list_run_artifacts(
-        self, run_id: str, *, correlation_id: Optional[str] = None
+        self, run_id: str, *, correlation_id: str | None = None
     ) -> RunArtifactList:
         artifacts = [
             Artifact.model_validate(row)
@@ -84,12 +82,12 @@ class ProvenanceService:
         )
 
     def get_artifact(
-        self, artifact_id: str, *, correlation_id: Optional[str] = None
+        self, artifact_id: str, *, correlation_id: str | None = None
     ) -> Artifact:
         return Artifact.model_validate(self.tracer.get_artifact(artifact_id))
 
     def get_incident_impact(
-        self, incident_id: str, *, correlation_id: Optional[str] = None
+        self, incident_id: str, *, correlation_id: str | None = None
     ) -> ImpactAnalysis:
         return self.impact.get_incident_impact(
             incident_id, correlation_id=correlation_id
