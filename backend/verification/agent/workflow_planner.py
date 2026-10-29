@@ -6,25 +6,24 @@ Purely deterministic — no LLM calls required for the base flow.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any
 
 from backend.verification.models import VerificationRequirement
+from backend.verification.tools import (
+    configuration_checker,
+    episode_checker,
+    event_checker,
+    metric_checker,
+    reward_checker,
+)
 from backend.verification.tools.tool_registry import (
     is_check_registered,
     register_check,
 )
-from backend.verification.tools import (
-    configuration_checker,
-    reward_checker,
-    episode_checker,
-    event_checker,
-    metric_checker,
-)
-
 
 # Mapping from requirement type to registered check identifier.
 # This table can be extended as new requirement types and checks are added.
-REQUIREMENT_TO_CHECK: Dict[str, str] = {
+REQUIREMENT_TO_CHECK: dict[str, str] = {
     "reward": "check_reward",
     "termination": "check_episode",
     "event": "check_event",
@@ -34,9 +33,9 @@ REQUIREMENT_TO_CHECK: Dict[str, str] = {
 
 
 def plan(
-    requirements: List[VerificationRequirement],
+    requirements: list[VerificationRequirement],
     context: Any,
-) -> Dict[str, List[str]]:
+) -> dict[str, list[str]]:
     """Produce a dispatch plan: for each requirement, which check tool ID to use.
 
     Args:
@@ -49,7 +48,7 @@ def plan(
         type is not in the mapping are marked with ``"unknown"`` so the caller
         can decide how to handle them.
     """
-    plan: Dict[str, str] = {}
+    plan: dict[str, str] = {}
     for req in requirements:
         check_id = REQUIREMENT_TO_CHECK.get(req.type.value)
         if check_id is not None:
@@ -70,7 +69,7 @@ def _auto_register(check_id: str) -> None:
     """
 
     # Map check IDs to their handler functions.
-    _HANDLERS: Dict[str, any] = {
+    _HANDLERS: dict[str, Any] = {
         "check_reward": reward_checker.execute_check,
         "check_episode": episode_checker.execute_check,
         "check_event": event_checker.execute_check,
