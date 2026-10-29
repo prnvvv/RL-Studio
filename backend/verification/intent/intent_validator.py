@@ -8,15 +8,15 @@ constraints are explicitly flagged.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 from backend.verification.models import (
-    VerificationRequirement,
     RequirementType,
+    VerificationRequirement,
 )
 
 
-class ValidationError(Dict[str, Any]):
+class ValidationError(dict[str, Any]):
     """A validation error with a type, message, and affected requirement."""
     def __init__(self, req_id: str, message: str, error_type: str = "validation") -> None:
         self.req_id = req_id
@@ -27,7 +27,7 @@ class ValidationError(Dict[str, Any]):
         return f"ValidationError(req_id={self.req_id!r}, msg={self.message!r}, type={self.error_type!r})"
 
 
-def validate_requirement(req: VerificationRequirement) -> Tuple[bool, List[ValidationError]]:
+def validate_requirement(req: VerificationRequirement) -> tuple[bool, list[ValidationError]]:
     """Validate a single VerificationRequirement against the contract.
 
     Args:
@@ -37,7 +37,7 @@ def validate_requirement(req: VerificationRequirement) -> Tuple[bool, List[Valid
         (is_valid, errors) where is_valid is True if no contract violations
         were found, and errors is a list of ValidationError objects.
     """
-    errors: List[ValidationError] = []
+    errors: list[ValidationError] = []
 
     # 1. Check that the requirement type is supported
     if req.type not in (
@@ -118,7 +118,7 @@ def validate_requirement(req: VerificationRequirement) -> Tuple[bool, List[Valid
     return is_valid, errors
 
 
-def validate_requirements(requirements: List[VerificationRequirement]) -> Dict[str, Any]:
+def validate_requirements(requirements: list[VerificationRequirement]) -> dict[str, Any]:
     """Validate a list of requirements and return a summary.
 
     Args:
@@ -130,7 +130,7 @@ def validate_requirements(requirements: List[VerificationRequirement]) -> Dict[s
         - "invalid": number of invalid requirements
         - "errors": dict mapping requirement ID to list of ValidationError
     """
-    summary: Dict[str, Any] = {
+    summary: dict[str, Any] = {
         "valid": 0,
         "invalid": 0,
         "errors": {},
