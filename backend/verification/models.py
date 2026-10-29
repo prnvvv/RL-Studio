@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field, model_validator
 
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional, Literal, Union
+from typing import Any, Dict, List, Optional, Literal
 import uuid
 
 
