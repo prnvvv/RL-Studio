@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from typing import List, Optional
 
 from sqlalchemy import Table, select, Column, String, Integer, DateTime, MetaData, Float
-from backend.database.base import Base, engine
+from backend.database.base import engine
 
 # Event table definition (matching shared.events canon)
 metadata = MetaData()
