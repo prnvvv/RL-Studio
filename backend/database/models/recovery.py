@@ -1,7 +1,7 @@
 """Recovery ORM model."""
 from __future__ import annotations
 
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, JSON
+from sqlalchemy import JSON, Column, DateTime, ForeignKey, Integer, String
 
 from backend.database.base import Base
 
