@@ -15,11 +15,9 @@ anomaly scores, or make verification decisions.
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
-
+from typing import Any
 
 from backend.verification.exceptions import InputValidationError
-
 
 # ---------------------------------------------------------------------------
 # Helper: parse an optional string that may be None, empty, or whitespace-only
@@ -27,7 +25,7 @@ from backend.verification.exceptions import InputValidationError
 
 def _normalize_optional_string(
     value: Any,
-) -> Optional[str]:
+) -> str | None:
     """Return *value* as ``Optional[str]``.
 
     - ``None``  → ``None``
@@ -53,7 +51,7 @@ def _normalize_optional_string(
 
 def _normalize_timestamp(
     value: Any,
-) -> Optional[datetime]:
+) -> datetime | None:
     """Return *value* as a timezone-aware UTC ``datetime``, or ``None``.
 
     - ``None``  → ``None``
@@ -92,8 +90,8 @@ def _normalize_timestamp(
 
 
 def normalise_agent_metadata(
-    data: Dict[str, Any],
-) -> Dict[str, Any]:
+    data: dict[str, Any],
+) -> dict[str, Any]:
     """Normalise a agent metadata dictionary into the shape expected by
     ``AgentMetadata``.
 
@@ -107,7 +105,7 @@ def normalise_agent_metadata(
     if not isinstance(data, dict):
         return {"extensions": data if isinstance(data, dict) else {"_raw": str(data)}}
 
-    result: Dict[str, Any] = {}
+    result: dict[str, Any] = {}
     # Only include keys that are present; absent keys let the model use
     # its default factory (e.g. agent_id UUID generation).
     if "agent_id" in data:
@@ -145,8 +143,8 @@ def normalise_agent_metadata(
 
 
 def normalise_environment_config(
-    data: Dict[str, Any],
-) -> Dict[str, Any]:
+    data: dict[str, Any],
+) -> dict[str, Any]:
     """Normalise an environment configuration dictionary.
 
     - Known keys are passed through.
@@ -158,7 +156,7 @@ def normalise_environment_config(
     if not isinstance(data, dict):
         return {"extensions": data if isinstance(data, dict) else {"_raw": str(data)}}
 
-    result: Dict[str, Any] = {}
+    result: dict[str, Any] = {}
 
     # Pass through all keys from the source dict
     for key, value in data.items():
@@ -180,8 +178,8 @@ def normalise_environment_config(
 
 
 def normalise_training_config(
-    data: Dict[str, Any],
-) -> Dict[str, Any]:
+    data: dict[str, Any],
+) -> dict[str, Any]:
     """Normalise a training configuration dictionary.
 
     - Known hyper-parameter keys are passed through.
@@ -193,7 +191,7 @@ def normalise_training_config(
     if not isinstance(data, dict):
         return {"extensions": data if isinstance(data, dict) else {"_raw": str(data)}}
 
-    result: Dict[str, Any] = {}
+    result: dict[str, Any] = {}
 
     # Pass through all keys from the source dict
     for key, value in data.items():
@@ -216,7 +214,7 @@ def normalise_training_config(
 
 def normalise_developer_intent(
     data: Any,
-) -> Optional[str]:
+) -> str | None:
     """Normalise developer intent into an ``Optional[str]``.
 
     - ``None``  → ``None``
@@ -232,7 +230,7 @@ def normalise_developer_intent(
     try:
         s = str(data).strip()
         return s if s != "" else None
-    except Exception:
+    except Exception:  # noqa: BLE001 - untrusted input; coercion must not crash
         return None
 
 
@@ -243,7 +241,7 @@ def normalise_developer_intent(
 
 def normalise_execution_evidence(
     data: Any,
-) -> Optional[Dict[str, Any]]:
+) -> dict[str, Any] | None:
     """Normalise execution evidence into an optional dictionary.
 
     - ``None``  → ``None``  (no evidence)
@@ -264,7 +262,7 @@ def normalise_execution_evidence(
             # Convert list of items to a simple dict marker
             return {"_items": [str(v) for v in data]}
         return {"_raw": str(data)}
-    except Exception:
+    except Exception:  # noqa: BLE001 - untrusted input; coercion must not crash
         return None
 
 
@@ -274,8 +272,8 @@ def normalise_execution_evidence(
 
 
 def normalise_verification_input(
-    raw: Dict[str, Any],
-) -> Dict[str, Any]:
+    raw: dict[str, Any],
+) -> dict[str, Any]:
     """Normalise a raw input dictionary into a flat dict of fields ready for
     ``VerificationInput`` construction.
 
@@ -297,7 +295,7 @@ def normalise_verification_input(
         )
 
     # Start with extensions so any truly unknown keys have a home
-    normalised: Dict[str, Any] = {"extensions": {}}
+    normalised: dict[str, Any] = {"extensions": {}}
 
     # Agent metadata
     agent_meta = raw.get("agent_metadata")
@@ -331,8 +329,8 @@ def normalise_verification_input(
         "execution_evidence",
         "extensions",
     }
-    for key in raw.keys():
+    for key, value in raw.items():
         if key not in handled_keys:
-            normalised["extensions"][key] = raw[key]
+            normalised["extensions"][key] = value
 
     return normalised
