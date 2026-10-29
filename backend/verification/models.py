@@ -7,13 +7,13 @@ support optional/extensible fields, and are JSON-serializable.
 """
 
 from __future__ import annotations
-from pydantic import BaseModel, Field, model_validator
 
+import uuid
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional, Literal
-import uuid
+from typing import Any, Literal
 
+from pydantic import BaseModel, Field, model_validator
 
 # ---------------------------------------------------------------------------
 # Identifier convention: the repository uses string UUIDs (v4 / random).
@@ -75,11 +75,11 @@ class AgentMetadata(BaseModel):
     """Metadata identifying the RL agent and its configuration."""
 
     agent_id: str = Field(default_factory=_generate_uuid_v4)
-    agent_type: Optional[str] = None
-    agent_template: Optional[str] = None
-    template_version: Optional[str] = None
-    configuration_fingerprint: Optional[str] = None
-    extensions: Dict[str, Any] = Field(default_factory=dict)
+    agent_type: str | None = None
+    agent_template: str | None = None
+    template_version: str | None = None
+    configuration_fingerprint: str | None = None
+    extensions: dict[str, Any] = Field(default_factory=dict)
 
     model_config = {"populate_by_name": True, "extra": "allow"}
 
@@ -100,29 +100,29 @@ class VerificationInput(BaseModel):
     """Structured input to the verification system."""
 
     agent_metadata: AgentMetadata
-    environment_config: Optional[Dict[str, Any]] = Field(
+    environment_config: dict[str, Any] | None = Field(
         default=None, description="Raw env config dict"
     )
-    training_config: Optional[Dict[str, Any]] = Field(
+    training_config: dict[str, Any] | None = Field(
         default=None, description="Raw training hyper-params"
     )
-    developer_intent: Optional[str] = Field(
+    developer_intent: str | None = Field(
         default=None, description="Natural-language description of intended behaviour"
     )
-    execution_evidence: Optional[Dict[str, Any]] = Field(
+    execution_evidence: dict[str, Any] | None = Field(
         default=None,
         description=(
             "Optional raw evidence dict; prefer EvidenceReference entries instead"
         ),
     )
-    extensions: Dict[str, Any] = Field(
+    extensions: dict[str, Any] = Field(
         default_factory=dict, description="Extension fields for future schema evolution"
     )
 
     model_config = {"populate_by_name": True, "extra": "allow"}
 
     @model_validator(mode="after")
-    def _ensure_agent_metadata(self) -> "VerificationInput":
+    def _ensure_agent_metadata(self) -> VerificationInput:
         if self.agent_metadata is None:
             raise ValueError("VerificationInput.agent_metadata is required")
         return self
@@ -136,13 +136,13 @@ class VerificationInput(BaseModel):
 class VerificationContext(BaseModel):
     """Runtime context linking a verification request to a run/environment."""
 
-    run_identifier: Optional[str] = Field(
+    run_identifier: str | None = Field(
         default=None, description="e.g. run_id, experiment_id"
     )
-    environment_identifier: Optional[str] = Field(
+    environment_identifier: str | None = Field(
         default=None, description="e.g. warehouse_v1, sim_01"
     )
-    environment_version: Optional[str] = Field(
+    environment_version: str | None = Field(
         default=None, description="e.g. v1, v2"
     )
     input: VerificationInput
@@ -166,22 +166,20 @@ class VerificationRequirement(BaseModel):
         default=RequirementSource.developer_confirmed
     )
     type: RequirementType
-    expected_value: Optional[Any] = Field(
+    expected_value: Any | None = Field(
         default=None, description="e.g. 100, a goal name, a range"
     )
-    comparison_operator: Optional[
-        Literal["==", "!=", ">=", "<=", ">", "<"]
-    ] = Field(default=None, description="e.g. ==, >, <")
-    tolerance: Optional[float] = Field(
+    comparison_operator: Literal["==", "!=", ">=", "<=", ">", "<"] | None = Field(default=None, description="e.g. ==, >, <")
+    tolerance: float | None = Field(
         default=None, ge=0, description="Absolute tolerance for numeric comparisons"
     )
     is_mandatory: bool = Field(
         default=True, description="Whether this requirement blocks PASS when failed/unverifiable"
     )
-    metadata: Dict[str, Any] = Field(
+    metadata: dict[str, Any] = Field(
         default_factory=dict, description="Free-form key-value pairs"
     )
-    extensions: Dict[str, Any] = Field(
+    extensions: dict[str, Any] = Field(
         default_factory=dict, description="Extension fields"
     )
 
@@ -201,14 +199,14 @@ class VerificationPlanStep(BaseModel):
         description="Registered check/tool identifier, e.g. check_reward_scale"
     )
     description: str
-    dependencies: List[str] = Field(
+    dependencies: list[str] = Field(
         default_factory=list, description="Step IDs this step depends on"
     )
-    evidence_requirements: List[str] = Field(
+    evidence_requirements: list[str] = Field(
         default_factory=list,
         description="List of EvidenceReference IDs required",
     )
-    order: Optional[int] = Field(default=None, description="Execution order")
+    order: int | None = Field(default=None, description="Execution order")
     status: CheckStatus = Field(default=CheckStatus.PENDING)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -224,12 +222,12 @@ class VerificationPlan(BaseModel):
     """An ordered workflow of deterministic checks and optional anomaly steps."""
 
     plan_id: str = Field(default_factory=_generate_uuid_v4)
-    steps: List[VerificationPlanStep] = Field(default_factory=list)
+    steps: list[VerificationPlanStep] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    created_by: Optional[str] = Field(
+    created_by: str | None = Field(
         default=None, description="e.g. developer, meta_ai_agent"
     )
-    extensions: Dict[str, Any] = Field(
+    extensions: dict[str, Any] = Field(
         default_factory=dict, description="Extension fields"
     )
 
@@ -246,21 +244,21 @@ class VerificationCheckResult(BaseModel):
 
     requirement_id: str
     status: CheckStatus
-    expected: Optional[Any] = Field(
+    expected: Any | None = Field(
         default=None, description="The expected value from the requirement"
     )
-    actual: Optional[Any] = Field(
+    actual: Any | None = Field(
         default=None, description="The observed/actual value from execution"
     )
-    tolerance: Optional[float] = Field(
+    tolerance: float | None = Field(
         default=None, ge=0, description="Absolute tolerance for comparison"
     )
-    evidence_refs: List[str] = Field(
+    evidence_refs: list[str] = Field(
         default_factory=list,
         description="List of EvidenceReference IDs supporting this result",
     )
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    details: Optional[Dict[str, Any]] = Field(
+    details: dict[str, Any] | None = Field(
         default=None,
         description=(
             "Free-form details; must not contain secrets, credentials, or raw prompts"
@@ -284,21 +282,21 @@ class VerificationResult(BaseModel):
 
     verification_id: str = Field(default_factory=_generate_uuid_v4)
     overall_status: CheckStatus = Field(default=CheckStatus.UNKNOWN)
-    requirements: Dict[str, VerificationCheckResult] = Field(
+    requirements: dict[str, VerificationCheckResult] = Field(
         default_factory=dict,
         description="Map from requirement ID to VerificationCheckResult",
     )
-    summary: Optional[str] = Field(
+    summary: str | None = Field(
         default=None, description="Human-readable summary of the overall result"
     )
-    evidence_refs: List[str] = Field(
+    evidence_refs: list[str] = Field(
         default_factory=list,
         description="List of top-level EvidenceReference IDs",
     )
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     schema_version: str = Field(default="1.0")
-    warnings: List[str] = Field(default_factory=list)
-    errors: List[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    errors: list[str] = Field(default_factory=list)
 
     model_config = {"populate_by_name": True, "extra": "allow"}
 
@@ -312,19 +310,19 @@ class VerificationReport(BaseModel):
     """A packaged report generated after a verification investigation."""
 
     report_id: str = Field(default_factory=_generate_uuid_v4)
-    verification: Optional[VerificationResult] = Field(
+    verification: VerificationResult | None = Field(
         default=None, description="The associated VerificationResult"
     )
-    summary: Optional[str] = Field(
+    summary: str | None = Field(
         default=None, description="Human-readable high-level summary"
     )
-    recommendations: Optional[List[str]] = Field(
+    recommendations: list[str] | None = Field(
         default_factory=list, description="Actionable recommendations"
     )
-    limitations: Optional[List[str]] = Field(
+    limitations: list[str] | None = Field(
         default_factory=list, description="Known limitations of the investigation"
     )
-    evidence_refs: List[str] = Field(
+    evidence_refs: list[str] = Field(
         default_factory=list, description="List of top-level EvidenceReference IDs"
     )
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -345,21 +343,21 @@ class EvidenceReference(BaseModel):
     source: str = Field(
         description="e.g. run_id, environment_id, checkpoint_id, event_id"
     )
-    run_identifier: Optional[str] = Field(
+    run_identifier: str | None = Field(
         default=None, description="e.g. the run_id this evidence belongs to"
     )
-    environment_identifier: Optional[str] = Field(
+    environment_identifier: str | None = Field(
         default=None, description="e.g. warehouse_v1"
     )
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    location: Optional[str] = Field(
+    location: str | None = Field(
         default=None,
         description=(
             "Reference/path rather than raw payload; e.g. s3://bucket/key, "
             "db_table.row_id, log_file_path"
         ),
     )
-    extensions: Dict[str, Any] = Field(
+    extensions: dict[str, Any] = Field(
         default_factory=dict, description="Extension fields"
     )
 
@@ -376,13 +374,13 @@ class MetricObservation(BaseModel):
 
     metric_name: str
     value: float
-    unit: Optional[str] = Field(
+    unit: str | None = Field(
         default=None, description="e.g. 'rewards', 'steps', 'collisions'"
     )
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    episode_id: Optional[str] = Field(default=None, description="e.g. episode_42")
-    timestep: Optional[int] = Field(default=None, description="e.g. timestep at measurement")
-    run_identifier: Optional[str] = Field(
+    episode_id: str | None = Field(default=None, description="e.g. episode_42")
+    timestep: int | None = Field(default=None, description="e.g. timestep at measurement")
+    run_identifier: str | None = Field(
         default=None, description="e.g. run_id, experiment_id"
     )
 
@@ -403,17 +401,17 @@ class AnomalyObservation(BaseModel):
     """
 
     anomaly_type: AnomalyType
-    score: Optional[float] = Field(
+    score: float | None = Field(
         default=None, ge=0, le=1, description="Normalized anomaly score when available"
     )
-    threshold: Optional[float] = Field(
+    threshold: float | None = Field(
         default=None, ge=0, description="Detection threshold that triggered this anomaly"
     )
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    evidence_refs: List[str] = Field(
+    evidence_refs: list[str] = Field(
         default_factory=list, description="Supporting EvidenceReference IDs"
     )
-    description: Optional[str] = Field(
+    description: str | None = Field(
         default=None, description="Human-readable description"
     )
 
