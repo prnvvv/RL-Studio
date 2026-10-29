@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 import sqlite3
-from typing import Any, Optional
+from typing import Any
 
 from ..utils import dumps, new_id, utc_now_iso
-from ._common import row_to_dict
 from . import runs as runs_repo
-
+from ._common import row_to_dict
 
 _JSON_FIELDS = {
     "warnings_json": "warnings",
@@ -21,11 +20,11 @@ def upsert_provenance_record(
     run_id: str,
     provenance_status: str,
     lineage_completeness: str,
-    source_environment_version: Optional[str],
+    source_environment_version: str | None,
     artifact_count: int,
-    warnings: Optional[list[str]] = None,
-    evidence_ids: Optional[list[str]] = None,
-    details: Optional[dict[str, Any]] = None,
+    warnings: list[str] | None = None,
+    evidence_ids: list[str] | None = None,
+    details: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     now = utc_now_iso()
     existing = conn.execute(
