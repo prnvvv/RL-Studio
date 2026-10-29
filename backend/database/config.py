@@ -37,7 +37,7 @@ class DatabaseConfig:
     max_artifact_bytes: int = 2 * 1024 * 1024 * 1024
 
     @classmethod
-    def from_env(cls) -> "DatabaseConfig":
+    def from_env(cls) -> DatabaseConfig:
         data_root = _env_path("RL_STUDIO_DATA_ROOT", _repo_root() / "var")
         database_path = _env_path(
             "RL_STUDIO_DB_PATH", data_root / "rl_studio.sqlite3"
@@ -57,7 +57,7 @@ class DatabaseConfig:
         )
 
     @classmethod
-    def for_tests(cls, root: Path) -> "DatabaseConfig":
+    def for_tests(cls, root: Path) -> DatabaseConfig:
         root = Path(root).resolve()
         return cls(
             database_path=root / "test.sqlite3",
