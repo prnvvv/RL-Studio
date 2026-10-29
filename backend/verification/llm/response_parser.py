@@ -22,28 +22,12 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any, Dict, List, Optional, Type, TypeVar
+from typing import Any, Dict, Optional, Type, TypeVar, Tuple
 
 from pydantic import BaseModel, Field, ValidationError
 
-from backend.verification.models import (  # canonical RL Studio models
-    VerificationInput,
-    VerificationContext,
-    VerificationRequirement,
-    VerificationPlan,
-    VerificationPlanStep,
-    VerificationCheckResult,
-    VerificationResult,
-    VerificationReport,
-    EvidenceReference,
-    CheckStatus,
-    RequirementSource,
-    RequirementType,
-    AnomalyType,
-)
 
 from backend.verification.exceptions import (  # typed parsing errors
-    InputValidationError,
     MetaAIProviderError,
 )
 
@@ -224,7 +208,6 @@ class ParsingFailure(BaseModel):
 
 def classify_parsing_failure(exc: Exception, raw_content: Optional[str] = None) -> ParsingFailure:
     """Classify a parsing exception into a typed ``ParsingFailure``."""
-    from backend.verification.exceptions import MetaAIProviderError as MAE
     if isinstance(exc, MetaAIProviderError):
         return ParsingFailure(
             failure_type="meta_ai_provider_error",
