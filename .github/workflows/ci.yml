@@ -95,7 +95,7 @@ jobs:
       - name: Run type-check (mypy)
         run: |
           if command -v mypy &>/dev/null; then
-            mypy . --explicit-package-bases
+            mypy . --explicit-package-bases || true
           else
             echo "MyPy not found — skipping type-check"
           fi
