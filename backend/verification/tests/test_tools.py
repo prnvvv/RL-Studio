@@ -5,16 +5,17 @@ from __future__ import annotations
 import pytest
 
 from backend.verification.models import (
-    VerificationRequirement,
     CheckStatus,
     RequirementType,
+    VerificationRequirement,
 )
-from backend.verification.tools.reward_checker import execute_check as reward_check
-from backend.verification.tools.metric_checker import execute_check as metric_check
-from backend.verification.tools.event_checker import execute_check as event_check
+from backend.verification.tools.configuration_checker import (
+    execute_check as config_check,
+)
 from backend.verification.tools.episode_checker import execute_check as episode_check
-from backend.verification.tools.configuration_checker import execute_check as config_check
-
+from backend.verification.tools.event_checker import execute_check as event_check
+from backend.verification.tools.metric_checker import execute_check as metric_check
+from backend.verification.tools.reward_checker import execute_check as reward_check
 
 # ---- Reward checker tests ----
 
