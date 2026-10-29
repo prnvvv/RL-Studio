@@ -1,8 +1,7 @@
 """Episode metric model."""
-from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import List
+from typing import List, Dict, Any
 
 
 @dataclass
@@ -26,5 +25,3 @@ class MetricSummary:
     mean: float = 0.0
     min: float = 0.0
     max: float = 0.0
-PYEOF
-echo "---"

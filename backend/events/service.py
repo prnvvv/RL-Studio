@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from uuid import uuid4
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import Dict, Any, List, Optional
 
 from sqlalchemy import Table, select, Column, String, Integer, DateTime, MetaData, Float
 from backend.database.base import engine

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Annotated, Optional
+from typing import Annotated
 
 from fastapi import Header, Request
 
@@ -33,7 +33,7 @@ def get_services(request: Request) -> Services:
     return services
 
 
-def sanitize_correlation_id(value: Optional[str]) -> Optional[str]:
+def sanitize_correlation_id(value: str | None) -> str | None:
     if value is None:
         return None
     cleaned = value.strip()
@@ -43,8 +43,6 @@ def sanitize_correlation_id(value: Optional[str]) -> Optional[str]:
 
 
 def get_correlation_id(
-    correlation_id: Annotated[
-        Optional[str], Header(alias="X-Correlation-ID")
-    ] = None,
-) -> Optional[str]:
+    correlation_id: Annotated[str | None, Header(alias="X-Correlation-ID")] = None,
+) -> str | None:
     return sanitize_correlation_id(correlation_id)

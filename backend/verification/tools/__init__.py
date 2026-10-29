@@ -45,15 +45,8 @@ Typical usage::
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
 
-from backend.verification.tools.tool_registry import (
-    execute_check as _execute_registry_check,
-    execute_check as _execute_check,
-    is_check_registered,
-    list_checks,
-    register_check,
-)
+from backend.verification.tools.tool_registry import register_check
 from backend.verification.tools.configuration_checker import execute_check as config_check
 from backend.verification.tools.reward_checker import execute_check as reward_check
 from backend.verification.tools.episode_checker import execute_check as episode_check

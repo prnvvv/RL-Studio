@@ -59,7 +59,7 @@ def adapt_input(
         ``TypeError``: If *raw* is not a ``dict``.
     """
     if not isinstance(raw, dict):
-        raise InputValidationError(
+        raise InputValidationError(  # noqa: F823
             "Verification input must be a dictionary, "
             f"got {type(raw).__name__}"
         )

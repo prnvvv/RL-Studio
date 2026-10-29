@@ -3,10 +3,8 @@
 from __future__ import annotations
 
 from sqlalchemy import (
-    Table, Column, String, Integer, DateTime, MetaData, Insert, Float
+    Table, Column, String, Integer, DateTime, MetaData, Float
 )
-from backend.database.base import Base
-
 # Event types matching shared.events canon
 event_types = (
     "execution_started",

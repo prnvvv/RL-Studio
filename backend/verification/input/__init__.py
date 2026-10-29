@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Dict, Optional
+from __future__ import annotations
 
 # ---------------------------------------------------------------------------
 # Public API symbols — explicitly listed so ``__all__`` is meaningful.

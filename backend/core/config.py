@@ -1,9 +1,10 @@
 """Core configuration."""
+
 from __future__ import annotations
 
+from typing import Any
 import os
 from pathlib import Path
-from typing import Any, Dict
 
 
 class Settings:
@@ -20,7 +21,7 @@ class Settings:
         self.log_level = os.getenv("LOG_LEVEL", "INFO")
         self.cors_origins = os.getenv("CORS_ORIGINS", "*").split(",") if os.getenv("CORS_ORIGINS") else ["*"]
 
-    def model_dump(self) -> Dict[str, Any]:
+    def model_dump(self) -> dict[str, Any]:
         return {
             "app_name": self.app_name,
             "debug": self.debug,

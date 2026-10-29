@@ -3,6 +3,8 @@ from __future__ import annotations
 from logging.config import fileConfig
 from sqlalchemy import create_engine
 
+from alembic import context
+
 from backend.database.base import Base
 
 # this is the Alembic Config object, which provides
@@ -31,7 +33,7 @@ def run_migrations_offline() -> None:
 
     """
     url = config.get_main_option("URL")
-    context = alembic.context
+    context = alembic.context  # noqa: F821
     context.configure(url=url, target_metadata=target_metadata, literal_binds=True)
 
     with context.begin_transaction():

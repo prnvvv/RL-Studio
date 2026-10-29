@@ -3,10 +3,14 @@ from __future__ import annotations
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+import logging
+
 from fastapi.responses import JSONResponse
 
 from backend.core.config import settings
 from backend.core.errors import APIError
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title=settings.app_name,
@@ -42,7 +46,7 @@ try:
 
     app.include_router(verification_router)
 except Exception:
-    pass
+        logger.exception("Failed to include verification routes")
 
 try:
     from backend.api.routers.provenance import router as provenance_router
@@ -55,4 +59,4 @@ try:
     app.include_router(evaluation_router)
     app.include_router(diagnosis_router)
 except Exception:
-    pass
+        logger.exception("Failed to include verification routes")

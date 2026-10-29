@@ -82,7 +82,8 @@ without making live API requests.
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional, Protocol
+
+from typing import Optional, Dict
 
 # Import from meta_ai - some names are conditional (e.g. MetaAIProviderLangChain)
 # We import them inside a try/except so the package is usable even when

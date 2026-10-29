@@ -900,7 +900,7 @@ class RecoveryService:
                     }
                 },
             )
-            recovered = self._update_recovery(
+            _recovered = self._update_recovery(
                 recovery_id,
                 correlation_id=correlation_id,
                 action="executing",
@@ -938,7 +938,7 @@ class RecoveryService:
             new_artifact_id = new_id("artifact")
             new_checkpoint_id = new_id("checkpoint")
             with self.database.write() as conn:
-                artifact = artifacts_repo.create_artifact(
+                _artifact = artifacts_repo.create_artifact(
                     conn,
                     artifact_id=new_artifact_id,
                     run_id=source["run_id"],

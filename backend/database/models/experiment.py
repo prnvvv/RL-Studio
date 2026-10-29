@@ -1,7 +1,7 @@
 """Experiment ORM model."""
 from __future__ import annotations
 
-from sqlalchemy import Column, String, Text, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey
 from sqlalchemy.sql import func
 
 from backend.database.base import Base
