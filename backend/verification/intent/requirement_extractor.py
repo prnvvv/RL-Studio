@@ -9,7 +9,7 @@ expected values.
 from __future__ import annotations
 
 import uuid
-from typing import Any, Dict, List
+from typing import Any
 
 from backend.verification.models import (
     RequirementSource,
@@ -20,7 +20,7 @@ from backend.verification.models import (
 
 def extract_requirements(
     parsed: object,
-) -> List[VerificationRequirement]:
+) -> list[VerificationRequirement]:
     """Convert a parsed intent result into a list of VerificationRequirement objects.
 
     Args:
@@ -35,9 +35,9 @@ def extract_requirements(
     if not isinstance(parsed, dict):
         return []
 
-    requirements: List[VerificationRequirement] = []
+    requirements: list[VerificationRequirement] = []
     original_text: str = parsed.get("original_text", "")
-    requirements_data: List[Dict[str, Any]] = parsed.get("requirements", [])
+    requirements_data: list[dict[str, Any]] = parsed.get("requirements", [])
 
     for rd in requirements_data:
         req = VerificationRequirement(
