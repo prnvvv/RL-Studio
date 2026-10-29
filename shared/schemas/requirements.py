@@ -10,11 +10,11 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
 
-from .base import SCHEMA_VERSION, new_uuid, utc_now
+from .base import SCHEMA_VERSION, new_uuid
 
 
 class RequirementSource(str, Enum):
@@ -65,7 +65,7 @@ class Requirement(BaseModel):
         default="confirmed",
         description="Confirmation status: 'confirmed', 'proposed', 'deprecated'.",
     )
-    operator: Optional[ComparisonOperator] = Field(
+    operator: ComparisonOperator | None = Field(
         default=None, description="Comparison operator when the requirement checks a value."
     )
     expected_value: Any = Field(
@@ -75,25 +75,25 @@ class Requirement(BaseModel):
             "requirement is purely structural."
         ),
     )
-    tolerance: Optional[float] = Field(
+    tolerance: float | None = Field(
         default=None, ge=0, description="Absolute tolerance for numeric comparisons."
     )
-    environment_version: Optional[str] = Field(
+    environment_version: str | None = Field(
         default=None, description="Environment version the requirement applies to, if scoped."
     )
-    agent_config_fingerprint: Optional[str] = Field(
+    agent_config_fingerprint: str | None = Field(
         default=None, description="Agent config fingerprint the requirement applies to, if scoped."
     )
-    created_at: Optional[datetime] = Field(
+    created_at: datetime | None = Field(
         default=None,
         description="UTC creation timestamp (timezone-aware). Left None by default "
         "for deterministic tests; call sites that need it use a factory.",
     )
-    confirmed_by: Optional[str] = Field(
+    confirmed_by: str | None = Field(
         default=None, description="Identifier of the confirmer (developer, test id, ...)."
     )
-    created_by: Optional[str] = None
-    change_history: List[Dict[str, Any]] = Field(default_factory=list)
-    extensions: Dict[str, Any] = Field(default_factory=dict)
+    created_by: str | None = None
+    change_history: list[dict[str, Any]] = Field(default_factory=list)
+    extensions: dict[str, Any] = Field(default_factory=dict)
 
     model_config = {"populate_by_name": True, "extra": "forbid"}
