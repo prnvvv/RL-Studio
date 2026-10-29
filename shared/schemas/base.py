@@ -24,4 +24,4 @@ def new_uuid() -> str:
     return str(uuid.uuid4())
 
 
-__all__ = ["SCHEMA_VERSION", "utc_now", "new_uuid"]
+__all__ = ["SCHEMA_VERSION", "new_uuid", "utc_now"]
