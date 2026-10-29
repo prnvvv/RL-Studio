@@ -114,7 +114,7 @@ def execute_check(
     expected = requirement.expected_value
     evidence_parts: List[str] = []
 
-    # Build a picture of what's available
+    # Build a picture of what's available from explicit flags
     term_provided = termination_observed is not None
     trunc_provided = truncation_observed is not None
     goal_provided = goal_attained_observed is not None
@@ -170,7 +170,7 @@ def execute_check(
 
         return result
 
-    # If we have full episode_data, try to extract events from it
+    # If we have full episode_data, try to extract events from it and evaluate
     if episode_data is not None:
         term_event = _find_termination_event(episode_data)
         trunc_event = _find_truncation_event(episode_data)
@@ -184,10 +184,86 @@ def execute_check(
         if goal_event is not None:
             new_evidence_parts.append(f"goal_event:{goal_event['key']}={goal_event['value']}")
 
-        # Add the new evidence parts to the existing ones (but we need to
-        # re-evaluate; for simplicity, just set evidence_parts and return
-        # a result based on what we have)
         evidence_parts.extend(new_evidence_parts)
+
+        # Evaluate based on extracted events with correct semantics:
+        # - Goal attainment takes priority
+        # - If termination event found with True value AND no truncation (trunc event False or absent), it's terminated
+        # - If truncation event found with True value, that's the status
+        # - Otherwise unknown
+        goal_found = goal_event is not None and goal_event["value"] is True
+        term_found = term_event is not None and term_event["value"] is True
+        trunc_found = trunc_event is not None and trunc_event["value"] is True
+
+        # Actual status determination with correct semantics:
+        # - If goal was attained, that's the status
+        # - If episode terminated (term event found with True value) and was NOT truncated (trunc event False or absent), it's terminated
+        # - If episode was truncated (trunc event found with True value), that's the status
+        # - Otherwise unknown
+        actual_status: Optional[str] = None
+        if goal_found:
+            actual_status = "goal_attained"
+        elif term_found and not trunc_found:
+            # Episode terminated and was not truncated
+            actual_status = "terminated"
+        elif trunc_found:
+            # Episode was truncated
+            actual_status = "truncated"
+        else:
+            actual_status = "unknown"
+
+        expected_status = str(expected) if expected is not None else None
+
+        # Map expected boolean to the corresponding status string for comparison.
+        # expected_value=True for termination means "episode must terminate";
+        # the actual status string for termination is "terminated".
+        # expected_value=False means "episode must not terminate" / "episode must not
+        # successfully terminate"; the actual status string for not-terminating is
+        # "not_terminated".
+        expected_status_mapped: Optional[str] = None
+        if expected is True:
+            expected_status_mapped = "terminated"
+        elif expected is False:
+            expected_status_mapped = "not_terminated"
+
+        if expected_status and actual_status != "unknown":
+            if expected_status_mapped is not None:
+                # Compare using the mapped status string for boolean expectations.
+                if expected_status_mapped == actual_status:
+                    status = "pass"
+                    description = f"expected={expected_status}, actual={actual_status}"
+                else:
+                    status = "fail"
+                    description = f"expected={expected_status}, actual={actual_status}"
+            elif expected_status == actual_status:
+                # Fallback: direct string comparison (e.g. expected="pass", actual="pass")
+                status = "pass"
+                description = f"expected={expected_status}, actual={actual_status}"
+            else:
+                status = "fail"
+                description = f"expected={expected_status}, actual={actual_status}"
+        else:
+            status = "unknown"
+            description = f"expected={expected_status}, actual={actual_status}"
+
+        details = _make_details(description, source)
+
+        from backend.verification.models import VerificationCheckResult
+
+        result = VerificationCheckResult(
+            requirement_id=requirement.id,
+            status=status,
+            expected=expected,
+            actual=actual_status,
+            tolerance=None,
+            evidence_refs=evidence_parts,
+            details=details,
+        )
+
+        # Add evidence parts
+        result.evidence_refs.extend([f"episode:{p}" for p in evidence_parts])
+
+        return result
 
     # If we have no episode_data and no flags, return unknown
     if not term_provided and not trunc_provided and not goal_provided and episode_data is None:
@@ -205,10 +281,7 @@ def execute_check(
 
     # We have some evidence; return a result based on what we know.
     # If we have a determined status, use it; otherwise unknown.
-    if 'status' in dir() and status != "unknown":
-        # Result was already created in the term_provided branch
-        # But we need to return it; the structure above creates it inside the if
-        # Let me just return a result based on the evidence_parts
+    if "status" in dir() and "status" in dir():
         pass
 
     # Fall back to unknown
@@ -223,12 +296,3 @@ def execute_check(
         evidence_refs=evidence_parts,
         details=_make_details("Episode evidence partially available; see evidence_refs for details", source),
     )
-
-
-# ---------------------------------------------------------------------------
-# Module initialisation: no side effects beyond function definitions.
-# ---------------------------------------------------------------------------
-
-# Ensure the module can be imported without side effects beyond function
-# definitions and the harmless helper functions above.  No API calls, no
-# network hooks, no registry mutations occur at module load time.

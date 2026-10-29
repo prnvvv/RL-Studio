@@ -4,7 +4,8 @@ from __future__ import annotations
 from sqlalchemy import MetaData
 from sqlalchemy.orm import DeclarativeBase
 
+CustomBase = DeclarativeBase
 
-class CustomBase(DeclarativeBase):
-    """Custom declarative base with naming conventions."""
-    pass
+# Backwards-compatible Base for code that imports from backend.database.base
+# This mirrors the pattern used when SQLAlchemy 1.x style Base is expected.
+Base = CustomBase

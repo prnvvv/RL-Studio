@@ -34,6 +34,7 @@ class RequirementType(str, Enum):
     collision = "collision"
     metric = "metric"
     configuration = "configuration"
+    event = "event"
 
 
 class ComparisonOperator(str, Enum):

@@ -21,7 +21,7 @@ execution_events = Table(
     Column("actual_reward", Float, nullable=True),
     Column("timestamp", DateTime(timezone=True), server_default="CURRENT_TIMESTAMP"),
 )
-Base.metadata.create_all(bind=engine)
+metadata.create_all(bind=engine)
 
 
 class Event:

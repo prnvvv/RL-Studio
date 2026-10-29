@@ -87,7 +87,7 @@ jobs:
         working-directory: .
         run: |
           if command -v ruff &>/dev/null; then
-            ruff check backend shared scripts 2>/dev/null || echo "Ruff check completed"
+            ruff check backend shared scripts
           else
             echo "No lint tool found — skipping"
           fi
@@ -95,14 +95,14 @@ jobs:
       - name: Run type-check (mypy)
         run: |
           if command -v mypy &>/dev/null; then
-            mypy . --explicit-package-bases 2>/dev/null || echo "MyPy type-check completed"
+            mypy . --explicit-package-bases
           else
             echo "MyPy not found — skipping type-check"
           fi
 
       - name: Run tests (pytest)
         run: |
-          PYTHONPATH=.. python -m pytest -x -v ../backend 2>/dev/null || echo "No pytest tests found or tests passed/failed"
+          PYTHONPATH=.. python -m pytest -x -v ../backend
 
   frontend-ci:
     name: Frontend CI

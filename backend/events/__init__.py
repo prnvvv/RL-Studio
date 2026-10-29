@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from sqlalchemy import (
-    Table, Column, String, Integer, DateTime, MetaData, Insert
+    Table, Column, String, Integer, DateTime, MetaData, Insert, Float
 )
 from backend.database.base import Base
 
@@ -34,4 +34,4 @@ execution_events = Table(
     Column("actual_reward", Float, nullable=True),
     Column("timestamp", DateTime(timezone=True), server_default="CURRENT_TIMESTAMP"),
 )
-Base.metadata.create_all(bind=None)  # table created when connected
+metadata.create_all(bind=None)  # table created when connected

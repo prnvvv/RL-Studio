@@ -45,6 +45,9 @@ class RequirementType(Enum):
     action_space = "action_space"
     grid_goal = "grid_goal"
     collision = "collision"
+    metric = "metric"
+    configuration = "configuration"
+    event = "event"
 
 
 class CheckStatus(Enum):
@@ -172,6 +175,9 @@ class VerificationRequirement(BaseModel):
     tolerance: Optional[float] = Field(
         default=None, ge=0, description="Absolute tolerance for numeric comparisons"
     )
+    is_mandatory: bool = Field(
+        default=True, description="Whether this requirement blocks PASS when failed/unverifiable"
+    )
     metadata: Dict[str, Any] = Field(
         default_factory=dict, description="Free-form key-value pairs"
     )
@@ -259,6 +265,10 @@ class VerificationCheckResult(BaseModel):
         description=(
             "Free-form details; must not contain secrets, credentials, or raw prompts"
         ),
+    )
+    is_mandatory: bool = Field(
+        default=True,
+        description="Whether this requirement blocks PASS when failed/unverifiable",
     )
 
     model_config = {"populate_by_name": True, "extra": "allow"}

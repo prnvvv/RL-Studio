@@ -27,15 +27,17 @@ def _find_event_in_records(
     """Find an event with the given name in a list of record dicts.
 
     Returns the first matching event dict, or None if not found.
-    Checks multiple possible field names including ``event_name``, 
-    ``name``, and variations.
+    Checks multiple possible field names including ``event_name``,
+    ``name``, and direct key matches.
+    Also inspects the ``event_name`` value within each record dict
+    when the record is a dict with an ``event_name`` field.
     """
     if records is None:
         return None if required else {"found": False, "reason": "no_records"}
     for record in records:
         if not isinstance(record, dict):
             continue
-        # Check various possible field names for the event
+        # Check direct key matches first
         possible_keys = [
             event_name,
             f"event_{event_name}",
@@ -46,6 +48,10 @@ def _find_event_in_records(
         for key in possible_keys:
             if key in record:
                 return {"found": True, "event": record, "field": key}
+        # If no direct key match, check the event_name value inside the dict
+        record_event_name = record.get("event_name") or record.get("name")
+        if record_event_name == event_name:
+            return {"found": True, "event": record, "field": "event_name"}
     return {"found": False, "reason": f"event_{event_name}_not_found"}
 
 
@@ -85,13 +91,19 @@ def execute_check(
     Only supports event-ordering, counting, and timing constraints when the
     requirement models explicitly represent those constraints.
 
+    Key fix: required_event now checks the event's value, not just key presence.
+    A required event with value False does NOT satisfy a "must occur" requirement.
+    A forbidden event with value True IS a violation.
+
     Args:
         check_id: Identifier for this check.
         requirement: The ``VerificationRequirement`` describing what is expected.
         recorded_events: Optional list of event dicts that were recorded during
             the run.
-        required_event: If provided, this event must be found in recorded_events.
-        forbidden_event: If provided, this event must NOT be found in recorded_events.
+        required_event: If provided, this event must be found in recorded_events
+            with a truthy value.
+        forbidden_event: If provided, this event must NOT be found in recorded_events
+            with a truthy value.
         expected_event_order: If provided, events must appear in this order.
         event_count: If provided, a dict {event_name: count} specifying
             required counts.
@@ -110,9 +122,29 @@ def execute_check(
         if found and found.get("found"):
             # Check that the found event has meaningful semantics beyond
             # a superficial key name match.  A record that only contains
-            # the key name (e.g. {"name": "goal"}) is insufficient evidence.
+            # the key name (e.g. {"goal_reached": False}) is insufficient
+            # evidence for a "must occur" requirement.
             event_record = found.get("event", {})
             key_match = found.get("field", "")
+            # Check that the matched key has a truthy value in the record
+            event_value = event_record.get(key_match)
+            if event_value is False:
+                # The event key exists but is False — this does NOT satisfy
+                # a "must occur" requirement; treat as not found for this purpose.
+                from backend.verification.models import VerificationCheckResult
+
+                return VerificationCheckResult(
+                    requirement_id=requirement.id,
+                    status="unknown",
+                    expected=expected,
+                    actual=None,
+                    tolerance=None,
+                    evidence_refs=evidence_parts,
+                    details={
+                        "note": f"required event '{required_event}' found but value is False; "
+                        "cannot satisfy a requirement that the event must occur"
+                    },
+                )
             # If the only matching key is "name" or "event" without other
             # event-specific fields, treat as insufficient evidence.
             superficial_keys = {"name", "event"}
@@ -150,7 +182,8 @@ def execute_check(
                 tolerance=None,
                 evidence_refs=evidence_parts,
                 details={
-                    "note": f"required event '{required_event}' not found in recorded events; evidence coverage may be insufficient"
+                    "note": f"required event '{required_event}' not found in recorded events; "
+                    "evidence coverage may be insufficient"
                 },
             )
 
@@ -160,15 +193,25 @@ def execute_check(
         if found and found.get("found"):
             from backend.verification.models import VerificationCheckResult
 
-            return VerificationCheckResult(
-                requirement_id=requirement.id,
-                status="fail",
-                expected=expected,
-                actual=f"forbidden event '{forbidden_event}' was recorded",
-                tolerance=None,
-                evidence_refs=evidence_parts,
-                details={"note": f"forbidden event '{forbidden_event}' was recorded but was expected not to occur"},
-            )
+            # Check that the forbidden event has a truthy value;
+            # if the event record has the key but value is False,
+            # that's not a violation of "must not occur".
+            event_record = found.get("event", {})
+            key_match = found.get("field", "")
+            event_value = event_record.get(key_match)
+            if event_value is True:
+                return VerificationCheckResult(
+                    requirement_id=requirement.id,
+                    status="fail",
+                    expected=expected,
+                    actual=f"forbidden event '{forbidden_event}' was recorded",
+                    tolerance=None,
+                    evidence_refs=evidence_parts,
+                    details={"note": f"forbidden event '{forbidden_event}' was recorded but was expected not to occur"},
+                )
+            # If the forbidden event key exists but value is False,
+            # that's what we want; continue without failure.
+            # Continue to other checks.
         # Forbidden event not found — that's what we want; continue
 
     # Handle expected_event_order
@@ -246,12 +289,3 @@ def execute_check(
         details={"note": "Event requirements verified against recorded events"},
     )
     return result
-
-
-# ---------------------------------------------------------------------------
-# Module initialisation: no side effects beyond function definitions.
-# ---------------------------------------------------------------------------
-
-# Ensure the module can be imported without side effects beyond function
-# definitions and the harmless helper functions above.  No API calls, no
-# network hooks, no registry mutations occur at module load time.

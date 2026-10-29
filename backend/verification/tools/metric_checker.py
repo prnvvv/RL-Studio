@@ -20,6 +20,141 @@ from backend.verification.models import (
 from backend.verification.exceptions import InputValidationError, EvidenceUnavailableError
 
 
+def _classify_observation_value(value: Optional[float]) -> str:
+    """Classify a numeric metric value for reporting purposes."""
+    if value is None:
+        return "missing"
+    if isinstance(value, float):
+        if value != value:  # NaN check
+            return "nan"
+        if value == float("inf"):
+            return "positive_inf"
+        if value == float("-inf"):
+            return "negative_inf"
+    return "numeric"
+
+
+def _evaluate_observation_against_threshold(
+    expected: float,
+    actual: float,
+    operator: str,
+    tolerance: Optional[float],
+) -> str:
+    """Evaluate a single observation against a threshold.
+
+    Returns one of: 'pass', 'fail', 'unknown'.
+    """
+    diff = actual - expected
+
+    if operator == "==":
+        if tolerance is not None:
+            if abs(diff) <= tolerance:
+                return "pass"
+            return "fail"
+        # No tolerance: exact match
+        if diff == 0:
+            return "pass"
+        return "fail"
+
+    elif operator == ">=":
+        threshold = -tolerance if tolerance is not None else 0
+        if diff >= threshold:
+            return "pass"
+        return "fail"
+
+    elif operator == "<=":
+        threshold = tolerance if tolerance is not None else 0
+        if diff <= threshold:
+            return "pass"
+        return "fail"
+
+    elif operator == ">":
+        threshold = tolerance if tolerance is not None else 0
+        if diff > threshold:
+            return "pass"
+        return "fail"
+
+    elif operator == "<":
+        threshold = tolerance if tolerance is not None else 0
+        if diff < threshold:
+            return "pass"
+        return "fail"
+
+    elif operator == "!=":
+        if diff != 0:
+            return "pass"
+        return "fail"
+
+    else:
+        return "unknown"
+
+
+def _determine_overall_status(observation_results: List[str]) -> str:
+    """Determine the overall status from per-observation results.
+
+    Rules:
+    - If any observation fails -> overall FAIL
+    - If all observations pass -> overall PASS
+    - If some observations are missing/unknown and none fail -> UNKNOWN
+    """
+    has_fail = any(r == "fail" for r in observation_results)
+    all_pass = all(r == "pass" for r in observation_results)
+    has_unknown_or_missing = any(
+        r in ("unknown", "missing") for r in observation_results
+    )
+
+    if has_fail:
+        return "fail"
+    elif all_pass:
+        return "pass"
+    elif has_unknown_or_missing and not all_pass:
+        return "unknown"
+    else:
+        return "unknown"
+
+
+def _build_details_dict(
+    operator: str,
+    tolerance: Optional[float],
+    observation_count: int,
+    failing_indices: List[int],
+    all_values: List[float],
+    expected: float,
+) -> Dict[str, str]:
+    """Build a details dict that is always Pydantic-compatible.
+
+    Returns a dict with a ``note`` key whose value is a plain string.
+    Never returns nested dicts or arbitrary structures, to avoid
+    ``pydantic.ValidationError: Input should be a valid dictionary``.
+    """
+    obs_descriptions: List[str] = []
+    for i, val in enumerate(all_values):
+        cls = _classify_observation_value(val)
+        obs_descriptions.append(f"obs[{i}]({cls}:{val})")
+
+    if failing_indices:
+        fail_parts: List[str] = []
+        for i in failing_indices:
+            actual = all_values[i]
+            diff_val = actual - expected
+            fail_parts.append(f"obs[{i}]: {operator} expected={expected} diff={diff_val:.2f}")
+        fail_detail = "; ".join(fail_parts)
+        note = (
+            f"Metric check: {observation_count} observations, "
+            f"{operator} expected={expected}; "
+            f"failed: {fail_detail}; "
+            f"all_values: {'; '.join(obs_descriptions)}"
+        )
+    else:
+        note = (
+            f"Metric check: {observation_count} observations, "
+            f"{operator} expected={expected}; "
+            f"all_values: {'; '.join(obs_descriptions)}"
+        )
+
+    return {"note": note}
+
+
 def _extract_metric_value(
     source: Optional[Dict[str, Any]],
     key: str = "value",
@@ -47,67 +182,10 @@ def _extract_metric_timestamp(
     if isinstance(ts, str):
         return ts
     if isinstance(ts, (int, float)):
-        # Assume it's a Unix timestamp; convert to ISO string approximation
         from datetime import datetime, timezone
+
         return datetime.fromtimestamp(ts, tz=timezone.utc).isoformat()
     return None
-
-
-def _compare_with_threshold(
-    expected: Optional[float],
-    actual: Optional[float],
-    operator: str,
-    tolerance: Optional[float],
-) -> Dict[str, Any]:
-    """Compare an actual value against an expected threshold.
-
-    Returns a dict with ``status`` and ``details``.
-    """
-    if expected is None or actual is None:
-        return {"status": "unknown", "details": "missing expected or actual value"}
-
-    diff = actual - expected
-
-    if operator == "==":
-        if tolerance is not None:
-            if abs(diff) <= tolerance:
-                return {"status": "pass", "details": f"|actual - expected|={abs(diff):.2f} <= tolerance={tolerance}"}
-            return {"status": "fail", "details": f"|actual - expected|={abs(diff):.2f} > tolerance={tolerance}"}
-        if diff == 0:
-            return {"status": "pass", "details": {"detail": "exact match"}}
-        return {"status": "fail", "details": {"detail": f"expected={expected}, actual={actual}"}}
-
-    elif operator == ">=":
-        threshold = -tolerance if tolerance is not None else 0
-        if diff >= threshold:
-            return {"status": "pass", "details": f"actual - expected >= {threshold}"}
-        return {"status": "fail", "details": f"actual - expected < {threshold}"}
-
-    elif operator == "<=":
-        threshold = tolerance if tolerance is not None else 0
-        if diff <= threshold:
-            return {"status": "pass", "details": f"actual - expected <= {threshold}"}
-        return {"status": "fail", "details": f"actual - expected > {threshold}"}
-
-    elif operator == ">":
-        threshold = tolerance if tolerance is not None else 0
-        if diff > threshold:
-            return {"status": "pass", "details": f"actual - expected > {threshold}"}
-        return {"status": "fail", "details": f"actual - expected <= {threshold}"}
-
-    elif operator == "<":
-        threshold = tolerance if tolerance is not None else 0
-        if diff < threshold:
-            return {"status": "pass", "details": f"actual - expected < {threshold}"}
-        return {"status": "fail", "details": f"actual - expected >= {threshold}"}
-
-    elif operator == "!=":
-        if diff != 0:
-            return {"status": "pass", "details": {"detail": "values differ"}}
-        return {"status": "fail", "details": {"detail": "values are equal"}}
-
-    else:
-        return {"status": "unknown", "details": {"detail": f"Unsupported operator: {operator!r}"}}
 
 
 def execute_check(
@@ -126,6 +204,16 @@ def execute_check(
 
     Only the checks supported by actual available evidence are implemented.
 
+    Key differences from the original implementation:
+    - Evaluates ALL metric observations, not just the first one.
+    - If any observation fails the comparison, the overall result is FAIL.
+    - NaN, positive infinity, negative infinity, and missing values are
+      classified and reported explicitly.
+    - The ``details`` field is always a dict with a ``note`` string; nested
+      dicts are avoided to prevent ``pydantic.ValidationError``.
+    - Handles ``metric_observations``, ``metric_values``, and ``thresholds``
+      paths consistently.
+
     Args:
         check_id: Identifier for this check.
         requirement: The ``VerificationRequirement`` describing what is expected.
@@ -141,24 +229,48 @@ def execute_check(
         ``UNKNOWN``, or ``ERROR``.
     """
     expected = requirement.expected_value
-    actual: Optional[float] = None
     evidence_parts: List[str] = []
 
-    # Determine actual value from available sources
+    # ------------------------------------------------------------------
+    # Phase 1: Extract actual values from the available source(s).
+    # ------------------------------------------------------------------
+
+    all_actuals: List[float] = []
+    all_classifications: List[str] = []
+
+    # Path A: metric_observations (list of MetricObservation)
     if metric_observations is not None and len(metric_observations) > 0:
-        # Use the first observation's value
-        first_obs = metric_observations[0]
-        if hasattr(first_obs, "value"):
-            actual = float(first_obs.value)
-        elif isinstance(first_obs, dict):
-            actual = _extract_metric_value(first_obs)
+        for obs in metric_observations:
+            if hasattr(obs, "value") and obs.value is not None:
+                val = float(obs.value)
+                all_actuals.append(val)
+                all_classifications.append(_classify_observation_value(val))
+            elif isinstance(obs, dict):
+                val = _extract_metric_value(obs)
+                if val is not None:
+                    all_actuals.append(val)
+                    all_classifications.append(_classify_observation_value(val))
+                else:
+                    all_actuals.append(float("nan"))
+                    all_classifications.append("missing")
+            else:
+                all_actuals.append(float("nan"))
+                all_classifications.append("missing")
         evidence_parts.append(f"metric_observations:{len(metric_observations)}")
+
+    # Path B: metric_values (list of raw floats)
     elif metric_values is not None and len(metric_values) > 0:
-        # Use the first value
-        actual = float(metric_values[0])
+        for val in metric_values:
+            if val is not None:
+                all_actuals.append(float(val))
+                all_classifications.append(_classify_observation_value(float(val)))
+            else:
+                all_actuals.append(float("nan"))
+                all_classifications.append("missing")
         evidence_parts.append(f"metric_values:{len(metric_values)}")
+
+    # Path C: thresholds defined but no observations
     elif thresholds is not None:
-        # No observations, but thresholds are defined; return UNKNOWN
         from backend.verification.models import VerificationCheckResult
 
         return VerificationCheckResult(
@@ -173,7 +285,8 @@ def execute_check(
             },
         )
 
-    if actual is None:
+    # Path D: no evidence available at all
+    if not all_actuals:
         from backend.verification.models import VerificationCheckResult
 
         return VerificationCheckResult(
@@ -186,7 +299,10 @@ def execute_check(
             details={"note": "No metric value available for comparison"},
         )
 
-    # Determine the comparison operator and tolerance
+    # ------------------------------------------------------------------
+    # Phase 2: Determine operator and tolerance.
+    # ------------------------------------------------------------------
+
     if thresholds is not None and expected is not None:
         # Look up the threshold for the relevant metric name
         metric_name = metric_names[0] if metric_names else None
@@ -202,19 +318,80 @@ def execute_check(
         operator = requirement.comparison_operator or "=="
         tolerance = requirement.tolerance
 
-    # Perform the comparison
-    comparison_result = _compare_with_threshold(expected, actual, operator, tolerance)
+    # ------------------------------------------------------------------
+    # Phase 3: Evaluate every observation against the threshold.
+    # ------------------------------------------------------------------
+
+    # If no expected value is available, all evaluations are inconclusive.
+    if expected is None:
+        # Return UNKNOWN with all observations classified as unknown
+        from backend.verification.models import VerificationCheckResult
+
+        all_actuals_copy = list(all_actuals)
+        # Classify all values as missing/unknown since there's no expected value
+        details = {
+            "note": f"Metric check: {len(all_actuals)} observations, "
+                    f"no expected value available; all evaluations inconclusive"
+        }
+        return VerificationCheckResult(
+            requirement_id=requirement.id,
+            status="unknown",
+            expected=expected,
+            actual=all_actuals_copy[0] if all_actuals_copy else None,
+            tolerance=None,
+            evidence_refs=evidence_parts,
+            details=details,
+        )
+
+    observation_results: List[str] = []
+    failing_indices: List[int] = []
+
+    for i, (actual, classification) in enumerate(zip(all_actuals, all_classifications)):
+        # Skip NaN/missing observations — treat as unknown, not fail
+        if classification in ("nan", "missing"):
+            observation_results.append("unknown")
+            failing_indices.append(i)  # track for reporting
+            continue
+
+        result = _evaluate_observation_against_threshold(
+            expected=float(expected),
+            actual=actual,
+            operator=operator,
+            tolerance=tolerance,
+        )
+        observation_results.append(result)
+        if result == "fail":
+            failing_indices.append(i)
+
+    # ------------------------------------------------------------------
+    # Phase 4: Determine overall status.
+    # ------------------------------------------------------------------
+
+    overall = _determine_overall_status(observation_results)
+
+    # ------------------------------------------------------------------
+    # Phase 5: Build the result.
+    # ------------------------------------------------------------------
+
+    details = _build_details_dict(
+        operator=operator,
+        tolerance=tolerance,
+        observation_count=len(all_actuals),
+        failing_indices=failing_indices,
+        all_values=all_actuals,
+        expected=float(expected) if expected is not None else 0.0,
+    )
 
     from backend.verification.models import VerificationCheckResult
 
     result = VerificationCheckResult(
         requirement_id=requirement.id,
-        status=comparison_result["status"],
+        status=overall,
         expected=expected,
-        actual=actual,
+        actual=all_actuals[0] if all_actuals else None,
         tolerance=tolerance,
         evidence_refs=evidence_parts,
-        details=comparison_result["details"],
+        details=details,
     )
 
     # Add evidence references for metric observations
@@ -227,12 +404,3 @@ def execute_check(
                 result.evidence_refs.append(obs_ref)
 
     return result
-
-
-# ---------------------------------------------------------------------------
-# Module initialisation: no side effects beyond function definitions.
-# ---------------------------------------------------------------------------
-
-# Ensure the module can be imported without side effects beyond function
-# definitions and the harmless helper functions above.  No API calls, no
-# network hooks, no registry mutations occur at module load time.

@@ -95,20 +95,10 @@ def execute_check(
     evidence_parts: List[str] = []
 
     # Determine what evidence is available and what to compare
-    if configured_reward is not None and observed_reward is None:
-        # Only configured reward available
-        actual = configured_reward
-        evidence_parts.append("configured_reward")
-    elif observed_reward is not None and configured_reward is None:
-        # Only observed reward available
-        actual = observed_reward
-        evidence_parts.append("observed_reward")
-    elif configured_reward is not None and observed_reward is not None:
-        # Both available — compare them
-        actual = observed_reward
-        evidence_parts.extend(["configured_reward", "observed_reward"])
-    else:
-        # Neither available
+    # Critical: if there is no observed reward (from actual execution evidence),
+    # we must NOT fabricate or default to the configured value.  Return UNKNOWN.
+    if observed_reward is None:
+        # No actual observed reward — cannot compare; return UNKNOWN
         from backend.verification.models import VerificationCheckResult
 
         return VerificationCheckResult(
@@ -118,7 +108,30 @@ def execute_check(
             actual=None,
             tolerance=None,
             evidence_refs=[],
-            details={"note": "Neither configured nor observed reward value is available", "source": source},
+            details={"note": "No observed reward available from execution evidence; cannot compare", "source": source},
+        )
+
+    if configured_reward is None:
+        # Only observed reward available; use it as actual
+        actual = observed_reward
+        evidence_parts.append("observed_reward")
+    elif observed_reward is not None and configured_reward is not None:
+        # Both available — compare them
+        actual = observed_reward
+        evidence_parts.extend(["configured_reward", "observed_reward"])
+    else:
+        # Should not reach here (observed_reward is not None handled above),
+        # but be safe.
+        from backend.verification.models import VerificationCheckResult
+
+        return VerificationCheckResult(
+            requirement_id=requirement.id,
+            status="unknown",
+            expected=expected,
+            actual=None,
+            tolerance=None,
+            evidence_refs=[],
+            details={"note": "Unexpected evidence state", "source": source},
         )
 
     expected_num = float(expected) if expected is not None else None
