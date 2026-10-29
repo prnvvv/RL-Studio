@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import sqlite3
-from typing import Any, Iterable, Mapping
+from collections.abc import Iterable, Mapping
+from typing import Any
 
 from ..utils import loads
 
