@@ -1,16 +1,18 @@
+import glob
+import json
 import os
 import sys
 import tempfile
-import glob
-import json
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
-from backend.training.callbacks import CheckpointCallback
 from stable_baselines3 import PPO
+from stable_baselines3.common.monitor import Monitor
+from stable_baselines3.common.vec_env import DummyVecEnv
+
 from backend.environments.config import WarehouseConfig
 from backend.environments.warehouse_env import Warehouse2DEnv
-from stable_baselines3.common.vec_env import DummyVecEnv
-from stable_baselines3.common.monitor import Monitor
+from backend.training.callbacks import CheckpointCallback
 
 
 def test_checkpoint_roundtrip_atomic():
