@@ -12,12 +12,7 @@ from typing import Any, Dict, List, Optional
 from backend.verification.models import (
     VerificationCheckResult,
     VerificationRequirement,
-    CheckStatus,
-    RequirementType,
-    EvidenceReference,
-    MetricObservation,
 )
-from backend.verification.exceptions import InputValidationError, EvidenceUnavailableError
 
 
 def _find_termination_event(
