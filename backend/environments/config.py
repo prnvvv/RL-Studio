@@ -23,7 +23,7 @@ fingerprint (see :mod:`backend.environments.fingerprints`).
 from __future__ import annotations
 
 from collections import deque
-from typing import List, Optional, Tuple
+from typing import List, Tuple
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
