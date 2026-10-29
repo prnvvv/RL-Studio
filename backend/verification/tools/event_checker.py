@@ -9,10 +9,14 @@ from __future__ import annotations
 
 from typing import Any
 
+from backend.verification.models import CheckStatus
+from backend.verification.models import VerificationCheckResult, VerificationRequirement
+
+from typing import Any
+
 from backend.verification.models import (
     VerificationCheckResult,
     VerificationRequirement,
-    CheckStatus,
 )
 
 
@@ -219,7 +223,7 @@ def execute_check(
         found_events: list[str] = []
         for ev in recorded_events:
             if isinstance(ev, dict):
-                name: str = ev.get("event_name", ev.get("name", ""))
+                name = ev.get("event_name", ev.get("name", ""))
                 if name in required_set and name not in found_events:
                     found_events.append(name)
 
@@ -249,7 +253,7 @@ def execute_check(
         actual_counts: dict[str, int] = {}
         for ev in recorded_events:
             if isinstance(ev, dict):
-                name2: str = ev.get("event_name", ev.get("name", ""))
+                name2 = ev.get("event_name", ev.get("name", ""))
                 actual_counts[name2] = actual_counts.get(name2, 0) + 1
 
         # Check each required count
