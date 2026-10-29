@@ -5,9 +5,10 @@ from __future__ import annotations
 import hashlib
 import json
 import uuid
+from collections.abc import Iterable
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterable, Optional
+from typing import Any
 
 
 def utc_now() -> datetime:
@@ -18,7 +19,7 @@ def utc_now_iso() -> str:
     return utc_now().isoformat().replace("+00:00", "Z")
 
 
-def to_iso(value: Optional[datetime]) -> Optional[str]:
+def to_iso(value: datetime | None) -> str | None:
     if value is None:
         return None
     if value.tzinfo is None:
@@ -34,7 +35,7 @@ def dumps(value: Any) -> str:
     return json.dumps(value, sort_keys=True, separators=(",", ":"), default=str)
 
 
-def loads(value: Optional[str], default: Any) -> Any:
+def loads(value: str | None, default: Any) -> Any:
     if value is None or value == "":
         return default
     try:
@@ -64,7 +65,7 @@ def sha256_file(path: Path, chunk_size: int = 1024 * 1024) -> str:
     return digest.hexdigest()
 
 
-def validate_sha256(value: Optional[str]) -> Optional[str]:
+def validate_sha256(value: str | None) -> str | None:
     if value is None:
         return None
     normalized = value.strip().lower()
