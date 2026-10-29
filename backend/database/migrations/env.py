@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 from logging.config import fileConfig
-from sqlalchemy import engine_from_config, pool
-from sqlalchemy.ext.asyncio import Engine
 from sqlalchemy import create_engine
 
 from backend.database.base import Base
