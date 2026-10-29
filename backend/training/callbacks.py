@@ -86,7 +86,7 @@ class CheckpointCallback(BaseCallback):
                 json.dump(meta, f, sort_keys=True)
             os.replace(tmp_path, final_path)
             os.replace(tmp_meta, meta_path)
-        except Exception as e:
+        except Exception:
             try:
                 if os.path.exists(tmp_path):
                     os.unlink(tmp_path)
