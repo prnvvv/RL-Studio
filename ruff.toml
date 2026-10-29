@@ -1,0 +1,9 @@
+# Ruff configuration (lint only; see .github/workflows/ci.yml).
+# target-version keeps the automated fixes compatible with the Python versions
+# the project is actually run on (local venv and CI).
+target-version = "py310"
+
+[lint]
+# ``__all__`` lists are grouped by module section with explanatory comments
+# rather than sorted alphabetically.
+ignore = ["RUF022"]
