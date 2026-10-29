@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 
 from backend.database.config import DatabaseConfig
@@ -9,55 +11,50 @@ from backend.database.connection import Database
 
 from .dependencies import build_services
 from .errors import install_error_handlers
-from .routers import evaluation, provenance, recovery, runs  # noqa: F401
-from .routers.ws_events import router as ws_router  # noqa: F401
-
-import logging
+from .routers import evaluation, provenance, recovery, runs
+from .routers.ws_events import router as ws_router
 
 logger = logging.getLogger(__name__)
 
-# ---------------------------------------------------------------------------
-# Database configuration
-# ---------------------------------------------------------------------------
 
-database_config = DatabaseConfig.from_env()
+def create_app(config: DatabaseConfig | None = None) -> FastAPI:
+    """Build the FastAPI application.
 
-# ---------------------------------------------------------------------------
-# FastAPI application
-# ---------------------------------------------------------------------------
+    ``config`` defaults to the environment-derived database configuration; tests
+    pass an isolated configuration.
+    """
+    database_config = config or DatabaseConfig.from_env()
 
-app = FastAPI(
-    title="Self-Healing RL Studio API",
-    version="0.1.0",
-    description=(
-        "Provenance, artifact exposure, controlled recovery, and "
-        "evidence-based evaluation endpoints. Exposure is not proof of "
-        "causal damage, and recovery execution is not recovery success."
-    ),
-)
+    @asynccontextmanager
+    async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
+        database = Database(database_config)
+        database.initialize()
+        app.state.database = database
+        app.state.services = build_services(database)
+        yield
 
-# ---------------------------------------------------------------------------
-# Lifespan context manager
-# -------------------------------------------------------------------------
+    app = FastAPI(
+        title="Self-Healing RL Studio API",
+        version="0.1.0",
+        description=(
+            "Provenance, artifact exposure, controlled recovery, and "
+            "evidence-based evaluation endpoints. Exposure is not proof of "
+            "causal damage, and recovery execution is not recovery success."
+        ),
+        lifespan=_lifespan,
+    )
 
-@asynccontextmanager
-async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
-    database = Database(database_config)
-    database.initialize()
-    app.state.database = database
-    app.state.services = build_services(database)
-    yield
+    install_error_handlers(app)
+
+    # Documented Person 4 contract endpoints.
+    app.include_router(provenance.p4_router)
+    app.include_router(recovery.p4_router)
+    app.include_router(evaluation.p4_router)
+
+    # Operational endpoints are wired but kept out of the documented schema.
+    app.include_router(runs.router, include_in_schema=False)
+    app.include_router(ws_router, include_in_schema=False)
+    return app
 
 
-app.lifespan(_lifespan)  # type: ignore[arg-type]
-
-# ---------------------------------------------------------------------------
-# Include routers
-# ---------------------------------------------------------------------------
-
-install_error_handlers(app)
-app.include_router(provenance.p4_router)
-app.include_router(recovery.p4_router)
-app.include_router(evaluation.p4_router)
-app.include_router(runs.router)
-app.include_router(ws_router)  # type: ignore[arg-type]
+app = create_app()
