@@ -8,17 +8,16 @@ in workflow_planner.py and the checker signatures in the tools package.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from backend.verification.models import RequirementType
 from backend.verification.tools.tool_registry import is_check_registered
-
 
 # ---------------------------------------------------------------------------
 # Canonical mapping: requirement type -> check tool identifier
 # ---------------------------------------------------------------------------
 
-REQUIREMENT_TO_CHECK: Dict[str, str] = {
+REQUIREMENT_TO_CHECK: dict[str, str] = {
     "reward": "check_reward",
     "termination": "check_episode",
     "event": "check_event",
@@ -27,7 +26,7 @@ REQUIREMENT_TO_CHECK: Dict[str, str] = {
 }
 
 
-def get_check_id(requirement_type: RequirementType) -> Optional[str]:
+def get_check_id(requirement_type: RequirementType) -> str | None:
     """Return the registered check tool ID for a given requirement type.
 
     Args:
@@ -39,12 +38,12 @@ def get_check_id(requirement_type: RequirementType) -> Optional[str]:
     return REQUIREMENT_TO_CHECK.get(requirement_type.value)
 
 
-def verify_registry_consistency() -> List[str]:
+def verify_registry_consistency() -> list[str]:
     """Check that the registry agrees with declared check handlers.
 
     Returns a list of warning strings; empty means consistent.
     """
-    warnings: List[str] = []
+    warnings: list[str] = []
     for req_type, check_id in REQUIREMENT_TO_CHECK.items():
         registered = is_check_registered(check_id)
         if not registered:
@@ -55,21 +54,21 @@ def verify_registry_consistency() -> List[str]:
     return warnings
 
 
-def register_all_checks() -> List[str]:
+def register_all_checks() -> list[str]:
     """Ensure all checks in the registry are registered in the tool registry.
 
     Returns a list of registration actions taken.
     """
     from backend.verification.tools import (
         configuration_checker,
-        reward_checker,
         episode_checker,
         event_checker,
         metric_checker,
+        reward_checker,
     )
 
-    actions: List[str] = []
-    handlers: Dict[str, Any] = {
+    actions: list[str] = []
+    handlers: dict[str, Any] = {
         "check_reward": reward_checker.execute_check,
         "check_episode": episode_checker.execute_check,
         "check_event": event_checker.execute_check,
