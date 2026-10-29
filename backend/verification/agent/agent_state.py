@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from backend.verification.models import (
-    VerificationInput,
-    VerificationContext,
-    VerificationCheckResult,
     CheckStatus,
+    VerificationCheckResult,
+    VerificationContext,
+    VerificationInput,
 )
 
 
@@ -18,31 +18,31 @@ class VerificationState:
     """State carried across LangGraph workflow nodes."""
 
     # Input data
-    raw_input: Optional[Dict[str, Any]] = None
-    input: Optional[VerificationInput] = None
-    context: Optional[VerificationContext] = None
+    raw_input: dict[str, Any] | None = None
+    input: VerificationInput | None = None
+    context: VerificationContext | None = None
 
     # Requirement and check state
-    requirements: Dict[str, Any] = field(default_factory=dict)
-    check_results: Dict[str, VerificationCheckResult] = field(default_factory=dict)
-    registered_checks: List[str] = field(default_factory=list)
+    requirements: dict[str, Any] = field(default_factory=dict)
+    check_results: dict[str, VerificationCheckResult] = field(default_factory=dict)
+    registered_checks: list[str] = field(default_factory=list)
 
     # Aggregation and decision
-    overall_status: Optional[CheckStatus] = None
+    overall_status: CheckStatus | None = None
     decision_details: str = ""
 
     # Workflow control
     step: str = "start"  # start, normalizing, planning, checking, aggregating, complete
-    error: Optional[str] = None
+    error: str | None = None
     retry_count: int = 0
 
     # Meta AI investigation (optional)
     investigation_pending: bool = False
-    diagnosis: Optional[Dict[str, Any]] = None
+    diagnosis: dict[str, Any] | None = None
 
     # Persistence
-    run_id: Optional[str] = None
-    verification_id: Optional[str] = None
+    run_id: str | None = None
+    verification_id: str | None = None
 
     def has_error(self) -> bool:
         return self.error is not None
