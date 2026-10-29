@@ -2,19 +2,20 @@
 from __future__ import annotations
 
 import threading
-from typing import Any, Callable, Dict
+from collections.abc import Callable
+from typing import Any
 
 
 class TrainingWorker:
     def __init__(self) -> None:
-        self._threads: Dict[str, threading.Thread] = {}
-        self._results: Dict[str, Any] = {}
+        self._threads: dict[str, threading.Thread] = {}
+        self._results: dict[str, Any] = {}
 
     def submit(self, run_id: str, fn: Callable[[], Any]) -> str:
         def _run():
             try:
                 self._results[run_id] = fn()
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 self._results[run_id] = {"error": str(e)}
 
         t = threading.Thread(target=_run, daemon=True)
@@ -22,7 +23,7 @@ class TrainingWorker:
         t.start()
         return run_id
 
-    def status(self, run_id: str) -> Dict[str, Any]:
+    def status(self, run_id: str) -> dict[str, Any]:
         t = self._threads.get(run_id)
         if t and t.is_alive():
             return {"run_id": run_id, "status": "running"}
