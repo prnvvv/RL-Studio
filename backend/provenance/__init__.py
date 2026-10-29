@@ -22,8 +22,8 @@ __all__ = [
     "ImpactAnalysis",
     "ImpactStatus",
     "IncidentRegistration",
+    "ProvenanceService",
     "ProvenanceTrace",
     "RunArtifactList",
     "RunRegistration",
-    "ProvenanceService",
 ]
