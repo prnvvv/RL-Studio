@@ -195,7 +195,7 @@ def execute_check(
             event_record = found.get("event", {})
             key_match = found.get("field", "")
             event_value = event_record.get(key_match)
-            if event_value is True:
+            if event_value is not False:
                 return VerificationCheckResult(
                     requirement_id=requirement.id,
                     status="fail",
