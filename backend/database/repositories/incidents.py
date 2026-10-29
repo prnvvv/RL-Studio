@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 import sqlite3
-from typing import Any, Optional
+from typing import Any
 
 from ..utils import dumps, utc_now_iso
 from ._common import row_to_dict
-
 
 _JSON_FIELDS = {
     "evidence_ids_json": "evidence_ids",
@@ -19,15 +18,15 @@ def create_incident(
     incident_id: str,
     run_id: str,
     status: str,
-    verification_id: Optional[str] = None,
-    environment_id: Optional[str] = None,
-    environment_version: Optional[str] = None,
-    requirement_id: Optional[str] = None,
-    severity: Optional[str] = None,
-    detection_method: Optional[str] = None,
-    summary: Optional[str] = None,
-    evidence_ids: Optional[list[str]] = None,
-    details: Optional[dict[str, Any]] = None,
+    verification_id: str | None = None,
+    environment_id: str | None = None,
+    environment_version: str | None = None,
+    requirement_id: str | None = None,
+    severity: str | None = None,
+    detection_method: str | None = None,
+    summary: str | None = None,
+    evidence_ids: list[str] | None = None,
+    details: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     now = utc_now_iso()
     conn.execute(
@@ -80,10 +79,10 @@ def set_incident_fault(
     conn: sqlite3.Connection,
     *,
     incident_id: str,
-    source_environment_version: Optional[str] = None,
-    corruption_start_timestep: Optional[int] = None,
-    corruption_end_timestep: Optional[int] = None,
-    fault_type: Optional[str] = None,
+    source_environment_version: str | None = None,
+    corruption_start_timestep: int | None = None,
+    corruption_end_timestep: int | None = None,
+    fault_type: str | None = None,
 ) -> None:
     conn.execute(
         """
