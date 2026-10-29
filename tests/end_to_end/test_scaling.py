@@ -2,22 +2,15 @@
 
 from __future__ import annotations
 
-import json
-import pytest
 
 from shared.schemas import (
     Incident,
-    Recovery,
-    Evaluation,
     RewardObservedEvent,
-    EpisodeStartedEvent,
-    EpisodeEndedEvent,
     SourceComponent,
     new_uuid,
     SCHEMA_VERSION,
 )
 from backend.fault_injection.faults import FaultType, FaultConfig, FaultInjector
-from shared.schemas.requirements import RequirementType, RequirementSource
 
 
 def test_reward_scaling_fault_changes_observed_reward():
