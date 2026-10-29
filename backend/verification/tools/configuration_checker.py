@@ -10,18 +10,19 @@ See ``backend/verification/tools/`` for the package README and integration notes
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+import math
+from typing import Any
 
 from backend.verification.models import (
-    VerificationCheckResult,
-    VerificationRequirement,
     CheckStatus,
     RequirementType,
+    VerificationCheckResult,
+    VerificationRequirement,
 )
 
 
 def _extract_config_value(
-    config: Dict[str, Any],
+    config: dict[str, Any],
     key: str,
     default: Any = None,
 ) -> Any:
@@ -38,11 +39,11 @@ def _extract_config_value(
 
 
 def _add_evidence_dict(
-    details: Dict[str, Any],
+    details: dict[str, Any],
     source: str,
-    run_identifier: Optional[str] = None,
-    environment_identifier: Optional[str] = None,
-) -> Dict[str, Any]:
+    run_identifier: str | None = None,
+    environment_identifier: str | None = None,
+) -> dict[str, Any]:
     """Add evidence provenance to the details dict."""
     if "source" not in details:
         details["source"] = source
@@ -57,7 +58,7 @@ def _add_evidence_dict(
 # Configuration checker
 # ---------------------------------------------------------------------------
 
-_TYPE_EXTRACTORS: Dict[RequirementType, callable] = {
+_TYPE_EXTRACTORS: dict[RequirementType, callable] = {
     RequirementType.reward: lambda config, key: _extract_config_value(config, "reward", None),
     RequirementType.termination: lambda config, key: _extract_config_value(config, "max_episodes", None),
     RequirementType.metric: lambda config, key: _extract_config_value(config, "metric_threshold", None),
@@ -73,7 +74,7 @@ _TYPE_EXTRACTORS: Dict[RequirementType, callable] = {
 def execute_check(
     check_id: str,
     requirement: VerificationRequirement,
-    config: Optional[Dict[str, Any]],
+    config: dict[str, Any] | None,
     *,
     source: str = "configuration",
 ) -> VerificationCheckResult:
@@ -161,8 +162,8 @@ def _compare_numeric(
     expected: float,
     actual: float,
     operator: str,
-    tolerance: Optional[float],
-) -> Dict[str, Any]:
+    tolerance: float | None,
+) -> dict[str, Any]:
     """Compare two numeric values using the given operator and tolerance.
 
     Returns a dict with ``status`` and a plain‑string ``description``.
@@ -176,9 +177,9 @@ def _compare_numeric(
     if not isinstance(expected, (int, float)) or not isinstance(actual, (int, float)):
         return {"status": "unknown", "description": f"Non-numeric comparison: expected={expected!r}, actual={actual!r}"}
 
-    if expected != expected:  # NaN check
+    if math.isnan(expected):  # NaN check
         return {"status": "unknown", "description": "Expected value is NaN; cannot compare"}
-    if actual != actual:  # NaN check
+    if math.isnan(actual):  # NaN check
         return {"status": "unknown", "description": "Actual value is NaN; cannot compare"}
     if expected == float("inf") or expected == float("-inf"):
         return {"status": "unknown", "description": "Expected value is infinity; cannot compare"}
