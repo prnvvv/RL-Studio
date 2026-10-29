@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -53,15 +53,15 @@ class ExecutionEvent(BaseModel):
     event_id: str = Field(default_factory=new_uuid, description="Stable unique event ID.")
     event_type: str = Field(description="Discriminator matching the concrete event class.")
     run_id: str = Field(description="Owning training run identifier.")
-    project_id: Optional[str] = Field(default=None, description="Owning project identifier.")
-    experiment_id: Optional[str] = Field(default=None, description="Owning experiment identifier.")
-    environment_id: Optional[str] = Field(default=None, description="Environment identifier.")
-    environment_version: Optional[str] = Field(
+    project_id: str | None = Field(default=None, description="Owning project identifier.")
+    experiment_id: str | None = Field(default=None, description="Owning experiment identifier.")
+    environment_id: str | None = Field(default=None, description="Environment identifier.")
+    environment_version: str | None = Field(
         default=None, description="Immutable environment version, e.g. 'warehouse_v1'."
     )
-    episode_id: Optional[str] = Field(default=None, description="Episode identifier, if applicable.")
-    rollout_id: Optional[str] = Field(default=None, description="Rollout identifier, if applicable.")
-    training_update_id: Optional[str] = Field(
+    episode_id: str | None = Field(default=None, description="Episode identifier, if applicable.")
+    rollout_id: str | None = Field(default=None, description="Rollout identifier, if applicable.")
+    training_update_id: str | None = Field(
         default=None, description="PPO update / iteration identifier, if applicable."
     )
     timestep: int = Field(default=0, description="Global timestep counter at the event.")
@@ -78,14 +78,14 @@ class ExecutionEvent(BaseModel):
     source_component: SourceComponent = Field(
         description="Component that produced this event."
     )
-    source_version: Optional[str] = Field(
+    source_version: str | None = Field(
         default=None, description="Software version of the producing component."
     )
-    correlation_id: Optional[str] = Field(
+    correlation_id: str | None = Field(
         default=None, description="Correlation ID linking related events (run/incident/etc).")
-    cause_id: Optional[str] = Field(
+    cause_id: str | None = Field(
         default=None, description="ID of the event that caused this one, when known.")
-    extensions: Dict[str, Any] = Field(
+    extensions: dict[str, Any] = Field(
         default_factory=dict,
         description="Documented extension fields for forward compatibility.",
     )
@@ -102,7 +102,7 @@ class EpisodeStartedEvent(ExecutionEvent):
     event_type: str = "episode_started"
 
     class Payload(BaseModel, extra="forbid"):
-        seed: Optional[int] = None
+        seed: int | None = None
 
     payload: Payload
 
@@ -134,7 +134,7 @@ class RewardObservedEvent(ExecutionEvent):
 
     class Payload(BaseModel, extra="forbid"):
         actual_reward: float
-        expected_reward: Optional[float] = Field(
+        expected_reward: float | None = Field(
             default=None,
             description="Expected value from a confirmed contract, or None when none applies.",
         )
@@ -142,7 +142,7 @@ class RewardObservedEvent(ExecutionEvent):
             default="other",
             description="Origin of the reward, e.g. 'goal', 'step', 'collision'.",
         )
-        requirement_id: Optional[str] = Field(
+        requirement_id: str | None = Field(
             default=None, description="Confirmed requirement that defines expected_reward."
         )
 
@@ -154,7 +154,7 @@ class CollisionEvent(ExecutionEvent):
 
     class Payload(BaseModel, extra="forbid"):
         agent_position: list[float]
-        collision_target: Optional[str] = Field(
+        collision_target: str | None = Field(
             default=None, description="What was collided with (obstacle id, wall, goal)."
         )
         penalty: float = Field(default=0.0, description="Reward penalty applied for the collision.")
@@ -169,7 +169,7 @@ class CheckpointWrittenEvent(ExecutionEvent):
         checkpoint_id: str
         path: str
         integrity_hash: str = Field(description="SHA-256 hash of the checkpoint bytes.")
-        training_update_id: Optional[str] = None
+        training_update_id: str | None = None
 
     payload: Payload
 
@@ -179,14 +179,14 @@ class FaultInjectedEvent(ExecutionEvent):
 
     class Payload(BaseModel, extra="forbid"):
         fault_type: str = Field(description="Allow-listed fault identifier.")
-        parameters: Dict[str, Any]
+        parameters: dict[str, Any]
         trigger_timestep: int = Field(
             description="Timestep at which the fault becomes active."
         )
         stage: str = Field(
             description="Trigger boundary: 'before_step' or 'after_step'."
         )
-        run_id: Optional[str] = None
+        run_id: str | None = None
 
     payload: Payload
 
@@ -199,14 +199,14 @@ class RequirementViolationEvent(ExecutionEvent):
     class Payload(BaseModel, extra="forbid"):
         requirement_id: str
         requirement_version: str
-        comparison: Optional[str] = Field(
+        comparison: str | None = Field(
             default=None, description="Operator, e.g. '==' or '>='."
         )
         expected: Any = None
         actual: Any = None
-        tolerance: Optional[float] = None
+        tolerance: float | None = None
         severity: str = Field(description="e.g. 'high', 'medium', 'low'.")
-        incident_id: Optional[str] = None
+        incident_id: str | None = None
 
     payload: Payload
 
