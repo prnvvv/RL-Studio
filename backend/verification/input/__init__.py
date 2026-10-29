@@ -1,28 +1,25 @@
 from __future__ import annotations
 
-from __future__ import annotations
+# Context builder entry point
+from .context_builder import assemble_input, build_context
 
 # ---------------------------------------------------------------------------
 # Public API symbols — explicitly listed so ``__all__`` is meaningful.
 # ---------------------------------------------------------------------------
-
 # Input adapter entry point
-from .input_adapter import adapt_input, adapt_from_parts  # noqa: F401
-
-# Context builder entry point
-from .context_builder import build_context, assemble_input  # noqa: F401
+from .input_adapter import adapt_from_parts, adapt_input
 
 # Schema normaliser helpers
 from .schema_normalizer import (
-    normalise_verification_input,
-    normalise_agent_metadata,
-    normalise_environment_config,
-    normalise_training_config,
-    normalise_developer_intent,
-    normalise_execution_evidence,
     _normalize_optional_string,
     _normalize_timestamp,
-)  # noqa: F401
+    normalise_agent_metadata,
+    normalise_developer_intent,
+    normalise_environment_config,
+    normalise_execution_evidence,
+    normalise_training_config,
+    normalise_verification_input,
+)
 
 # ---------------------------------------------------------------------------
 # Public API symbols — exported via __all__
