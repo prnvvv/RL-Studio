@@ -11,7 +11,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 
 from backend.verification.models import RequirementType
-from backend.verification.tools.tool_registry import is_check_registered, register_check
+from backend.verification.tools.tool_registry import is_check_registered
 
 
 # ---------------------------------------------------------------------------
