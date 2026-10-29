@@ -37,23 +37,14 @@ import warnings
 import logging
 import uuid
 import time
-from typing import Any, Dict, List, Optional
+from typing import Optional
 
 from pydantic import BaseModel, Field, ValidationError, validator
 
 from backend.verification.exceptions import (  # typed guardrail errors
     InputValidationError,
-    MetaAIProviderError,
-    GuardrailViolation,
 )
 
-from backend.verification.models import (  # canonical models used for validation
-    VerificationRequirement,
-    VerificationCheckResult,
-    CheckStatus,
-    RequirementType,
-    RequirementSource,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -154,7 +145,6 @@ def validate_model_output(
     - If validation fails, ``validated_model`` is ``None`` and ``violation``
       contains details.
     """
-    import uuid
     try:
         validated = canonical_model(**json.loads(raw_output)) if raw_output.strip().startswith("{") else canonical_model(raw_output)
         return validated, None
@@ -317,7 +307,7 @@ def apply_guardrails(
 
     # 1. Validate prompt input (bounds, trusted system instruction)
     try:
-        validated_input = validate_prompt_input(
+        _ = validate_prompt_input(
             system_instruction=prompt_input.system_instruction,
             user_content=prompt_input.user_content,
             developer_description=prompt_input.developer_description,
