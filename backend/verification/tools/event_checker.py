@@ -12,11 +12,7 @@ from typing import Any, Dict, List, Optional
 from backend.verification.models import (
     VerificationCheckResult,
     VerificationRequirement,
-    CheckStatus,
-    RequirementType,
-    EvidenceReference,
 )
-from backend.verification.exceptions import InputValidationError, EvidenceUnavailableError
 
 
 def _find_event_in_records(
@@ -216,7 +212,6 @@ def execute_check(
 
     # Handle expected_event_order
     if expected_event_order is not None and recorded_events is not None:
-        event_names = [ev.get("event_name", ev.get("name", "")) for ev in recorded_events if isinstance(ev, dict)]
         # Simple order check: the first occurrence of each required event
         # should appear in the specified order
         required_set = set(expected_event_order)
