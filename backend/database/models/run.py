@@ -1,7 +1,7 @@
 """Run ORM model."""
 from __future__ import annotations
 
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, JSON
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
 from sqlalchemy.sql import func
 
 from backend.database.base import Base
