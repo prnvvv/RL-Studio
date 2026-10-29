@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 import sqlite3
-from typing import Any, Optional
+from typing import Any
 
 from ..utils import dumps, new_id, utc_now_iso
 from ._common import row_to_dict
-
 
 _ASSESSMENT_JSON_FIELDS = {
     "compatibility_json": "compatibility",
@@ -33,17 +32,17 @@ def create_assessment(
     incident_id: str,
     recovery_eligibility: str,
     recovery_strategy: str,
-    recovery_reason: Optional[str] = None,
-    source_checkpoint_id: Optional[str] = None,
-    target_environment_version: Optional[str] = None,
-    target_agent_config_fingerprint: Optional[str] = None,
-    compatibility: Optional[list[dict[str, Any]]] = None,
-    lineage_gaps: Optional[list[str]] = None,
-    evidence_ids: Optional[list[str]] = None,
-    warnings: Optional[list[str]] = None,
-    errors: Optional[list[str]] = None,
-    details: Optional[dict[str, Any]] = None,
-    idempotency_key: Optional[str] = None,
+    recovery_reason: str | None = None,
+    source_checkpoint_id: str | None = None,
+    target_environment_version: str | None = None,
+    target_agent_config_fingerprint: str | None = None,
+    compatibility: list[dict[str, Any]] | None = None,
+    lineage_gaps: list[str] | None = None,
+    evidence_ids: list[str] | None = None,
+    warnings: list[str] | None = None,
+    errors: list[str] | None = None,
+    details: dict[str, Any] | None = None,
+    idempotency_key: str | None = None,
 ) -> dict[str, Any]:
     assessment_id = new_id("assessment")
     conn.execute(
@@ -105,24 +104,24 @@ def create_recovery(
     incident_id: str,
     recovery_status: str,
     recovery_strategy: str,
-    assessment_id: Optional[str] = None,
-    recovery_reason: Optional[str] = None,
-    source_checkpoint_id: Optional[str] = None,
-    recovery_artifact_id: Optional[str] = None,
-    recovered_checkpoint_id: Optional[str] = None,
-    target_environment_version: Optional[str] = None,
-    target_agent_config_fingerprint: Optional[str] = None,
-    recovery_started_at: Optional[str] = None,
-    recovery_completed_at: Optional[str] = None,
-    proposed_actions: Optional[list[dict[str, Any]]] = None,
-    executed_actions: Optional[list[dict[str, Any]]] = None,
-    preflight: Optional[dict[str, Any]] = None,
-    failure_reason: Optional[str] = None,
-    evidence_ids: Optional[list[str]] = None,
-    warnings: Optional[list[str]] = None,
-    errors: Optional[list[str]] = None,
-    details: Optional[dict[str, Any]] = None,
-    idempotency_key: Optional[str] = None,
+    assessment_id: str | None = None,
+    recovery_reason: str | None = None,
+    source_checkpoint_id: str | None = None,
+    recovery_artifact_id: str | None = None,
+    recovered_checkpoint_id: str | None = None,
+    target_environment_version: str | None = None,
+    target_agent_config_fingerprint: str | None = None,
+    recovery_started_at: str | None = None,
+    recovery_completed_at: str | None = None,
+    proposed_actions: list[dict[str, Any]] | None = None,
+    executed_actions: list[dict[str, Any]] | None = None,
+    preflight: dict[str, Any] | None = None,
+    failure_reason: str | None = None,
+    evidence_ids: list[str] | None = None,
+    warnings: list[str] | None = None,
+    errors: list[str] | None = None,
+    details: dict[str, Any] | None = None,
+    idempotency_key: str | None = None,
 ) -> dict[str, Any]:
     recovery_id = new_id("recovery")
     now = utc_now_iso()
