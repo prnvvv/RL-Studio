@@ -1,12 +1,14 @@
 from __future__ import annotations
+
+import logging
 import os
 import uuid
-import logging
-from typing import Any, Dict, List, Optional, Tuple, Any as AnyType
+from typing import Any
+from typing import Any as AnyType
 
 import httpx
-
 from dotenv import load_dotenv
+
 load_dotenv(".env", override=False)
 
 
@@ -17,19 +19,23 @@ META_API_BASE = os.getenv("META_BASE_URL", "https://api.meta.ai/v1")
 DEFAULT_MODELS = ["muse-spark-1.3", "muse-wonder-1.0"]
 
 
+class MetaAPIError(RuntimeError):
+    """Raised when the Meta Model API returns a non-success response."""
+
+
 class MetaAIProviderProtocol:
     """Protocol for a replaceable Meta Model API provider."""
 
     def invoke(
         self,
         model: str,
-        messages: List[Dict[str, Any]],
+        messages: list[dict[str, Any]],
         *,
-        temperature: Optional[float] = None,
-        max_tokens: Optional[int] = None,
-        response_format: Optional[Dict[str, Any]] = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+        response_format: dict[str, Any] | None = None,
         **kwargs: AnyType,
-    ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
         ...  # pragma: no cover - implemented by concrete subclass
 
 
@@ -44,40 +50,42 @@ class MetaAIProviderDirect(MetaAIProviderProtocol):
             headers={"Authorization": f"Bearer {self.api_key}"},
             timeout=httpx.Timeout(60.0, connect=30.0),
         )
-        self._last_request_id: Optional[str] = None
-        self._last_usage: Optional[Dict[str, Any]] = None
+        self._last_request_id: str | None = None
+        self._last_usage: dict[str, Any] | None = None
 
     def _request(
         self,
         method: str,
         endpoint: str,
-        json: Optional[Dict[str, Any]] = None,
-        params: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        json: dict[str, Any] | None = None,
+        params: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         url = f"{self.base_url}{endpoint}"
         response = self.client.request(method, url, json=json, params=params, timeout=self.client.timeout)
         if response.status_code == 200:
             return response.json()
         elif response.status_code == 401:
-            raise Exception("Invalid credentials - check META_API.")
+            raise MetaAPIError("Invalid credentials - check META_API.")
         elif response.status_code == 429:
-            raise Exception("Rate limit exceeded - please retry with backoff.")
+            raise MetaAPIError("Rate limit exceeded - please retry with backoff.")
         elif 500 <= response.status_code < 600:
-            raise Exception(f"Meta API server error {response.status_code}.")
+            raise MetaAPIError(f"Meta API server error {response.status_code}.")
         else:
-            raise Exception(f"API request failed {response.status_code}: {response.text}")
+            raise MetaAPIError(
+                f"API request failed {response.status_code}: {response.text}"
+            )
 
     def invoke(
         self,
         model: str,
-        messages: List[Dict[str, Any]],
+        messages: list[dict[str, Any]],
         *,
-        temperature: Optional[float] = None,
-        max_tokens: Optional[int] = None,
-        response_format: Optional[Dict[str, Any]] = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+        response_format: dict[str, Any] | None = None,
         **kwargs: AnyType,
-    ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
-        payload: Dict[str, Any] = {"model": model, "messages": messages}
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
+        payload: dict[str, Any] = {"model": model, "messages": messages}
         if temperature is not None:
             payload["temperature"] = temperature
         if max_tokens is not None:
@@ -87,10 +95,10 @@ class MetaAIProviderDirect(MetaAIProviderProtocol):
         endpoint = "/v1/chat/completions"
         try:
             raw = self._request("POST", endpoint, json=payload)
-        except Exception:
+        except Exception:  # noqa: BLE001
             endpoint = "/v1/responses"
             raw = self._request("POST", endpoint, json=payload)
-        usage: Dict[str, Any] = {}
+        usage: dict[str, Any] = {}
         if "usage" in raw:
             usage = raw.pop("usage")
         self._last_request_id = raw.get("id") or raw.get("request_id")
@@ -105,7 +113,7 @@ _HAS_LC = False
 try:
     from langchain_openai import ChatOpenAI  # type: ignore[import]
     _HAS_LC = True
-except Exception:  # broad; LangChain may not be installed or may lack the hook
+except Exception:  # broad; LangChain may not be installed or may lack the hook  # noqa: BLE001
     _HAS_LC = False  # type: ignore
 
 
@@ -133,25 +141,25 @@ if _HAS_LC:
         def invoke(
             self,
             model: str,
-            messages: List[Dict[str, Any]],
+            messages: list[dict[str, Any]],
             *,
-            temperature: Optional[float] = None,
-            max_tokens: Optional[int] = None,
-            response_format: Optional[Dict[str, Any]] = None,
+            temperature: float | None = None,
+            max_tokens: int | None = None,
+            response_format: dict[str, Any] | None = None,
             **kwargs: AnyType,
-        ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+        ) -> tuple[dict[str, Any], dict[str, Any]]:
             ai_msg = self.llm.invoke(
                 messages,
                 temperature=temperature or self.temperature,
                 max_tokens=max_tokens,
             )
             content = ai_msg.content if ai_msg.content else ""
-            usage: Dict[str, Any] = {
+            usage: dict[str, Any] = {
                 "prompt_tokens": getattr(ai_msg, "usage_metadata", {}).get("input_tokens", None),
                 "completion_tokens": getattr(ai_msg, "usage_metadata", {}).get("output_tokens", None),
                 "total_tokens": getattr(ai_msg, "usage_metadata", {}).get("total_tokens", None),
             }
-            raw: Dict[str, Any] = {
+            raw: dict[str, Any] = {
                 "id": str(uuid.uuid4()),
                 "choices": [
                     {"message": {"role": "assistant", "content": content}},
@@ -165,9 +173,9 @@ if _HAS_LC:
 
 def get_meta_ai_provider(
     *,
-    model: Optional[str] = None,
-    base_url: Optional[str] = None,
-    api_key: Optional[str] = None,
+    model: str | None = None,
+    base_url: str | None = None,
+    api_key: str | None = None,
     use_langchain: bool = True,
 ) -> MetaAIProviderProtocol:
     """Return a MetaAIProviderProtocol instance configured for the application's needs.
@@ -187,7 +195,7 @@ def get_meta_ai_provider(
     if use_langchain and _HAS_LC:
         try:
             return MetaAIProviderLangChain(model=model or os.getenv("META_MODEL", "muse-spark-1.3"))
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001
             logging.getLogger(__name__).warning(
                 f"LangChain-based Meta provider could not be initialised: {exc}. "
                 "Falling back to direct SDK."
@@ -198,13 +206,13 @@ def get_meta_ai_provider(
 
 def invoke_model(
     model: str,
-    messages: List[Dict[str, Any]],
+    messages: list[dict[str, Any]],
     *,
-    temperature: Optional[float] = None,
-    max_tokens: Optional[int] = None,
-    response_format: Optional[Dict[str, Any]] = None,
-    provider: Optional[MetaAIProviderProtocol] = None,
-) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    temperature: float | None = None,
+    max_tokens: int | None = None,
+    response_format: dict[str, Any] | None = None,
+    provider: MetaAIProviderProtocol | None = None,
+) -> tuple[dict[str, Any], dict[str, Any]]:
     """High-level helper that obtains a provider and invokes it.
 
     This is the function that the verification agent, intent parser, planner,
