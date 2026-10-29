@@ -7,7 +7,7 @@ See ``backend/verification/tools/`` for the package README and integration notes
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from backend.verification.models import (
     VerificationCheckResult,
@@ -16,8 +16,8 @@ from backend.verification.models import (
 
 
 def _find_termination_event(
-    episode_data: Optional[Dict[str, Any]],
-) -> Optional[Dict[str, Any]]:
+    episode_data: dict[str, Any] | None,
+) -> dict[str, Any] | None:
     """Find the termination event in episode data, if present."""
     if episode_data is None:
         return None
@@ -32,8 +32,8 @@ def _find_termination_event(
 
 
 def _find_truncation_event(
-    episode_data: Optional[Dict[str, Any]],
-) -> Optional[Dict[str, Any]]:
+    episode_data: dict[str, Any] | None,
+) -> dict[str, Any] | None:
     """Find the truncation event in episode data, if present."""
     if episode_data is None:
         return None
@@ -48,8 +48,8 @@ def _find_truncation_event(
 
 
 def _find_goal_attainment_event(
-    episode_data: Optional[Dict[str, Any]],
-) -> Optional[Dict[str, Any]]:
+    episode_data: dict[str, Any] | None,
+) -> dict[str, Any] | None:
     """Find goal attainment information in episode data, if present."""
     if episode_data is None:
         return None
@@ -63,9 +63,9 @@ def _find_goal_attainment_event(
     return None
 
 
-def _make_details(note: str, source: Optional[str] = None) -> Dict[str, Any]:
+def _make_details(note: str, source: str | None = None) -> dict[str, Any]:
     """Create a details dict compatible with VerificationCheckResult."""
-    d: Dict[str, Any] = {"note": note}
+    d: dict[str, Any] = {"note": note}
     if source is not None:
         d["source"] = source
     return d
@@ -75,11 +75,11 @@ def execute_check(
     check_id: str,
     requirement: VerificationRequirement,
     *,
-    episode_id: Optional[str] = None,
-    episode_data: Optional[Dict[str, Any]] = None,
-    termination_observed: Optional[bool] = None,
-    truncation_observed: Optional[bool] = None,
-    goal_attained_observed: Optional[bool] = None,
+    episode_id: str | None = None,
+    episode_data: dict[str, Any] | None = None,
+    termination_observed: bool | None = None,
+    truncation_observed: bool | None = None,
+    goal_attained_observed: bool | None = None,
     source: str = "episode_check",
 ) -> VerificationCheckResult:
     """Execute an episode outcome verification check.
@@ -107,7 +107,7 @@ def execute_check(
         ``UNKNOWN``, or ``BLOCKED``.
     """
     expected = requirement.expected_value
-    evidence_parts: List[str] = []
+    evidence_parts: list[str] = []
 
     # Build a picture of what's available from explicit flags
     term_provided = termination_observed is not None
@@ -116,7 +116,7 @@ def execute_check(
 
     # Determine what to compare based on what's available
     if term_provided or trunc_provided or goal_provided:
-        actual_status: Optional[str] = None
+        actual_status: str | None = None
 
         if termination_observed is True:
             actual_status = "terminated"
@@ -171,7 +171,7 @@ def execute_check(
         trunc_event = _find_truncation_event(episode_data)
         goal_event = _find_goal_attainment_event(episode_data)
 
-        new_evidence_parts: List[str] = []
+        new_evidence_parts: list[str] = []
         if term_event is not None:
             new_evidence_parts.append(f"term_event:{term_event['key']}={term_event['value']}")
         if trunc_event is not None:
@@ -195,7 +195,7 @@ def execute_check(
         # - If episode terminated (term event found with True value) and was NOT truncated (trunc event False or absent), it's terminated
         # - If episode was truncated (trunc event found with True value), that's the status
         # - Otherwise unknown
-        actual_status: Optional[str] = None
+        actual_status: str | None = None
         if goal_found:
             actual_status = "goal_attained"
         elif term_found and not trunc_found:
@@ -215,7 +215,7 @@ def execute_check(
         # expected_value=False means "episode must not terminate" / "episode must not
         # successfully terminate"; the actual status string for not-terminating is
         # "not_terminated".
-        expected_status_mapped: Optional[str] = None
+        expected_status_mapped: str | None = None
         if expected is True:
             expected_status_mapped = "terminated"
         elif expected is False:
