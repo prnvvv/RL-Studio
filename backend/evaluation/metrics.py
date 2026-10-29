@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Iterable
 from statistics import mean, median, pstdev
-from typing import Iterable, Optional
 
 from .models import AcceptanceCriteria, EpisodeEvaluation
 
@@ -27,11 +27,11 @@ def _valid(episodes: Iterable[EpisodeEvaluation]) -> list[EpisodeEvaluation]:
     return [episode for episode in episodes if episode.error is None]
 
 
-def _round(value: Optional[float]) -> Optional[float]:
+def _round(value: float | None) -> float | None:
     return None if value is None else round(value, 6)
 
 
-def _wilson_interval(successes: int, total: int) -> Optional[dict[str, float]]:
+def _wilson_interval(successes: int, total: int) -> dict[str, float] | None:
     if total <= 0:
         return None
     proportion = successes / total
@@ -50,7 +50,7 @@ def _wilson_interval(successes: int, total: int) -> Optional[dict[str, float]]:
     }
 
 
-def _mean_interval(values: list[float]) -> Optional[dict[str, float]]:
+def _mean_interval(values: list[float]) -> dict[str, float] | None:
     if len(values) < 2:
         return None
     standard_error = pstdev(values) / math.sqrt(len(values))
@@ -94,11 +94,11 @@ def summarize_episodes(episodes: list[EpisodeEvaluation]) -> dict:
 
 
 def _delta(
-    recovered: dict, comparison: Optional[dict]
-) -> Optional[dict[str, Optional[float]]]:
+    recovered: dict, comparison: dict | None
+) -> dict[str, float | None] | None:
     if comparison is None:
         return None
-    result: dict[str, Optional[float]] = {}
+    result: dict[str, float | None] = {}
     for key in (
         "success_rate",
         "mean_reward",
@@ -115,7 +115,7 @@ def _delta(
     return result
 
 
-def _seed_map(episodes: list[EpisodeEvaluation]) -> Optional[dict[int, EpisodeEvaluation]]:
+def _seed_map(episodes: list[EpisodeEvaluation]) -> dict[int, EpisodeEvaluation] | None:
     result: dict[int, EpisodeEvaluation] = {}
     for episode in _valid(episodes):
         if episode.seed in result:
@@ -126,7 +126,7 @@ def _seed_map(episodes: list[EpisodeEvaluation]) -> Optional[dict[int, EpisodeEv
 
 def paired_comparison(
     baseline: list[EpisodeEvaluation], recovered: list[EpisodeEvaluation]
-) -> Optional[dict]:
+) -> dict | None:
     baseline_by_seed = _seed_map(baseline)
     recovered_by_seed = _seed_map(recovered)
     if baseline_by_seed is None or recovered_by_seed is None:
@@ -154,7 +154,7 @@ def compare_groups(
     *,
     baseline: dict,
     recovered: dict,
-    faulty: Optional[dict],
+    faulty: dict | None,
     baseline_episodes: list[EpisodeEvaluation],
     recovered_episodes: list[EpisodeEvaluation],
 ) -> dict:
@@ -170,7 +170,7 @@ def compare_groups(
 def _check(
     name: str,
     threshold: object,
-    observed: Optional[float],
+    observed: float | None,
     passed: bool,
 ) -> dict:
     return {
@@ -197,7 +197,7 @@ def evaluate_acceptance(
     *,
     criteria: AcceptanceCriteria,
     baseline: dict,
-    faulty: Optional[dict],
+    faulty: dict | None,
     recovered: dict,
 ) -> dict:
     configured = criteria.model_dump(exclude_none=True)
