@@ -1,10 +1,10 @@
 """FastAPI application entrypoint."""
 from __future__ import annotations
 
-from fastapi import FastAPI, Request
-from fastapi.middleware.cors import CORSMiddleware
 import logging
 
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from backend.core.config import settings
@@ -49,10 +49,10 @@ except Exception:
         logger.exception("Failed to include verification routes")
 
 try:
+    from backend.api.routers.diagnosis import router as diagnosis_router
+    from backend.api.routers.evaluation import router as evaluation_router
     from backend.api.routers.provenance import router as provenance_router
     from backend.api.routers.recovery import router as recovery_router
-    from backend.api.routers.evaluation import router as evaluation_router
-    from backend.api.routers.diagnosis import router as diagnosis_router
 
     app.include_router(provenance_router)
     app.include_router(recovery_router)
