@@ -1,17 +1,16 @@
 """Database session management."""
 from __future__ import annotations
 
+from collections.abc import Generator
 from contextlib import contextmanager
-from typing import Generator, Optional
 
 from backend.database.config import DatabaseConfig
 from backend.database.connection import Database
 
+_db: Database | None = None
 
-_db: Optional[Database] = None
 
-
-def get_database(config: Optional[DatabaseConfig] = None) -> Database:
+def get_database(config: DatabaseConfig | None = None) -> Database:
     global _db
     if _db is None:
         _db = Database(config or DatabaseConfig.from_env())
@@ -20,7 +19,7 @@ def get_database(config: Optional[DatabaseConfig] = None) -> Database:
 
 
 @contextmanager
-def session_scope(config: Optional[DatabaseConfig] = None) -> Generator:
+def session_scope(config: DatabaseConfig | None = None) -> Generator:
     db = get_database(config)
     conn = db.connection()
     try:
