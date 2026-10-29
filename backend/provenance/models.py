@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -55,38 +55,38 @@ class ImpactStatus(str, Enum):
 
 
 class RunRegistration(BaseModel):
-    run_id: Optional[str] = None
-    project_id: Optional[str] = None
-    experiment_id: Optional[str] = None
-    environment_id: Optional[str] = None
-    environment_version: Optional[str] = None
-    agent_config_fingerprint: Optional[str] = None
+    run_id: str | None = None
+    project_id: str | None = None
+    experiment_id: str | None = None
+    environment_id: str | None = None
+    environment_version: str | None = None
+    agent_config_fingerprint: str | None = None
     status: str = "created"
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class ArtifactRegistration(BaseModel):
-    artifact_id: Optional[str] = None
+    artifact_id: str | None = None
     run_id: str
     artifact_type: ArtifactType
     artifact_path: str
-    artifact_hash: Optional[str] = None
-    artifact_version: Optional[str] = None
-    artifact_status: Optional[ArtifactStatus] = None
-    artifact_created_at: Optional[datetime] = None
-    parent_artifact_id: Optional[str] = None
-    checkpoint_id: Optional[str] = None
-    checkpoint_path: Optional[str] = None
-    policy_version: Optional[str] = None
-    trajectory_id: Optional[str] = None
-    experience_id: Optional[str] = None
-    policy_update_id: Optional[str] = None
-    environment_id: Optional[str] = None
-    environment_version: Optional[str] = None
-    agent_config_fingerprint: Optional[str] = None
-    episode_id: Optional[str] = None
-    timestep: Optional[int] = None
-    update_index: Optional[int] = None
+    artifact_hash: str | None = None
+    artifact_version: str | None = None
+    artifact_status: ArtifactStatus | None = None
+    artifact_created_at: datetime | None = None
+    parent_artifact_id: str | None = None
+    checkpoint_id: str | None = None
+    checkpoint_path: str | None = None
+    policy_version: str | None = None
+    trajectory_id: str | None = None
+    experience_id: str | None = None
+    policy_update_id: str | None = None
+    environment_id: str | None = None
+    environment_version: str | None = None
+    agent_config_fingerprint: str | None = None
+    episode_id: str | None = None
+    timestep: int | None = None
+    update_index: int | None = None
     included_state_components: list[str] = Field(default_factory=list)
     metadata_schema_version: str = "1.0"
     metadata: dict[str, Any] = Field(default_factory=dict)
@@ -96,28 +96,28 @@ class IncidentRegistration(BaseModel):
     incident_id: str
     run_id: str
     status: str = "detected"
-    verification_id: Optional[str] = None
-    environment_id: Optional[str] = None
-    environment_version: Optional[str] = None
-    requirement_id: Optional[str] = None
-    severity: Optional[str] = None
-    detection_method: Optional[str] = None
-    summary: Optional[str] = None
+    verification_id: str | None = None
+    environment_id: str | None = None
+    environment_version: str | None = None
+    requirement_id: str | None = None
+    severity: str | None = None
+    detection_method: str | None = None
+    summary: str | None = None
     evidence_ids: list[str] = Field(default_factory=list)
     details: dict[str, Any] = Field(default_factory=dict)
-    fault_type: Optional[str] = None
-    source_environment_version: Optional[str] = None
-    corruption_start_timestep: Optional[int] = None
-    corruption_end_timestep: Optional[int] = None
+    fault_type: str | None = None
+    source_environment_version: str | None = None
+    corruption_start_timestep: int | None = None
+    corruption_end_timestep: int | None = None
 
 
 class Run(BaseModel):
     run_id: str
-    project_id: Optional[str] = None
-    experiment_id: Optional[str] = None
-    environment_id: Optional[str] = None
-    environment_version: Optional[str] = None
-    agent_config_fingerprint: Optional[str] = None
+    project_id: str | None = None
+    experiment_id: str | None = None
+    environment_id: str | None = None
+    environment_version: str | None = None
+    agent_config_fingerprint: str | None = None
     status: str
     metadata: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime
@@ -129,23 +129,23 @@ class Artifact(BaseModel):
     run_id: str
     artifact_type: ArtifactType
     artifact_path: str
-    artifact_hash: Optional[str] = None
-    artifact_version: Optional[str] = None
+    artifact_hash: str | None = None
+    artifact_version: str | None = None
     artifact_status: ArtifactStatus
     artifact_created_at: datetime
-    parent_artifact_id: Optional[str] = None
-    checkpoint_id: Optional[str] = None
-    checkpoint_path: Optional[str] = None
-    policy_version: Optional[str] = None
-    trajectory_id: Optional[str] = None
-    experience_id: Optional[str] = None
-    policy_update_id: Optional[str] = None
-    environment_id: Optional[str] = None
-    environment_version: Optional[str] = None
-    agent_config_fingerprint: Optional[str] = None
-    episode_id: Optional[str] = None
-    timestep: Optional[int] = None
-    update_index: Optional[int] = None
+    parent_artifact_id: str | None = None
+    checkpoint_id: str | None = None
+    checkpoint_path: str | None = None
+    policy_version: str | None = None
+    trajectory_id: str | None = None
+    experience_id: str | None = None
+    policy_update_id: str | None = None
+    environment_id: str | None = None
+    environment_version: str | None = None
+    agent_config_fingerprint: str | None = None
+    episode_id: str | None = None
+    timestep: int | None = None
+    update_index: int | None = None
     included_state_components: list[str] = Field(default_factory=list)
     integrity_status: IntegrityStatus
     metadata_schema_version: str = "1.0"
@@ -174,9 +174,9 @@ class ProvenanceTrace(BaseModel):
     run_id: str
     provenance_status: ProvenanceStatus
     lineage_completeness: LineageCompleteness
-    source_environment_version: Optional[str] = None
-    environment_id: Optional[str] = None
-    environment_version: Optional[str] = None
+    source_environment_version: str | None = None
+    environment_id: str | None = None
+    environment_version: str | None = None
     artifact_count: int
     artifacts: list[Artifact] = Field(default_factory=list)
     links: list[ArtifactLink] = Field(default_factory=list)
@@ -190,20 +190,20 @@ class ProvenanceTrace(BaseModel):
 class Incident(BaseModel):
     incident_id: str
     run_id: str
-    verification_id: Optional[str] = None
-    environment_id: Optional[str] = None
-    environment_version: Optional[str] = None
-    requirement_id: Optional[str] = None
+    verification_id: str | None = None
+    environment_id: str | None = None
+    environment_version: str | None = None
+    requirement_id: str | None = None
     status: str
-    severity: Optional[str] = None
-    detection_method: Optional[str] = None
-    summary: Optional[str] = None
+    severity: str | None = None
+    detection_method: str | None = None
+    summary: str | None = None
     evidence_ids: list[str] = Field(default_factory=list)
     details: dict[str, Any] = Field(default_factory=dict)
-    source_environment_version: Optional[str] = None
-    corruption_start_timestep: Optional[int] = None
-    corruption_end_timestep: Optional[int] = None
-    fault_type: Optional[str] = None
+    source_environment_version: str | None = None
+    corruption_start_timestep: int | None = None
+    corruption_end_timestep: int | None = None
+    fault_type: str | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -213,10 +213,10 @@ class ImpactAnalysis(BaseModel):
     incident_id: str
     run_id: str
     impact_status: ImpactStatus
-    impact_score: Optional[float] = None
-    source_environment_version: Optional[str] = None
-    corruption_start_timestep: Optional[int] = None
-    corruption_end_timestep: Optional[int] = None
+    impact_score: float | None = None
+    source_environment_version: str | None = None
+    corruption_start_timestep: int | None = None
+    corruption_end_timestep: int | None = None
     affected_artifact_ids: list[str] = Field(default_factory=list)
     affected_trajectory_ids: list[str] = Field(default_factory=list)
     affected_policy_update_ids: list[str] = Field(default_factory=list)
@@ -226,4 +226,4 @@ class ImpactAnalysis(BaseModel):
     errors: list[str] = Field(default_factory=list)
     details: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime
-    completed_at: Optional[datetime] = None
+    completed_at: datetime | None = None
