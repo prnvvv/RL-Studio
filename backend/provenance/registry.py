@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
-from typing import Any, Optional
+from typing import Any
 
 from backend.database.connection import Database
 from backend.database.exceptions import ArtifactPathError as BaseArtifactPathError
@@ -41,8 +41,8 @@ def _audit(
     entity_id: str,
     action: str,
     status: str,
-    correlation_id: Optional[str],
-    details: Optional[dict[str, Any]] = None,
+    correlation_id: str | None,
+    details: dict[str, Any] | None = None,
 ) -> None:
     audit_repo.append_audit(
         conn,
@@ -86,7 +86,7 @@ class ArtifactRegistry:
         self,
         request: RunRegistration,
         *,
-        correlation_id: Optional[str] = None,
+        correlation_id: str | None = None,
     ) -> dict[str, Any]:
         run_id = request.run_id or new_id("run")
         with self.database.write() as conn:
@@ -140,7 +140,7 @@ class ArtifactRegistry:
         self,
         request: ArtifactRegistration,
         *,
-        correlation_id: Optional[str] = None,
+        correlation_id: str | None = None,
     ) -> dict[str, Any]:
         try:
             artifact_path = normalize_artifact_path(request.artifact_path)
@@ -301,7 +301,7 @@ class ArtifactRegistry:
         self,
         request: IncidentRegistration,
         *,
-        correlation_id: Optional[str] = None,
+        correlation_id: str | None = None,
     ) -> dict[str, Any]:
         with self.database.write() as conn:
             run = runs_repo.get_run(conn, request.run_id)
@@ -378,7 +378,7 @@ class ArtifactRegistry:
         from_artifact_id: str,
         to_artifact_id: str,
         relation: str,
-        correlation_id: Optional[str] = None,
+        correlation_id: str | None = None,
     ) -> dict[str, Any]:
         if not relation.strip():
             raise ProvenanceConflictError("Link relation must not be empty")
