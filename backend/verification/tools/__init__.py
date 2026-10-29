@@ -45,25 +45,26 @@ Typical usage::
 
 from __future__ import annotations
 
-
-from backend.verification.tools.tool_registry import register_check
-from backend.verification.tools.configuration_checker import execute_check as config_check
-from backend.verification.tools.reward_checker import execute_check as reward_check
+from backend.verification.tools.configuration_checker import (
+    execute_check as config_check,
+)
 from backend.verification.tools.episode_checker import execute_check as episode_check
 from backend.verification.tools.event_checker import execute_check as event_check
 from backend.verification.tools.metric_checker import execute_check as metric_check
+from backend.verification.tools.reward_checker import execute_check as reward_check
+from backend.verification.tools.tool_registry import register_check
 
 # Public API names
 __all__ = [
-    "register_check",
-    "execute_check",
-    "list_checks",
-    "is_check_registered",
     "config_check",
-    "reward_check",
     "episode_check",
     "event_check",
+    "execute_check",
+    "is_check_registered",
+    "list_checks",
     "metric_check",
+    "register_check",
+    "reward_check",
 ]
 
 # Shortcut: execute_check is the same as the registry's execute_check
