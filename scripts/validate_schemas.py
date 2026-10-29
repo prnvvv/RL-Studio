@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 """Validate shared schemas are importable and consistent."""
 import sys
+
 sys.path.insert(0, '.')
 
 from shared.schemas import (
+    SCHEMA_VERSION,
+    EpisodeEndedEvent,
+    EpisodeStartedEvent,
     Incident,
     Requirement,
-    EpisodeStartedEvent,
     RewardObservedEvent,
-    EpisodeEndedEvent,
     SourceComponent,
-    SCHEMA_VERSION,
     new_uuid,
 )
 from shared.schemas.requirements import RequirementSource, RequirementType
