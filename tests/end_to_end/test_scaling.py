@@ -2,15 +2,14 @@
 
 from __future__ import annotations
 
-
+from backend.fault_injection.faults import FaultConfig, FaultInjector, FaultType
 from shared.schemas import (
+    SCHEMA_VERSION,
     Incident,
     RewardObservedEvent,
     SourceComponent,
     new_uuid,
-    SCHEMA_VERSION,
 )
-from backend.fault_injection.faults import FaultType, FaultConfig, FaultInjector
 
 
 def test_reward_scaling_fault_changes_observed_reward():

@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 from shared.schemas import (
+    Evaluation,
     Incident,
     Recovery,
-    Evaluation,
     Requirement,
 )
-from shared.schemas.requirements import RequirementType, RequirementSource
+from shared.schemas.requirements import RequirementSource, RequirementType
 
 
 def test_incident_creation():
