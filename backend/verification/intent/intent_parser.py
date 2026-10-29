@@ -8,12 +8,12 @@ explicit errors rather than inventing thresholds.
 from __future__ import annotations
 
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from backend.verification.models import RequirementSource, RequirementType
 
 
-class ParsedIntent(Dict[str, Any]):
+class ParsedIntent(dict[str, Any]):
     """Structured output of intent parsing.
 
     Holds all requirements that could be deterministically extracted,
@@ -21,9 +21,9 @@ class ParsedIntent(Dict[str, Any]):
     """
 
     def __init__(self) -> None:
-        self.requirements: List[Dict[str, Any]] = []
+        self.requirements: list[dict[str, Any]] = []
         self.original_text: str = ""
-        self.ambiguity_reason: Optional[str] = None
+        self.ambiguity_reason: str | None = None
         self.unsupported: bool = False
 
 
@@ -118,7 +118,7 @@ def parse_intent(text: str) -> ParsedIntent:
 # ----------------------------------------------------------------------
 
 
-def _extract_number(text: str) -> Optional[float]:
+def _extract_number(text: str) -> float | None:
     """Extract the first numeric constant from *text*.
 
     Returns None if no number can be found.
@@ -132,7 +132,7 @@ def _extract_number(text: str) -> Optional[float]:
         return None
 
 
-def _parse_reward_requirement(text: str) -> Optional[Dict[str, Any]]:
+def _parse_reward_requirement(text: str) -> dict[str, Any] | None:
     """Parse ``goal reward must equal X`` or ``must be at least X`` etc.
 
     Returns a dict suitable for a VerificationRequirement, or None.
@@ -166,7 +166,7 @@ def _parse_reward_requirement(text: str) -> Optional[Dict[str, Any]]:
     return None
 
 
-def _parse_step_requirement(text: str) -> Optional[Dict[str, Any]]:
+def _parse_step_requirement(text: str) -> dict[str, Any] | None:
     """Parse ``episode must finish within X steps`` or similar."""
     text_lower = text.lower()
 
@@ -191,7 +191,7 @@ def _parse_step_requirement(text: str) -> Optional[Dict[str, Any]]:
     return None
 
 
-def _parse_termination_requirement(text: str) -> Optional[Dict[str, Any]]:
+def _parse_termination_requirement(text: str) -> dict[str, Any] | None:
     """Parse ``episode must terminate successfully`` etc."""
     text_lower = text.lower()
 
@@ -219,7 +219,7 @@ def _parse_termination_requirement(text: str) -> Optional[Dict[str, Any]]:
     return None
 
 
-def _parse_event_requirement(text: str) -> Optional[Dict[str, Any]]:
+def _parse_event_requirement(text: str) -> dict[str, Any] | None:
     """Parse ``agent must never emit the forbidden event`` etc."""
     text_lower = text.lower()
 
@@ -244,14 +244,14 @@ def _parse_event_requirement(text: str) -> Optional[Dict[str, Any]]:
     return None
 
 
-def _parse_metric_requirement(text: str) -> Optional[Dict[str, Any]]:
+def _parse_metric_requirement(text: str) -> dict[str, Any] | None:
     """Parse ``reward should be high`` etc. — intentionally vague."""
     # We do not invent a threshold for "high"; return None and let the
     # caller flag ambiguity.
     return None
 
 
-def _parse_learning_rate_requirement(text: str) -> Optional[Dict[str, Any]]:
+def _parse_learning_rate_requirement(text: str) -> dict[str, Any] | None:
     """Parse ``learning rate must remain at 0.001`` etc."""
     text_lower = text.lower()
 
