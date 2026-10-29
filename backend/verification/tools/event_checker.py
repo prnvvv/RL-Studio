@@ -9,12 +9,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from backend.verification.models import CheckStatus
-from backend.verification.models import VerificationCheckResult, VerificationRequirement
-
-from typing import Any
-
 from backend.verification.models import (
+    CheckStatus,
     VerificationCheckResult,
     VerificationRequirement,
 )
