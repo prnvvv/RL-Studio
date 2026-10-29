@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from logging.config import fileConfig
-from sqlalchemy import create_engine
 
 from alembic import context
+from sqlalchemy import create_engine
 
 from backend.database.base import Base
 
