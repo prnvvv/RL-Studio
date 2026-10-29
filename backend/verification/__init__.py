@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from pydantic import BaseModel as _BModel
-
 # ---------------------------------------------------------------------------
 # Core models (re-exported from ``.models`` so they are readily importable)
 # ---------------------------------------------------------------------------
@@ -39,7 +37,6 @@ from .interfaces import (
     VerificationService,
     _VerificationToolBase,
     PlanningFailure,
-    chain_error,
 )
 
 # ---------------------------------------------------------------------------
