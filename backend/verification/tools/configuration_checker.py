@@ -10,16 +10,14 @@ See ``backend/verification/tools/`` for the package README and integration notes
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from backend.verification.models import (
     VerificationCheckResult,
     VerificationRequirement,
     CheckStatus,
     RequirementType,
-    EvidenceReference,
 )
-from backend.verification.exceptions import InputValidationError, EvidenceUnavailableError
 
 
 def _extract_config_value(
