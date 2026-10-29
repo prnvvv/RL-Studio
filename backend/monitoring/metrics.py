@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections import deque
 from dataclasses import dataclass, field
-from typing import Any, Dict
+from typing import Any
 
 
 @dataclass
@@ -26,7 +26,7 @@ class EpisodeMetrics:
         if success:
             self.successes += 1
 
-    def summary(self) -> Dict[str, Any]:
+    def summary(self) -> dict[str, Any]:
         total_r = sum(self.rewards)
         return {
             "episode_id": self.episode_id,
@@ -52,7 +52,7 @@ class RollingMetrics:
         self._collisions.append(int(collisions))
         self._successes.append(1.0 if success else 0.0)
 
-    def aggregate(self) -> Dict[str, Any]:
+    def aggregate(self) -> dict[str, Any]:
         if not self._rewards:
             return {
                 "window": self.window,
