@@ -3,11 +3,8 @@
 import sys
 sys.path.insert(0, '.')
 
-from datetime import datetime, timezone
 from shared.schemas import (
     Incident,
-    Recovery,
-    Evaluation,
     Requirement,
     EpisodeStartedEvent,
     RewardObservedEvent,
@@ -16,7 +13,6 @@ from shared.schemas import (
     SCHEMA_VERSION,
     new_uuid,
 )
-from shared.schemas.contracts import RecoveryStatus, IncidentStatus
 from shared.schemas.requirements import RequirementSource, RequirementType
 
 # Basic instantiation tests
