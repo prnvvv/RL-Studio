@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import sqlite3
-from pathlib import Path
 from typing import Any, Optional
 
 from backend.database.connection import Database
@@ -23,7 +22,6 @@ from .exceptions import (
     ArtifactAlreadyExistsError,
     ArtifactIntegrityError,
     ArtifactNotFoundError,
-    IncidentNotFoundError,
     ProvenanceConflictError,
     RunNotFoundError,
     UnsafeArtifactPathError,
