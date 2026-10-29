@@ -8,27 +8,20 @@ logic.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Protocol, runtime_checkable
+from typing import Any, Dict, List, Optional, Protocol
 
-from backend.verification.exceptions import chain_error
 
 from backend.verification.models import (
-    AgentMetadata,
     VerificationInput,
     VerificationContext,
     VerificationRequirement,
     VerificationPlan,
-    VerificationPlanStep,
     VerificationCheckResult,
     VerificationResult,
     VerificationReport,
     EvidenceReference,
     MetricObservation,
     AnomalyObservation,
-    CheckStatus,
-    RequirementSource,
-    RequirementType,
-    AnomalyType,
 )
 
 
