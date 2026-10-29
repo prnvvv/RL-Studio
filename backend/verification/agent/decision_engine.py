@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, FrozenSet, Optional
 
-from backend.verification.models import VerificationCheckResult, VerificationRequirement, CheckStatus
+from backend.verification.models import VerificationCheckResult, CheckStatus, VerificationInput, VerificationContext
 from backend.verification.exceptions import InputValidationError
 
 
