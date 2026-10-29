@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, status
-from backend.verification.agent.agent_state import VerificationState
 
 from backend.recovery.models import (
     Recovery,
@@ -13,6 +12,7 @@ from backend.recovery.models import (
     RecoveryAssessmentRequest,
     RecoveryCreateRequest,
 )
+from backend.verification.agent.agent_state import VerificationState
 
 from ..dependencies import Services, get_correlation_id, get_services
 
@@ -23,7 +23,7 @@ router = APIRouter(tags=["recovery"])
 async def get_recovery_status(
     incident_id: str,
     state: Annotated[VerificationState, Depends()],
-) -> dict[str, any]:
+) -> dict[str, Any]:
     """Get recovery status - does not fabricate recovery success."""
     return {
         "incident_id": incident_id,
@@ -37,7 +37,7 @@ async def get_recovery_status(
 async def create_recovery_plan(
     incident_id: str,
     state: Annotated[VerificationState, Depends()],
-) -> dict[str, any]:
+) -> dict[str, Any]:
     """Create recovery plan without auto-executing."""
     return {
         "incident_id": incident_id,
