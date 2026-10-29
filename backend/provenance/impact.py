@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import Counter
-from typing import Any, Optional
+from typing import Any
 
 from backend.database.connection import Database
 from backend.database.repositories import artifacts as artifacts_repo
@@ -14,14 +14,13 @@ from .exceptions import IncidentNotFoundError, RunNotFoundError
 from .models import ImpactAnalysis
 from .registry import load_incident
 
-
 CONFIRMED = "confirmed_exposed"
 POTENTIAL = "potentially_affected"
 NOT_EXPOSED = "not_exposed_based_on_recorded_lineage"
 UNKNOWN = "unknown_incomplete_lineage"
 
 
-def _timestep(artifact: dict[str, Any]) -> Optional[int]:
+def _timestep(artifact: dict[str, Any]) -> int | None:
     if artifact.get("timestep") is not None:
         return int(artifact["timestep"])
     if artifact.get("update_index") is not None:
@@ -32,9 +31,9 @@ def _timestep(artifact: dict[str, Any]) -> Optional[int]:
 def _classify_initial(
     artifact: dict[str, Any],
     *,
-    source_environment_version: Optional[str],
-    start: Optional[int],
-    end: Optional[int],
+    source_environment_version: str | None,
+    start: int | None,
+    end: int | None,
 ) -> tuple[str, str]:
     if source_environment_version is None:
         return UNKNOWN, "incident has no recorded source environment version"
@@ -52,16 +51,20 @@ def _classify_initial(
     if start is None and end is None:
         return (
             POTENTIAL,
-            "artifact belongs to the affected environment but the fault "
-            "interval is unknown",
+            (
+                "artifact belongs to the affected environment but the fault "
+                "interval is unknown"
+            ),
         )
 
     timestep = _timestep(artifact)
     if timestep is None:
         return (
             UNKNOWN,
-            "artifact belongs to the affected environment but has no "
-            "timestep/update association",
+            (
+                "artifact belongs to the affected environment but has no "
+                "timestep/update association"
+            ),
         )
     if start is not None and timestep < start:
         return NOT_EXPOSED, "artifact timestep predates the corruption interval"
@@ -142,16 +145,17 @@ class ImpactAnalyzer:
                     for parent in parent_ids
                     if parent in classifications
                 ]
-                if CONFIRMED in parent_classes or POTENTIAL in parent_classes:
-                    if current["classification"] != POTENTIAL:
-                        current["classification"] = POTENTIAL
-                        current["reason"] = (
-                            "artifact descends from an exposed or potentially "
-                            "affected artifact"
-                        )
-                        current["propagated"] = True
-                        propagated = True
-                        changed = True
+                if (
+                    CONFIRMED in parent_classes or POTENTIAL in parent_classes
+                ) and current["classification"] != POTENTIAL:
+                    current["classification"] = POTENTIAL
+                    current["reason"] = (
+                        "artifact descends from an exposed or potentially "
+                        "affected artifact"
+                    )
+                    current["propagated"] = True
+                    propagated = True
+                    changed = True
             if not changed:
                 break
 
@@ -273,7 +277,7 @@ class ImpactAnalyzer:
         self,
         incident_id: str,
         *,
-        correlation_id: Optional[str] = None,
+        correlation_id: str | None = None,
     ) -> dict[str, Any]:
         with self.database.write() as conn:
             incident = load_incident(conn, incident_id)
@@ -318,7 +322,7 @@ class ImpactAnalyzer:
         self,
         incident_id: str,
         *,
-        correlation_id: Optional[str] = None,
+        correlation_id: str | None = None,
     ) -> ImpactAnalysis:
         return ImpactAnalysis.model_validate(
             self.analyze_incident_impact(
