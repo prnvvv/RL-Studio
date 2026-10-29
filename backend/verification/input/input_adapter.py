@@ -17,7 +17,7 @@ from typing import Any, Dict, Optional
 
 from pydantic import ValidationError
 
-from backend.verification.models import VerificationInput, VerificationContext
+from backend.verification.models import VerificationInput
 from backend.verification.exceptions import InputValidationError
 from .schema_normalizer import (
     normalise_verification_input,
@@ -85,9 +85,8 @@ def adapt_input(
     #    without requiring them — they remain ``Optional``.
     if create_context:
         # Build a minimal context; caller can enrich later
-        from backend.verification.input.context_builder import build_context
 
-        ctx = build_context(vi)
+        # ctx = build_context(vi)
         # Return the input; the context is available separately.
         # We attach it as a convenience so callers don't need an extra step.
         # Note: VerificationInput does not have a ``context`` field,
