@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 from typing import Any
 
 _ROUND = 12
@@ -35,7 +36,7 @@ def _normalize(value: Any) -> Any:
         return value
     if isinstance(value, float):
         rounded = round(value, _ROUND)
-        if rounded != rounded or rounded == float("inf") or rounded == float("-inf"):
+        if not math.isfinite(rounded):
             raise ValueError("fingerprint input contains NaN or inf; a valid config must be finite")
         return rounded
     if isinstance(value, (int, str)) or value is None:
