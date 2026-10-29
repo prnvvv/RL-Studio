@@ -5,7 +5,6 @@ from __future__ import annotations
 import pytest
 
 from backend.verification.models import (
-    VerificationCheckResult,
     VerificationRequirement,
     CheckStatus,
     RequirementType,
