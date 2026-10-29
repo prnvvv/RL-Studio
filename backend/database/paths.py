@@ -22,12 +22,12 @@ def normalize_artifact_path(raw_path: str) -> str:
     if "\x00" in raw_path or "\\" in raw_path:
         raise ArtifactPathError("artifact_path contains an unsupported character")
     path = Path(raw_path)
-    if path.is_absolute():
+    if path.is_absolute() or path.anchor:
         raise ArtifactPathError("artifact_path must be relative to the artifact root")
     parts = path.parts
     if not parts or any(part in ("..", ".") for part in parts):
         raise ArtifactPathError("artifact_path must not contain parent traversal")
-    return str(path)
+    return path.as_posix()
 
 
 def resolve_artifact_path(root: Path, relative_path: str) -> Path:
