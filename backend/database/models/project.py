@@ -1,7 +1,7 @@
 """Project ORM model."""
 from __future__ import annotations
 
-from sqlalchemy import Column, Integer, String, Text, DateTime
+from sqlalchemy import Column, DateTime, Integer, String, Text
 from sqlalchemy.sql import func
 
 from backend.database.base import Base
