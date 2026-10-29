@@ -12,6 +12,7 @@ from typing import Any
 from backend.verification.models import (
     VerificationCheckResult,
     VerificationRequirement,
+    CheckStatus,
 )
 
 
@@ -131,7 +132,7 @@ def execute_check(
 
                 return VerificationCheckResult(
                     requirement_id=requirement.id,
-                    status="unknown",
+                    status=CheckStatus.UNKNOWN,
                     expected=expected,
                     actual=None,
                     tolerance=None,
@@ -153,7 +154,7 @@ def execute_check(
 
                 return VerificationCheckResult(
                     requirement_id=requirement.id,
-                    status="unknown",
+                    status=CheckStatus.UNKNOWN,
                     expected=expected,
                     actual=None,
                     tolerance=None,
@@ -172,7 +173,7 @@ def execute_check(
 
             return VerificationCheckResult(
                 requirement_id=requirement.id,
-                status="unknown",
+                status=CheckStatus.UNKNOWN,
                 expected=expected,
                 actual=None,
                 tolerance=None,
@@ -198,7 +199,7 @@ def execute_check(
             if event_value is not False:
                 return VerificationCheckResult(
                     requirement_id=requirement.id,
-                    status="fail",
+                    status=CheckStatus.FAIL,
                     expected=expected,
                     actual=f"forbidden event '{forbidden_event}' was recorded",
                     tolerance=None,
@@ -218,7 +219,7 @@ def execute_check(
         found_events: list[str] = []
         for ev in recorded_events:
             if isinstance(ev, dict):
-                name = ev.get("event_name", ev.get("name", ""))
+                name: str = ev.get("event_name", ev.get("name", ""))
                 if name in required_set and name not in found_events:
                     found_events.append(name)
 
@@ -232,7 +233,7 @@ def execute_check(
 
             return VerificationCheckResult(
                 requirement_id=requirement.id,
-                status="fail",
+                status=CheckStatus.FAIL,
                 expected=expected,
                 actual=f"event order mismatch; expected {expected_event_order}, got {found_events}",
                 tolerance=None,
@@ -245,13 +246,11 @@ def execute_check(
     # Handle event_count
     if event_count is not None and recorded_events is not None:
         # Count occurrences of each event name
-        from collections import Counter
-
-        actual_counts = Counter()
+        actual_counts: dict[str, int] = {}
         for ev in recorded_events:
             if isinstance(ev, dict):
-                name = ev.get("event_name", ev.get("name", ""))
-                actual_counts[name] += 1
+                name2: str = ev.get("event_name", ev.get("name", ""))
+                actual_counts[name2] = actual_counts.get(name2, 0) + 1
 
         # Check each required count
         for event_name, required_count in event_count.items():
@@ -261,7 +260,7 @@ def execute_check(
 
                 return VerificationCheckResult(
                     requirement_id=requirement.id,
-                    status="fail",
+                    status=CheckStatus.FAIL,
                     expected=f"{event_name} count >= {required_count}",
                     actual=f"{event_name} count = {actual_count}",
                     tolerance=None,
@@ -276,7 +275,7 @@ def execute_check(
 
     result = VerificationCheckResult(
         requirement_id=requirement.id,
-        status="pass",
+        status=CheckStatus.PASS,
         expected=expected,
         actual="events verified",
         tolerance=None,
