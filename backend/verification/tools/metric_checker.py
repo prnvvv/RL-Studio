@@ -7,21 +7,22 @@ See ``backend/verification/tools/`` for the package README and integration notes
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+import math
+from typing import Any
 
 from backend.verification.models import (
+    MetricObservation,
     VerificationCheckResult,
     VerificationRequirement,
-    MetricObservation,
 )
 
 
-def _classify_observation_value(value: Optional[float]) -> str:
+def _classify_observation_value(value: float | None) -> str:
     """Classify a numeric metric value for reporting purposes."""
     if value is None:
         return "missing"
     if isinstance(value, float):
-        if value != value:  # NaN check
+        if math.isnan(value):  # NaN check
             return "nan"
         if value == float("inf"):
             return "positive_inf"
@@ -34,7 +35,7 @@ def _evaluate_observation_against_threshold(
     expected: float,
     actual: float,
     operator: str,
-    tolerance: Optional[float],
+    tolerance: float | None,
 ) -> str:
     """Evaluate a single observation against a threshold.
 
@@ -85,7 +86,7 @@ def _evaluate_observation_against_threshold(
         return "unknown"
 
 
-def _determine_overall_status(observation_results: List[str]) -> str:
+def _determine_overall_status(observation_results: list[str]) -> str:
     """Determine the overall status from per-observation results.
 
     Rules:
@@ -111,25 +112,25 @@ def _determine_overall_status(observation_results: List[str]) -> str:
 
 def _build_details_dict(
     operator: str,
-    tolerance: Optional[float],
+    tolerance: float | None,
     observation_count: int,
-    failing_indices: List[int],
-    all_values: List[float],
+    failing_indices: list[int],
+    all_values: list[float],
     expected: float,
-) -> Dict[str, str]:
+) -> dict[str, str]:
     """Build a details dict that is always Pydantic-compatible.
 
     Returns a dict with a ``note`` key whose value is a plain string.
     Never returns nested dicts or arbitrary structures, to avoid
     ``pydantic.ValidationError: Input should be a valid dictionary``.
     """
-    obs_descriptions: List[str] = []
+    obs_descriptions: list[str] = []
     for i, val in enumerate(all_values):
         cls = _classify_observation_value(val)
         obs_descriptions.append(f"obs[{i}]({cls}:{val})")
 
     if failing_indices:
-        fail_parts: List[str] = []
+        fail_parts: list[str] = []
         for i in failing_indices:
             actual = all_values[i]
             diff_val = actual - expected
@@ -152,9 +153,9 @@ def _build_details_dict(
 
 
 def _extract_metric_value(
-    source: Optional[Dict[str, Any]],
+    source: dict[str, Any] | None,
     key: str = "value",
-) -> Optional[float]:
+) -> float | None:
     """Extract a numeric metric value from a dict-like source.
 
     Returns None if the key is absent, the value is not numeric, or source is
@@ -169,8 +170,8 @@ def _extract_metric_value(
 
 
 def _extract_metric_timestamp(
-    source: Optional[Dict[str, Any]],
-) -> Optional[str]:
+    source: dict[str, Any] | None,
+) -> str | None:
     """Extract a timestamp string from a metric source dict, if present."""
     if source is None:
         return None
@@ -188,10 +189,10 @@ def execute_check(
     check_id: str,
     requirement: VerificationRequirement,
     *,
-    metric_observations: Optional[List[MetricObservation]] = None,
-    metric_values: Optional[List[float]] = None,
-    metric_names: Optional[List[str]] = None,
-    thresholds: Optional[Dict[str, Dict[str, Any]]] = None,
+    metric_observations: list[MetricObservation] | None = None,
+    metric_values: list[float] | None = None,
+    metric_names: list[str] | None = None,
+    thresholds: dict[str, dict[str, Any]] | None = None,
     source: str = "metric_check",
 ) -> VerificationCheckResult:
     """Execute a metric and threshold verification check.
@@ -225,14 +226,14 @@ def execute_check(
         ``UNKNOWN``, or ``ERROR``.
     """
     expected = requirement.expected_value
-    evidence_parts: List[str] = []
+    evidence_parts: list[str] = []
 
     # ------------------------------------------------------------------
     # Phase 1: Extract actual values from the available source(s).
     # ------------------------------------------------------------------
 
-    all_actuals: List[float] = []
-    all_classifications: List[str] = []
+    all_actuals: list[float] = []
+    all_classifications: list[str] = []
 
     # Path A: metric_observations (list of MetricObservation)
     if metric_observations is not None and len(metric_observations) > 0:
@@ -339,8 +340,8 @@ def execute_check(
             details=details,
         )
 
-    observation_results: List[str] = []
-    failing_indices: List[int] = []
+    observation_results: list[str] = []
+    failing_indices: list[int] = []
 
     for i, (actual, classification) in enumerate(zip(all_actuals, all_classifications)):
         # Skip NaN/missing observations — treat as unknown, not fail
@@ -394,9 +395,7 @@ def execute_check(
     if metric_observations is not None:
         for i, obs in enumerate(metric_observations[:3]):  # first 3
             obs_ref = f"metric_obs:{i}"
-            if hasattr(obs, "id"):
-                result.evidence_refs.append(obs_ref)
-            elif isinstance(obs, dict) and "metric_name" in obs:
+            if hasattr(obs, "id") or isinstance(obs, dict) and "metric_name" in obs:
                 result.evidence_refs.append(obs_ref)
 
     return result
