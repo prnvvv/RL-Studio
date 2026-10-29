@@ -11,7 +11,6 @@ from backend.verification.models import (
     VerificationCheckResult,
     CheckStatus,
 )
-from backend.verification.tools.tool_registry import is_check_registered
 
 
 @dataclass
