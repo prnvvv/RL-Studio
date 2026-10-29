@@ -1,7 +1,7 @@
 """Requirement ORM model."""
 from __future__ import annotations
 
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey
+from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, String
 from sqlalchemy.sql import func
 
 from backend.database.base import Base
