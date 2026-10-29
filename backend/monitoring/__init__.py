@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from .metrics import EpisodeMetrics, RollingMetrics
 from .events import EventEmitter
+from .metrics import EpisodeMetrics, RollingMetrics
 
-__all__ = ["EpisodeMetrics", "RollingMetrics", "EventEmitter"]
+__all__ = ["EpisodeMetrics", "EventEmitter", "RollingMetrics"]
