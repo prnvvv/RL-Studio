@@ -65,5 +65,14 @@ class DatabaseError(StudioError):
     http_status = 500
 
 
-class ArtifactPathError(ValidationError):
+class MigrationError(DatabaseError):
     error_code = "P4-011"
+    http_status = 500
+
+
+class ArtifactPathError(ValidationError):
+    error_code = "P4-012"
+
+
+class ArtifactHashError(IntegrityFailure):
+    error_code = "P4-013"

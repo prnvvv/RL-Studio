@@ -23,3 +23,21 @@ class EvaluationBlockedError(EvaluationError):
 class EvaluationConflictError(EvaluationError):
     http_status = 409
     error_code = "EVAL-004"
+
+
+class EvaluationValidationError(EvaluationError):
+    http_status = 422
+    error_code = "EVAL-001"
+
+
+class InvalidEvaluationStateError(EvaluationError):
+    http_status = 409
+    error_code = "EVAL-005"
+
+
+class BaselineNotFoundError(EvaluationNotFoundError):
+    error_code = "EVAL-006"
+
+
+class MissingEvaluationMetricsError(EvaluationValidationError):
+    error_code = "EVAL-007"

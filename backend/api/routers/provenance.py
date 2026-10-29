@@ -4,12 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from typing import Any, Dict
-
-from backend.verification.agent.agent_state import VerificationState
-from backend.verification.models import VerificationCheckResult, CheckStatus
-from backend.verification.tools.tool_registry import execute_check, list_checks
+from fastapi import APIRouter, Depends, Path
 
 from backend.provenance.models import (
     Artifact,
@@ -22,58 +17,8 @@ from ..dependencies import Services, get_services
 
 router = APIRouter(tags=["provenance"])
 
-
-@router.get("/provenance/artifact-impact/{artifact_id}")
-async def get_artifact_impact(
-    artifact_id: str,
-    state: VerificationState = Depends(),
-) -> Dict[str, Any]:
-    """Get artifact impact assessment."""
-    # Use deterministic evidence; no fabricating impact status
-    impact: Dict[str, Any] = {
-        "artifact_id": artifact_id,
-        "impact_status": "unknown",
-        "evidence_authority": "Deterministic records; no fabricating impact status",
-    }
-
-    if state.overall_status == CheckStatus.PASS:
-        impact["impact_status"] = "exposed_potentially_affected_unknown"
-    elif state.overall_status == CheckStatus.FAIL:
-        impact["impact_status"] = "exposed_potentially_affected_unknown"
-    else:
-        impact["impact_status"] = "unknown"
-
-    return impact
-
-
-@router.get("/provenance/lineage/{run_id}")
-async def get_lineage(
-    run_id: str,
-    state: VerificationState = Depends(),
-) -> Dict[str, Any]:
-    """Get artifact lineage for a run."""
-    lineage: Dict[str, Any] = {
-        "run_id": run_id,
-        "lineage_authority": "Deterministic records with stable IDs; no inventing relationships",
-    }
-
-    if state.overall_status == CheckStatus.PASS:
-        lineage["lineage_status"] = "complete_verified_lineage"
-    elif state.overall_status == CheckStatus.FAIL:
-        lineage["lineage_status"] = "incomplete_verified_lineage"
-    else:
-        lineage["lineage_status"] = "unknown_insufficient_evidence"
-
-    return lineage
-
-
 # Person 4 API endpoints
 p4_router = APIRouter(prefix="/api/v1", tags=["provenance"])
-
-Identifier = Annotated[str, Depends(lambda x: x.path_params.get("run_id") or x.path_params.get("artifact_id") or x.path_params.get("incident_id"))]  # fallback not needed
-
-
-from fastapi import Path
 
 Identifier2 = Annotated[str, Path(min_length=1, max_length=200)]
 
@@ -93,7 +38,7 @@ def get_run_provenance(
 @p4_router.get(
     "/runs/{run_id}/artifacts",
     response_model=RunArtifactList,
-    summary="List a run's registered artifacts",
+    summary="List artifacts associated with a run",
 )
 def list_run_artifacts(
     run_id: Identifier2,

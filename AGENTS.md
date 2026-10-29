@@ -605,3 +605,4 @@ Before each PR:
 ### 19.8 Final Rule
 
 **Work only on `backend3`. Make frequent, meaningful commits with one-line commit messages. Push development changes only to `backend3`. When asked to create a PR, create it from `backend3` to `main`. Never commit to or push directly to `main` unless the repository owner explicitly authorizes that specific action. Never merge a PR without explicit authorization.**
+**Every single file change must be made in its own individual Git commit.**

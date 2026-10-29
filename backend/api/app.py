@@ -35,7 +35,23 @@ def create_app(config: Optional[DatabaseConfig] = None) -> FastAPI:
         lifespan=lifespan,
     )
     install_error_handlers(app)
-    app.include_router(provenance.router)
-    app.include_router(recovery.router)
-    app.include_router(evaluation.router)
+    app.include_router(provenance.p4_router)
+    app.include_router(recovery.p4_router)
+    app.include_router(evaluation.p4_router)
     return app
+
+
+try:
+    from .routers import runs
+
+    app.include_router(runs.router)
+except Exception:
+    pass
+
+
+# Real-time updates channel (WebSocket + SSE)
+try:
+    from .routers.ws_events import router as ws_router
+    app.include_router(ws_router)
+except Exception:
+    pass
