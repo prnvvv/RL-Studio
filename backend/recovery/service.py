@@ -18,7 +18,7 @@ from backend.database.utils import (
     unique_preserving_order,
     utc_now_iso,
 )
-from backend.provenance.models import Artifact, ImpactAnalysis, Incident
+from backend.provenance.models import ImpactAnalysis, Incident
 from backend.provenance.service import ProvenanceService
 
 from .exceptions import (
@@ -31,7 +31,6 @@ from .models import (
     CheckOutcome,
     CompatibilityCheck,
     Recovery,
-    RecoveryAction,
     RecoveryAssessment,
     RecoveryAssessmentRequest,
     RecoveryCreateRequest,
