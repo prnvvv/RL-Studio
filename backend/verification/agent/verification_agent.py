@@ -7,18 +7,21 @@ LangGraph is the sole authoritative orchestrator; no competing loop exists.
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, Optional
+from typing import Any
 
-from langgraph.graph import StateGraph
 from langgraph.constants import END
+from langgraph.graph import StateGraph
 
 from backend.verification.agent.agent_state import VerificationState
-from backend.verification.agent.decision_engine import aggregate_results, CheckStatus
+from backend.verification.agent.decision_engine import CheckStatus, aggregate_results
 from backend.verification.input.context_builder import build_context
 from backend.verification.input.schema_normalizer import normalise_verification_input
+from backend.verification.models import (
+    RequirementType,
+    VerificationCheckResult,
+    VerificationRequirement,
+)
 from backend.verification.tools.tool_registry import execute_check
-from backend.verification.models import VerificationCheckResult, VerificationRequirement, RequirementType
-
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +48,7 @@ def node_normalize(state: VerificationState) -> VerificationState:
         from backend.verification.models import VerificationInput
         vi = VerificationInput(**normalised)
         state.input = vi
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001
         state.error = f"Input normalization failed: {exc}"
         state.step = "complete"
         return state
@@ -54,7 +57,7 @@ def node_normalize(state: VerificationState) -> VerificationState:
     try:
         ctx = build_context(state.input)
         state.context = ctx
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001
         state.error = f"Context building failed: {exc}"
         state.step = "complete"
         return state
@@ -114,7 +117,7 @@ def node_plan(state: VerificationState) -> VerificationState:
     try:
         from backend.verification.agent.workflow_planner import plan as plan_checks
         plan_result = plan_checks(requirements, state.context)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001
         state.error = f"Planning failed: {exc}"
         state.step = "complete"
         return state
@@ -166,7 +169,7 @@ def node_check(state: VerificationState) -> VerificationState:
                 if isinstance(r, (int, float)):
                     return float(r), float(r)
             return None, None
-        except Exception:
+        except Exception:  # noqa: BLE001
             return None, None
 
     # Helper: pull metric observations from context if available
@@ -180,7 +183,7 @@ def node_check(state: VerificationState) -> VerificationState:
             if ev and isinstance(ev, dict):
                 return ev.get("metrics", ev.get("observations", []))
             return []
-        except Exception:
+        except Exception:  # noqa: BLE001
             return []
 
     # Dispatch each registered check.
@@ -199,7 +202,7 @@ def node_check(state: VerificationState) -> VerificationState:
             )
 
         # Determine the requirement type from the check tool ID mapping.
-        _TYPE_MAP: Dict[str, RequirementType] = {
+        _TYPE_MAP: dict[str, RequirementType] = {
             "check_reward": RequirementType.reward,
             "check_episode": RequirementType.termination,
             "check_metric": RequirementType.metric,
@@ -213,7 +216,7 @@ def node_check(state: VerificationState) -> VerificationState:
 
         # Prepare checker arguments, injecting the requirement's expected value
         # and the context's evidence values.
-        checker_args: Dict[str, Any] = {"requirement": req}
+        checker_args: dict[str, Any] = {"requirement": req}
 
         if check_type == RequirementType.reward and reward_ev[0] is not None and reward_ev[1] is not None:
             # Use context evidence if available; otherwise fall back to requirement expected_value
@@ -232,7 +235,7 @@ def node_check(state: VerificationState) -> VerificationState:
                 checker_args,
             )
             state.check_results[req_id] = result
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001
             logger.error(f"Check {check_tool_id} failed: {exc}")
             state.check_results[req_id] = VerificationCheckResult(
                 requirement_id=req_id,
@@ -275,7 +278,7 @@ def node_complete(state: VerificationState) -> VerificationState:
     path produces a typed, serializable result.
     """
     # Build the final output dict
-    output: Dict[str, Any] = {
+    output: dict[str, Any] = {
         "overall_status": state.overall_status,
         "details": state.decision_details,
         "requirements": {},
@@ -352,10 +355,10 @@ def build_graph() -> Any:
 # ---------------------------------------------------------------------------
 
 def run_verification(
-    raw_input: Dict[str, Any],
+    raw_input: dict[str, Any],
     *,
-    model_api_key: Optional[str] = None,
-) -> Dict[str, Any]:
+    model_api_key: str | None = None,
+) -> dict[str, Any]:
     """Run the full verification pipeline from raw input.
 
     Args:
@@ -375,7 +378,7 @@ def run_verification(
     # Run the graph
     try:
         result_state = app.invoke(initial_state)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001
         logger.error(f"Verification graph execution failed: {exc}")
         return {
             "overall_status": "error",
@@ -391,7 +394,7 @@ def run_verification(
     details = result_state.get("decision_details", "No results obtained")
 
     # Build the output dict
-    output: Dict[str, Any] = {
+    output: dict[str, Any] = {
         "overall_status": overall,
         "details": details,
         "requirements": {},
@@ -438,7 +441,7 @@ def _requirement_type_from_id(check_tool_id: str) -> Any:
     to handle its own requirement type, so we default to ``RequirementType.reward``
     when the ID is unrecognised.
     """
-    _MAP: Dict[str, Any] = {
+    _MAP: dict[str, Any] = {
         "check_reward": RequirementType.reward,
         "check_episode": RequirementType.termination,
         "check_event": RequirementType.event,
