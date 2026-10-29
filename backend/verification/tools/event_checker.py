@@ -7,7 +7,7 @@ See ``backend/verification/tools/`` for the package README and integration notes
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from backend.verification.models import (
     VerificationCheckResult,
@@ -16,10 +16,10 @@ from backend.verification.models import (
 
 
 def _find_event_in_records(
-    records: Optional[List[Dict[str, Any]]],
+    records: list[dict[str, Any]] | None,
     event_name: str,
     required: bool = True,
-) -> Optional[Dict[str, Any]]:
+) -> dict[str, Any] | None:
     """Find an event with the given name in a list of record dicts.
 
     Returns the first matching event dict, or None if not found.
@@ -52,15 +52,15 @@ def _find_event_in_records(
 
 
 def _extract_event_payload(
-    event_record: Dict[str, Any],
-    expected_fields: Optional[List[str]] = None,
-) -> Dict[str, Any]:
+    event_record: dict[str, Any],
+    expected_fields: list[str] | None = None,
+) -> dict[str, Any]:
     """Extract a subset of fields from an event record.
 
     Returns only the fields that exist in the record and are in
     *expected_fields* (if provided).
     """
-    result: Dict[str, Any] = {}
+    result: dict[str, Any] = {}
     if expected_fields is None:
         return dict(event_record)
     for field in expected_fields:
@@ -73,11 +73,11 @@ def execute_check(
     check_id: str,
     requirement: VerificationRequirement,
     *,
-    recorded_events: Optional[List[Dict[str, Any]]] = None,
-    required_event: Optional[str] = None,
-    forbidden_event: Optional[str] = None,
-    expected_event_order: Optional[List[str]] = None,
-    event_count: Optional[Dict[str, int]] = None,
+    recorded_events: list[dict[str, Any]] | None = None,
+    required_event: str | None = None,
+    forbidden_event: str | None = None,
+    expected_event_order: list[str] | None = None,
+    event_count: dict[str, int] | None = None,
     source: str = "event_check",
 ) -> VerificationCheckResult:
     """Execute an event verification check.
@@ -110,7 +110,7 @@ def execute_check(
         ``UNKNOWN``, or ``BLOCKED``.
     """
     expected = requirement.expected_value
-    evidence_parts: List[str] = []
+    evidence_parts: list[str] = []
 
     # Handle required_event
     if required_event is not None:
@@ -146,7 +146,7 @@ def execute_check(
             superficial_keys = {"name", "event"}
             has_superficial_match = (
                 key_match in superficial_keys
-                and not any(k in event_record for k in {"event_name", "terminated", "truncated", "goal_attained"})
+                and not any(k in event_record for k in ("event_name", "terminated", "truncated", "goal_attained"))
             )
             if has_superficial_match:
                 from backend.verification.models import VerificationCheckResult
@@ -215,7 +215,7 @@ def execute_check(
         # Simple order check: the first occurrence of each required event
         # should appear in the specified order
         required_set = set(expected_event_order)
-        found_events: List[str] = []
+        found_events: list[str] = []
         for ev in recorded_events:
             if isinstance(ev, dict):
                 name = ev.get("event_name", ev.get("name", ""))
