@@ -22,10 +22,9 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any, Dict, Optional, Type, TypeVar, Tuple
+from typing import Any, TypeVar
 
 from pydantic import BaseModel, Field, ValidationError
-
 
 from backend.verification.exceptions import (  # typed parsing errors
     MetaAIProviderError,
@@ -40,7 +39,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 
-def extract_model_content(response: Dict[str, Any]) -> str:
+def extract_model_content(response: dict[str, Any]) -> str:
     """Extract the plain-text model content from a provider response.
 
     Supports both the Responses API and Chat Completions formats.
@@ -83,14 +82,14 @@ def extract_model_content(response: Dict[str, Any]) -> str:
     )
 
 
-def extract_usage_from_response(response: Dict[str, Any]) -> Dict[str, Any]:
+def extract_usage_from_response(response: dict[str, Any]) -> dict[str, Any]:
     """Extract token-usage metadata from a provider response.
 
     Returns a dict with keys such as ``prompt_tokens``, ``completion_tokens``,
     ``total_tokens`` when available.  Returns an empty dict if usage is
     not present or recognisable.
     """
-    usage: Dict[str, Any] = {}
+    usage: dict[str, Any] = {}
     # Chat Completions style
     if "usage" in response and isinstance(response["usage"], dict):
         u = response["usage"]
@@ -110,13 +109,13 @@ def extract_usage_from_response(response: Dict[str, Any]) -> Dict[str, Any]:
     return usage
 
 
-def extract_response_metadata(response: Dict[str, Any]) -> Dict[str, Any]:
+def extract_response_metadata(response: dict[str, Any]) -> dict[str, Any]:
     """Extract non-sensitive metadata from a provider response for tracing.
 
     Includes request ID, model name, and any available usage info.
     Never includes raw prompt content or raw model output.
     """
-    metadata: Dict[str, Any] = {
+    metadata: dict[str, Any] = {
         "request_id": response.get("id") or response.get("request_id"),
         "model": response.get("model"),
     }
@@ -131,7 +130,7 @@ def extract_response_metadata(response: Dict[str, Any]) -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
-def parse_json_content(content: str) -> Dict[str, Any]:
+def parse_json_content(content: str) -> dict[str, Any]:
     """Parse a JSON string, raising a typed error on failure."""
     try:
         parsed = json.loads(content)
@@ -144,8 +143,8 @@ def parse_json_content(content: str) -> Dict[str, Any]:
 
 
 def parse_structured_response(
-    response: Dict[str, Any], target_model: Type[T],
-) -> Tuple[T, Dict[str, Any]]:
+    response: dict[str, Any], target_model: type[T],
+) -> tuple[T, dict[str, Any]]:
     """Parse a model response and validate it against a canonical Pydantic model.
 
     Args:
@@ -165,7 +164,7 @@ def parse_structured_response(
     # Step 2: extract usage metadata for the caller.
     usage = extract_usage_from_response(response)
     # Step 3: attempt to parse the content as JSON (structured-output).
-    parsed: Dict[str, Any]
+    parsed: dict[str, Any]
     try:
         parsed = parse_json_content(content)
     except MetaAIProviderError:
@@ -202,11 +201,11 @@ class ParsingFailure(BaseModel):
 
     failure_type: str  # e.g. "json_parse_error", "schema_validation_error", "missing_content"
     message: str
-    raw_content: Optional[str] = None
+    raw_content: str | None = None
     suggested_action: str = "reject_and_report"
 
 
-def classify_parsing_failure(exc: Exception, raw_content: Optional[str] = None) -> ParsingFailure:
+def classify_parsing_failure(exc: Exception, raw_content: str | None = None) -> ParsingFailure:
     """Classify a parsing exception into a typed ``ParsingFailure``."""
     if isinstance(exc, MetaAIProviderError):
         return ParsingFailure(
