@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import asyncio
-from typing import AsyncGenerator, Dict, List, Optional
+from typing import AsyncGenerator, Dict
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from fastapi.responses import StreamingResponse
 
-from backend.events.service import EventPublisher, Event
+from backend.events.service import EventPublisher
 
 
 router = APIRouter(prefix="/api/v1", tags=["realtime"])
