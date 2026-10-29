@@ -1,7 +1,5 @@
 from __future__ import annotations
 import os
-import json
-import time
 import uuid
 import logging
 from typing import Any, Dict, List, Optional, Tuple, Any as AnyType
@@ -11,7 +9,6 @@ import httpx
 from dotenv import load_dotenv
 load_dotenv(".env", override=False)
 
-from pydantic import BaseModel, Field, ValidationError
 
 META_API_BASE = os.getenv("META_BASE_URL", "https://api.meta.ai/v1")
 # API key check is lazy - do not raise at import time.
