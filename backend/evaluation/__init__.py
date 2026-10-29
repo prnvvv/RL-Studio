@@ -16,6 +16,6 @@ __all__ = [
     "EpisodeEvaluation",
     "Evaluation",
     "EvaluationCreateRequest",
-    "EvaluationStatus",
     "EvaluationService",
+    "EvaluationStatus",
 ]
