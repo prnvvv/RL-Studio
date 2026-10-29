@@ -6,12 +6,10 @@ Purely deterministic — no LLM calls required for the base flow.
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional
+from typing import Any, Dict, List
 
-from backend.verification.models import VerificationRequirement, VerificationCheckResult
+from backend.verification.models import VerificationRequirement
 from backend.verification.tools.tool_registry import (
-    execute_check,
-    list_checks,
     is_check_registered,
     register_check,
 )
@@ -70,7 +68,6 @@ def _auto_register(check_id: str) -> None:
     This keeps the registry populated without requiring manual registration
     of every check at startup.
     """
-    from backend.verification.tools.tool_registry import register_check
 
     # Map check IDs to their handler functions.
     _HANDLERS: Dict[str, any] = {
