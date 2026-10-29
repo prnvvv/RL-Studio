@@ -3,9 +3,8 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 
-from backend.monitoring.exceptions import MetricValidationError
 
 router = APIRouter(prefix="/api/v1", tags=["monitoring"])
 
