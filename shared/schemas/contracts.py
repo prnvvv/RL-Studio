@@ -14,7 +14,7 @@ treated as proof of a fault or a successful recovery.
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -50,9 +50,9 @@ class Incident(BaseModel):
     incident_id: str = Field(default_factory=new_uuid)
     schema_version: str = Field(default=SCHEMA_VERSION)
     run_id: str
-    requirement_id: Optional[str] = Field(default=None, description="Violated requirement ID.")
-    environment_version: Optional[str] = Field(default=None)
-    environment_id: Optional[str] = Field(default=None)
+    requirement_id: str | None = Field(default=None, description="Violated requirement ID.")
+    environment_version: str | None = Field(default=None)
+    environment_id: str | None = Field(default=None)
     violation_type: str = Field(description="Stable violation category, e.g. 'reward_scale_mismatch'.")
     severity: ViolationSeverity = Field(default=ViolationSeverity.MEDIUM)
     status: IncidentStatus = Field(default=IncidentStatus.OPEN)
@@ -64,15 +64,15 @@ class Incident(BaseModel):
         default=RootCauseStatus.UNRESOLVED,
         description="Separate from detection: is the root cause established?",
     )
-    evidence_event_ids: List[str] = Field(
+    evidence_event_ids: list[str] = Field(
         default_factory=list, description="IDs of ExecutionEvent records proving the violation."
     )
-    evidence_refs: List[str] = Field(default_factory=list)
-    detector_id: Optional[str] = None
-    detector_version: Optional[str] = None
-    created_at: Optional[str] = None
-    resolved_at: Optional[str] = None
-    extensions: Dict[str, Any] = Field(default_factory=dict)
+    evidence_refs: list[str] = Field(default_factory=list)
+    detector_id: str | None = None
+    detector_version: str | None = None
+    created_at: str | None = None
+    resolved_at: str | None = None
+    extensions: dict[str, Any] = Field(default_factory=dict)
 
     model_config = {"populate_by_name": True, "extra": "forbid"}
 
@@ -100,7 +100,7 @@ class CompatibilityCheck(BaseModel):
 
     name: str
     passed: bool
-    detail: Optional[str] = None
+    detail: str | None = None
 
 
 class Recovery(BaseModel):
@@ -109,29 +109,29 @@ class Recovery(BaseModel):
     recovery_id: str = Field(default_factory=new_uuid)
     schema_version: str = Field(default=SCHEMA_VERSION)
     incident_id: str
-    proposed_actions: List[RecoveryAction] = Field(default_factory=list)
-    executed_actions: List[RecoveryAction] = Field(
+    proposed_actions: list[RecoveryAction] = Field(default_factory=list)
+    executed_actions: list[RecoveryAction] = Field(
         default_factory=list,
         description="Actions that were actually run, distinct from proposed.",
     )
-    source_checkpoint_id: Optional[str] = None
-    target_checkpoint_id: Optional[str] = Field(
+    source_checkpoint_id: str | None = None
+    target_checkpoint_id: str | None = Field(
         default=None, description="Checkpoint chosen as the recovery target."
     )
-    environment_fingerprint: Optional[str] = None
-    agent_config_fingerprint: Optional[str] = None
-    compatibility_checks: List[CompatibilityCheck] = Field(default_factory=list)
+    environment_fingerprint: str | None = None
+    agent_config_fingerprint: str | None = None
+    compatibility_checks: list[CompatibilityCheck] = Field(default_factory=list)
     approval_state: str = Field(default="pending", description="'pending' | 'approved' | 'rejected'.")
     status: RecoveryStatus = Field(default=RecoveryStatus.PLANNED)
-    failure_reason: Optional[str] = Field(
+    failure_reason: str | None = Field(
         default=None, description="Sanitized reason when status is FAILED/BLOCKED."
     )
-    evaluation_id: Optional[str] = Field(
+    evaluation_id: str | None = Field(
         default=None, description="Evaluation that must pass to mark SUCCEEDED."
     )
-    created_at: Optional[str] = None
-    updated_at: Optional[str] = None
-    extensions: Dict[str, Any] = Field(default_factory=dict)
+    created_at: str | None = None
+    updated_at: str | None = None
+    extensions: dict[str, Any] = Field(default_factory=dict)
 
     model_config = {"populate_by_name": True, "extra": "forbid"}
 
@@ -149,13 +149,13 @@ class MetricResult(BaseModel):
 
     metric_name: str
     value: float
-    unit: Optional[str] = None
-    mean: Optional[float] = None
-    stdev: Optional[float] = Field(default=None, description="Standard deviation across seeds/episodes.")
-    ci_low: Optional[float] = Field(default=None, description="Lower confidence-interval bound.")
-    ci_high: Optional[float] = Field(default=None, description="Upper confidence-interval bound.")
+    unit: str | None = None
+    mean: float | None = None
+    stdev: float | None = Field(default=None, description="Standard deviation across seeds/episodes.")
+    ci_low: float | None = Field(default=None, description="Lower confidence-interval bound.")
+    ci_high: float | None = Field(default=None, description="Upper confidence-interval bound.")
     sample_count: int = Field(default=0, description="Number of samples (episodes/seeds).")
-    note: Optional[str] = None
+    note: str | None = None
 
 
 class Evaluation(BaseModel):
@@ -163,29 +163,29 @@ class Evaluation(BaseModel):
 
     evaluation_id: str = Field(default_factory=new_uuid)
     schema_version: str = Field(default=SCHEMA_VERSION)
-    recovery_id: Optional[str] = None
-    run_id: Optional[str] = None
+    recovery_id: str | None = None
+    run_id: str | None = None
     environment_version: str = Field(description="Healthy evaluation environment version.")
-    policy_fingerprint: Optional[str] = Field(default=None)
+    policy_fingerprint: str | None = Field(default=None)
     n_episodes: int = Field(description="Number of evaluation episodes.")
     n_seeds: int = Field(default=1, description="Number of evaluation seeds.")
-    seeds: List[int] = Field(default_factory=list)
-    metrics: List[MetricResult] = Field(default_factory=list)
-    baselines: List[str] = Field(
+    seeds: list[int] = Field(default_factory=list)
+    metrics: list[MetricResult] = Field(default_factory=list)
+    baselines: list[str] = Field(
         default_factory=list, description="Baseline identities compared against."
     )
-    acceptance_criteria: Dict[str, Any] = Field(
+    acceptance_criteria: dict[str, Any] = Field(
         default_factory=dict, description="Configured acceptance thresholds."
     )
     status: EvaluationStatus = Field(default=EvaluationStatus.PENDING)
-    outcome: Optional[str] = Field(
+    outcome: str | None = Field(
         default=None,
         description="Measured outcome: 'success', 'failure', 'inconclusive' when evaluated.",
     )
-    limitations: List[str] = Field(
+    limitations: list[str] = Field(
         default_factory=list, description="Known limitations / uncertainty disclosures."
     )
-    created_at: Optional[str] = None
-    extensions: Dict[str, Any] = Field(default_factory=dict)
+    created_at: str | None = None
+    extensions: dict[str, Any] = Field(default_factory=dict)
 
     model_config = {"populate_by_name": True, "extra": "forbid"}
