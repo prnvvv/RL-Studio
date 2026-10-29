@@ -12,12 +12,8 @@ from typing import Any, Dict, List, Optional
 from backend.verification.models import (
     VerificationCheckResult,
     VerificationRequirement,
-    CheckStatus,
-    RequirementType,
     MetricObservation,
-    EvidenceReference,
 )
-from backend.verification.exceptions import InputValidationError, EvidenceUnavailableError
 
 
 def _classify_observation_value(value: Optional[float]) -> str:
