@@ -9,6 +9,7 @@ them without relying on in-memory state.
 from __future__ import annotations
 
 from shared.schemas import (
+    SCHEMA_VERSION,
     CheckpointWrittenEvent,
     CollisionEvent,
     EpisodeEndedEvent,
@@ -18,12 +19,12 @@ from shared.schemas import (
     RequirementViolationEvent,
     RewardObservedEvent,
     SourceComponent,
-    SCHEMA_VERSION,
     new_uuid,
     utc_now,
 )
 
 __all__ = [
+    "SCHEMA_VERSION",
     "CheckpointWrittenEvent",
     "CollisionEvent",
     "EpisodeEndedEvent",
@@ -33,7 +34,6 @@ __all__ = [
     "RequirementViolationEvent",
     "RewardObservedEvent",
     "SourceComponent",
-    "SCHEMA_VERSION",
     "new_uuid",
     "utc_now",
 ]
