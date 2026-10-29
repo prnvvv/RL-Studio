@@ -83,58 +83,57 @@ from __future__ import annotations
 
 import logging
 
-from typing import Optional, Dict
-
 # Import from meta_ai - some names are conditional (e.g. MetaAIProviderLangChain)
 # We import them inside a try/except so the package is usable even when
 # langchain_openai is not installed.
 try:
+    # Check if MetaAIProviderLangChain was defined in meta_ai
+    import backend.verification.llm.meta_ai as _ma  # type: ignore[import]
     from backend.verification.llm.meta_ai import (  # type: ignore[import]
-        MetaAIProviderProtocol,
         MetaAIProviderDirect,
+        MetaAIProviderProtocol,
         get_meta_ai_provider,
         invoke_model,
     )
-    # Check if MetaAIProviderLangChain was defined in meta_ai
-    import backend.verification.llm.meta_ai as _ma  # type: ignore[import]
     if hasattr(_ma, "MetaAIProviderLangChain"):  # type: ignore[attr-defined]
         from backend.verification.llm.meta_ai import MetaAIProviderLangChain  # type: ignore[import]
     else:
         MetaAIProviderLangChain = None  # type: ignore[assignment]
     # Prompt-related imports
+    # LLM guardrails imports
+    from backend.verification.llm.llm_guardrails import (  # type: ignore[import]
+        GUARDRAIL_ERROR_TYPES,
+        GuardrailError,
+        ModelOutputViolation,
+        PromptInput,
+        apply_guardrails,
+        detect_prompt_injection,
+        reject_unknown_tool,
+        validate_model_output,
+        validate_prompt_input,
+        validate_tool_arguments,
+        verify_evidence_source,
+    )
     from backend.verification.llm.prompts import (  # type: ignore[import]
         get_prompt,
         get_prompt_versions,
     )
+
     # Response parser imports
     from backend.verification.llm.response_parser import (  # type: ignore[import]
+        ParsedEvidenceInvestigation,
+        ParsedIntentInterpretation,
+        ParsedVerificationExplanation,
+        ParsedWorkflowPlan,
+        ParsingFailure,
+        classify_parsing_failure,
         extract_model_content,
-        extract_usage_from_response,
         extract_response_metadata,
+        extract_usage_from_response,
         parse_json_content,
         parse_structured_response,
-        classify_parsing_failure,
-        ParsingFailure,
-        ParsedIntentInterpretation,
-        ParsedWorkflowPlan,
-        ParsedEvidenceInvestigation,
-        ParsedVerificationExplanation,
     )
-    # LLM guardrails imports
-    from backend.verification.llm.llm_guardrails import (  # type: ignore[import]
-        PromptInput,
-        validate_prompt_input,
-        ModelOutputViolation,
-        validate_model_output,
-        reject_unknown_tool,
-        validate_tool_arguments,
-        verify_evidence_source,
-        detect_prompt_injection,
-        GuardrailError,
-        GUARDRAIL_ERROR_TYPES,
-        apply_guardrails,
-    )
-except Exception:  # broad - keep package importable even if meta_ai has issues
+except Exception:  # broad - keep package importable even if meta_ai has issues  # noqa: BLE001
     MetaAIProviderProtocol = None  # type: ignore[assignment]
     MetaAIProviderDirect = None  # type: ignore[assignment]
     MetaAIProviderLangChain = None  # type: ignore[assignment]
@@ -172,7 +171,7 @@ prompt_versions = None  # populated at runtime by get_prompt_versions()
 
 #: Protocol abstraction for the Meta Model API provider.
 #: Callers depend on this protocol, not on concrete SDK classes.
-_meta_provider_protocol: Optional[MetaAIProviderProtocol] = None
+_meta_provider_protocol: MetaAIProviderProtocol | None = None
 
 
 def _ensure_protocol() -> None:
@@ -186,41 +185,41 @@ _ensure_protocol()
 
 # Export the public API names.
 __all__ = [
-    "MetaAIProviderProtocol",
+    "GUARDRAIL_ERROR_TYPES",
+    "GuardrailError",
     "MetaAIProviderDirect",
     "MetaAIProviderLangChain",
+    "MetaAIProviderProtocol",
+    "ModelOutputViolation",
+    "ParsedEvidenceInvestigation",
+    "ParsedIntentInterpretation",
+    "ParsedVerificationExplanation",
+    "ParsedWorkflowPlan",
+    "ParsingFailure",
+    "PromptInput",
+    "apply_guardrails",
+    "classify_parsing_failure",
+    "detect_prompt_injection",
+    "extract_model_content",
+    "extract_response_metadata",
+    "extract_usage_from_response",
     "get_meta_ai_provider",
-    "invoke_model",
     "get_prompt",
     "get_prompt_versions",
-    "extract_model_content",
-    "extract_usage_from_response",
-    "extract_response_metadata",
+    "invoke_model",
+    "llm_layer_version",
     "parse_json_content",
     "parse_structured_response",
-    "classify_parsing_failure",
-    "ParsingFailure",
-    "ParsedIntentInterpretation",
-    "ParsedWorkflowPlan",
-    "ParsedEvidenceInvestigation",
-    "ParsedVerificationExplanation",
-    "PromptInput",
-    "validate_prompt_input",
-    "ModelOutputViolation",
-    "validate_model_output",
     "reject_unknown_tool",
+    "validate_model_output",
+    "validate_prompt_input",
     "validate_tool_arguments",
     "verify_evidence_source",
-    "detect_prompt_injection",
-    "GuardrailError",
-    "apply_guardrails",
-    "GUARDRAIL_ERROR_TYPES",
-    "llm_layer_version",
 ]
 
 #: Mapping of public names to their implementing modules, for introspection
 # and test injection.
-_module_map: Dict[str, str] = {
+_module_map: dict[str, str] = {
     "meta_ai": "backend.verification.llm.meta_ai",
     "prompts": "backend.verification.llm.prompts",
     "response_parser": "backend.verification.llm.response_parser",
