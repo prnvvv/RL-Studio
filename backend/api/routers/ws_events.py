@@ -4,8 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import AsyncGenerator
-
-from typing import Any, Dict
+from typing import Any
 
 from fastapi import APIRouter, WebSocket
 from fastapi.responses import StreamingResponse
@@ -49,7 +48,7 @@ async def _stream_events(websocket: WebSocket, run_id: str) -> None:
 async def sse_events(run_id: str) -> StreamingResponse:
     """Server-Sent Events endpoint for real-time event streaming."""
 
-    async def event_generator() -> AsyncGenerator[Dict[str, Any], None]:
+    async def event_generator() -> AsyncGenerator[dict[str, Any], None]:
         seen_ids: set[Any] = set()
         while True:
             events = EventPublisher.get_recent_events(run_id, limit=10)
