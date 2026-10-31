@@ -24,6 +24,9 @@ export default tseslint.config(
         { allowConstantExport: true, allowExportNames: ['useTheme'] },
       ],
       'no-console': ['warn', { allow: ['warn', 'error'] }],
+      // `_`-prefixed parameters are intentionally unused (e.g. test mocks
+      // that must match a fetcher signature but never read the signal).
+      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
     },
   },
 )
