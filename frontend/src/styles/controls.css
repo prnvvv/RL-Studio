@@ -62,3 +62,45 @@
   outline: 1px solid var(--focus-ring);
   outline-offset: 2px;
 }
+
+/*
+ * Monochrome text inputs.
+ *
+ * Validation problems use a dashed border plus an explicit text message
+ * rendered by `FormField`; colour and brightness alone are never the signal.
+ */
+.text-input,
+.text-area {
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg-input);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+}
+
+.text-input:focus-visible,
+.text-area:focus-visible {
+  outline: 1px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+
+.text-area {
+  resize: vertical;
+  min-height: 88px;
+  line-height: 1.6;
+}
+
+.text-input:disabled,
+.text-area:disabled {
+  color: var(--text-muted);
+  border-style: dashed;
+  cursor: not-allowed;
+}
+
+.text-input[aria-invalid='true'],
+.text-area[aria-invalid='true'] {
+  border-style: dashed;
+}
