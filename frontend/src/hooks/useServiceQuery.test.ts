@@ -1,4 +1,4 @@
-import { renderHook, waitFor } from '@testing-library/react'
+import { act, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { useServiceQuery } from './useServiceQuery'
 import type { ServiceResult } from '../services/types'
@@ -9,6 +9,15 @@ const errorResult = (
   message = 'The requested record was not found.',
 ) =>
   ({ state: 'error' as const, error: { kind, message } })
+
+/** Resolve the promise at `index` if it exists; keeps act-wrapped resolution terse. */
+function resolveAt(
+  resolvers: Array<(r: ServiceResult<string>) => void>,
+  index: number,
+  value: ServiceResult<string>,
+) {
+  resolvers[index]?.(value)
+}
 
 describe('useServiceQuery', () => {
   afterEach(() => {
@@ -23,26 +32,29 @@ describe('useServiceQuery', () => {
     const { result } = renderHook(() => useServiceQuery(fetcher, []))
     expect(result.current.state).toEqual({ state: 'loading' })
     await waitFor(() => expect(fetcher).toHaveBeenCalledOnce())
-    resolve?.(okResult('data-v1') as ServiceResult<string>)
+    act(() => { resolve?.(okResult('data-v1') as ServiceResult<string>) })
     await waitFor(() => expect(result.current.state).toEqual({ state: 'ok', data: 'data-v1' }))
   })
 
   it('retains previously loaded data when a reload fails', async () => {
-    let resolve1: (r: ReturnType<typeof okResult<string>>) => void = () => {}
-    let fetchCount = 0
-    const fetcher = vi.fn((_signal: AbortSignal) => {
-      fetchCount += 1
-      if (fetchCount === 1) {
-        return new Promise((res) => (resolve1 = res)) as Promise<ReturnType<typeof okResult<string>>>
-      }
-      return Promise.resolve(errorResult('unavailable') as never)
-    })
+    // One deferred per fetch so both resolutions are explicitly act-wrapped.
+    const resolvers: Array<(r: ServiceResult<string>) => void> = []
+    const fetcher = vi.fn(
+      (_signal: AbortSignal) =>
+        new Promise<ServiceResult<string>>((res) => {
+          resolvers.push(res as (r: ServiceResult<string>) => void)
+        }),
+    )
     const { result, rerender } = renderHook(() => useServiceQuery(fetcher, []))
-    resolve1!(okResult('first'))
+    act(() => resolveAt(resolvers, 0, okResult('first')))
     await waitFor(() => expect(result.current.state).toEqual({ state: 'ok', data: 'first' }))
 
-    result.current.reload()
+    act(() => {
+      result.current.reload()
+    })
     rerender()
+    await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(2))
+    act(() => resolveAt(resolvers, 1, errorResult('unavailable') as unknown as ServiceResult<string>))
     await waitFor(() => expect(result.current.state.state).toBe('error'))
     const errorState = result.current.state as { state: 'error'; data: string | null }
     expect(errorState.data).toBe('first')
@@ -63,10 +75,10 @@ describe('useServiceQuery', () => {
     rerender({ dep: 'b' })
     await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(2))
 
-    resolvers[1]?.(okResult('new') as ServiceResult<string>)
+    act(() => { resolvers[1]?.(okResult('new') as ServiceResult<string>) })
     await waitFor(() => expect(result.current.state).toEqual({ state: 'ok', data: 'new' }))
 
-    resolvers[0]?.(okResult('outdated') as ServiceResult<string>)
+    act(() => { resolvers[0]?.(okResult('outdated') as ServiceResult<string>) })
     expect(result.current.state).toEqual({ state: 'ok', data: 'new' })
   })
 
@@ -80,7 +92,7 @@ describe('useServiceQuery', () => {
     )
     const { unmount, result } = renderHook(() => useServiceQuery(fetcher, []))
     unmount()
-    resolvers[0]?.(okResult('after-unmount') as ServiceResult<string>)
+    act(() => { resolvers[0]?.(okResult('after-unmount') as ServiceResult<string>) })
     expect(result.current.state).toEqual({ state: 'loading' })
   })
 
@@ -97,4 +109,5 @@ describe('useServiceQuery', () => {
     expect(result.current.state).toEqual({ state: 'loading' })
   })
 })
+
 
