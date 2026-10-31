@@ -162,7 +162,7 @@ describe('client request construction', () => {
     await client.post('/api/v1/runs/start', { jsonBody: { run_id: 'run_1' } })
 
     expect(fetchMock).toHaveBeenCalledTimes(1)
-    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
     expect(url).toBe('http://localhost:8000/api/v1/runs/start')
     expect(init.method).toBe('POST')
     expect(init.body).toBe(JSON.stringify({ run_id: 'run_1' }))
