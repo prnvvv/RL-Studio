@@ -70,7 +70,14 @@ def test_canonical_reward_scaling_pipeline_end_to_end() -> None:
     assert diagnosis["result"]["_metadata"]["live_request"] is False
     assert diagnosis["result"]["root_cause_status"] == "unresolved"
     assert diagnosis["result"]["confidence"] is None
+    assert diagnosis["guardrail_violations"] == []
     assert len(client.calls) == 2  # one call per controller invocation
+
+    # 3b. Advisory analysis is serialised and never alters the verdict.
+    assert output["anomalies"] == []
+    assert output["consistency"]["status"] == "consistent"
+    assert output["consistency"]["consistent"] is True
+    assert output["consistency"]["evidence_available"] is True
 
     # 4. Every passing check is backed by real evidence references.
     for check in output["requirements"].values():
