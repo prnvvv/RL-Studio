@@ -29,7 +29,7 @@ requires approval or external integration, **NOT VERIFIED** insufficient evidenc
 | C1 | Deterministic intent parser | `intent/intent_parser.py` | PASS | 8 intent cases in `test_prompts_and_support.py` (reward, steps, termination, forbidden event, ambiguity, empty intent) |
 | C2 | Requirement extractor | `intent/requirement_extractor.py` | PASS | Metadata assertions: `test_named_forbidden_event_is_captured`, `test_step_bound_is_exposed_as_metadata` |
 | C3 | Requirement registry / dispatch | `intent/requirement_registry.py`, `agent/workflow_planner.py` | PASS | Every pipeline test dispatches by requirement id; unknown types stay `unknown` |
-| C4 | Requirement validator | `intent/intent_validator.py` | PARTIAL | Exported and implemented; no dedicated positive/negative tests |
+| C4 | Requirement validator | `intent/intent_validator.py` | PASS | `unit_testing/test_intent_validator.py` (10 tests): valid reward/termination/config, missing expected value, vague reward left to parser, unsupported type, malformed model input, summary counts, empty list |
 
 ## Agent and workflow
 
@@ -55,7 +55,7 @@ requires approval or external integration, **NOT VERIFIED** insufficient evidenc
 | F5 | Metric checker | `tools/metric_checker.py` | PASS | `test_all_observations_evaluated`, NaN, infinity tests |
 | F6 | Configuration checker | `tools/configuration_checker.py` | PASS | `test_learning_rate_mismatch_is_a_violation`; non-numeric and infinity cases |
 | F7 | Missing evidence never PASS | all checkers + decision engine | PASS | `test_absent_evidence_keeps_every_requirement_unevaluated`, `test_missing_observed_reward_is_unknown_not_zero` |
-| F8 | Contradictory-evidence detection | n/a | PARTIAL | Aggregation blocks non-PASS upgrades, but no dedicated contradiction detector; investigator `contradicting_evidence` is always empty |
+| F8 | Contradictory-evidence detection | `consistency_checker.py` | PASS | `detect_evidence_contradictions` covers episode goal-without-termination, conflicting duplicate events, conflicting duplicate metrics (identity-keyed) and environment/training config conflicts; verified in `test_analysis_integration.py` and surfaced as `consistency.contradictions` |
 
 ## Meta AI boundary
 
@@ -64,15 +64,15 @@ requires approval or external integration, **NOT VERIFIED** insufficient evidenc
 | E1 | Real provider transport | `llm/meta_ai.py` | PASS | `test_meta_ai_offline.py`: URL resolution/bearer header, bounded retry, no-retry on auth, typed invalid-JSON error, missing/empty credentials, tool-use disabled (9 tests, `httpx.MockTransport`, no live calls) |
 | E2 | Prompt templates | `llm/prompts.py` | PASS | `test_partial_prompt_substitution_never_raises`, `test_unknown_prompt_name_is_rejected` |
 | E3 | Response parsing / validation | `llm/response_parser.py` | PASS | Invalid JSON classified as typed error; investigation result validated in the workflow |
-| E4 | Guardrails (injection/tool policy) | `llm/llm_guardrails.py` | PARTIAL | Implemented and exported; not applied by `node_investigate` and has no tests |
+| E4 | Guardrails (injection/tool policy) | `llm/llm_guardrails.py`, `agent/verification_agent.py` | PASS | `apply_guardrails` runs in `node_investigate` for every provider; `unit_testing/test_guardrails_investigation.py` (5 tests): valid offline output, schema rejection, missing fields reported, unbacked confirmed cause downgraded, prompt injection rejected — verdict unchanged in each case |
 | E5 | Offline investigator | `llm/mock_client.py` | PASS | `test_offline_mock_completes_without_any_live_request`, canonical E2E; metadata `offline=true`, `live_request=false`; confidence `None`; root cause `unresolved` |
 
 ## Analysis helpers
 
 | ID | Requirement | Files | Status | Evidence |
 |---|---|---|---|---|
-| H1 | Anomaly detector | `anomaly_detector.py` | PARTIAL | Implemented; not invoked by the workflow; no tests |
-| H2 | Consistency checker | `consistency_checker.py`, `validation/__init__.py` | PARTIAL | Implemented and re-exported; not invoked by the workflow; no tests |
+| H1 | Anomaly detector | `anomaly_detector.py`, `agent/verification_agent.py` | PASS | Executed in the advisory `analyze` stage; `test_analysis_integration.py` asserts no anomaly for a stable series, one z-score anomaly with its metric ref, and that an anomaly cannot turn a PASS into a failure |
+| H2 | Consistency checker | `consistency_checker.py`, `agent/verification_agent.py` | PASS | Serialised `consistency` block with `status`/`consistent`/`problems`/`contradictions`/`evidence_available`; missing evidence reports `not_evaluable`, not `consistent` (`test_analysis_integration.py`) |
 
 ## Reporting, persistence, API
 
@@ -81,31 +81,32 @@ requires approval or external integration, **NOT VERIFIED** insufficient evidenc
 | G1 | Report builder | `report_builder.py` | PASS | `test_report_records_unavailable_investigation_as_a_limitation`; canonical E2E report test |
 | G2 | In-memory storage | `storage/verification_store.py` | PASS | `test_storage_is_append_only_and_returns_copies`, `test_storage_rejects_unknown_identifiers`, E2E snapshot counts |
 | G3 | Diagnosis and serialisation | `agent/verification_agent.py`, `result_serializer.py` | PASS | Canonical E2E asserts diagnosis status/provider, JSON-safe output, provenance fields |
-| I1 | Verification HTTP API invoking the graph | `backend/api/` | FAIL | No verification router exists; `backend/api/app.py` registers only provenance/recovery/evaluation + operational routes. Fix modifies shared API composition → approval required |
-| J1 | Durable persistence | `backend/database/` (P4) | PARTIAL | Only the in-memory store is implemented; database persistence is Person 4's boundary |
-| J2 | Incident linkage | `backend/database/`, `backend/provenance/` (P4) | BLOCKED | No incident record is created; needs an agreed P3→P4 contract |
-| J3 | Shared requirement schema compatibility | `shared/` | BLOCKED | Explicit owner approval required; unchanged in this audit |
+| I1 | Verification HTTP API invoking the graph | `backend/api/routers/verification.py`, `backend/api/app.py` | PASS | `GET /api/v1/verification/status` and `POST /api/v1/verification/verify` invoke the real `VerificationAgentController`; `backend/api/tests/test_verification_api.py` (4 tests): status, success with offline client, invalid input 422, workflow failure 500 with no internal detail leak |
+| J1 | Durable persistence | `backend/database/` (P4) | PARTIAL | Verification records remain in the in-memory store; durable verification persistence is Person 4's boundary and was not added |
+| J2 | Incident linkage | `backend/verification/incidents/sink.py`, `backend/provenance/service.py` (P4) | PARTIAL | P3-owned sink builds an evidence-backed draft only for a real failure and registers it through P4's public `ProvenanceService`; `unit_testing/test_incident_sink.py` verifies persistence and read-back against SQLite. P4 adoption confirmation outstanding; no P4 module modified |
+| J3 | Shared requirement schema compatibility | `shared/`, `backend/verification/intent/shared_adapter.py` | PARTIAL | Bidirectional adapter with lossless round-trip verified in `unit_testing/test_shared_schema_adapter.py` (7 tests); shared schema unchanged, so no owner approval was required or requested |
 | K1 | Canonical end-to-end (offline model) | `unit_testing/test_canonical_e2e.py` | PASS | Controller → graph → checks → serialisation → storage, canonical reward-scaling evidence, offline investigator |
 
 ## Totals
 
-- PASS: 33
-- PARTIAL: 6 (C4, F8, E4, H1, H2, J1)
-- FAIL: 1 (I1)
-- BLOCKED: 2 (J2, J3)
+- PASS: 39
+- PARTIAL: 3 (J1, J2, J3)
+- FAIL: 0
+- BLOCKED: 0
 - Total: 42
 
-Fully verified: **33/42 (79%)**. Implemented (PASS+PARTIAL): **39/42 (93%)**.
+Fully verified: **39/42 (93%)**. Implemented (PASS+PARTIAL): **42/42 (100%)**.
 
 ## Test evidence (2026-11-01)
 
 ```
 python -m pytest backend/verification/tests -q   -> 20 passed
-python -m pytest unit_testing -q                 -> 62 passed
-python -m pytest backend/api/tests -q            -> 7 passed
+python -m pytest unit_testing -q                 -> 103 passed
+python -m pytest backend/api/tests -q            -> 11 passed
+python -m pytest backend/verification/tests unit_testing backend/api/tests -q -> 134 passed
 python -m pytest unit_testing/test_canonical_e2e.py -q -> 2 passed
 python -m pytest unit_testing/test_workflow_routing.py -q -> 6 passed
-python -m ruff check backend/verification unit_testing -> All checks passed
+python -m ruff check backend/verification unit_testing backend/api -> All checks passed
 ```
 
 No live Meta Model API request was made in any test.
