@@ -119,6 +119,8 @@ class ApiTests(unittest.TestCase):
             "/api/v1/incidents/{incident_id}/recoveries/{recovery_id}": "get",
             "/api/v1/incidents/{incident_id}/evaluations": "post",
             "/api/v1/incidents/{incident_id}/evaluations/{evaluation_id}": "get",
+            "/api/v1/verification/status": "get",
+            "/api/v1/verification/verify": "post",
         }
         self.assertEqual(set(paths), set(expected))
         for path, method in expected.items():
