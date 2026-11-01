@@ -85,6 +85,15 @@ function errorResult(kind: ServiceErrorKind, status?: number): ServiceResult<nev
 }
 
 /**
+ * Stable "record does not exist" result for mock adapters and planned
+ * endpoints whose lookup table legitimately cannot contain the requested id.
+ * Keeps the message identical to the client's mapped `not_found` phrasing.
+ */
+export function recordNotFound<T>(): ServiceResult<T> {
+  return errorResult('not_found')
+}
+
+/**
  * Create an API client. Tests inject `baseUrl` and mock `fetch` directly;
  * production code uses the `api` singleton unless a different target exists.
  */
