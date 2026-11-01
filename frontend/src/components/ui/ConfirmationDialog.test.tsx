@@ -45,7 +45,13 @@ describe('ConfirmationDialog', () => {
     const onConfirm = vi.fn()
     const onCancel = vi.fn()
     render(
-      <ConfirmationDialog title="Confirm reset" body="Reset?" confirmLabel="Reset" onConfirm={onConfirm} onCancel={onCancel} />,
+      <ConfirmationDialog
+        title="Confirm reset"
+        body="Reset?"
+        confirmLabel="Reset"
+        onConfirm={onConfirm}
+        onCancel={onCancel}
+      />,
     )
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(onCancel).toHaveBeenCalledOnce()
@@ -81,7 +87,9 @@ describe('ConfirmationDialog', () => {
         onCancel={() => undefined}
       />,
     )
-    expect(screen.getByText('This action has consequences and may not be reversible.')).toBeInTheDocument()
+    expect(
+      screen.getByText('This action has consequences and may not be reversible.'),
+    ).toBeInTheDocument()
   })
 
   it('restores focus to the previously focused element on close', () => {
@@ -91,7 +99,13 @@ describe('ConfirmationDialog', () => {
     expect(document.activeElement).toBe(opener)
 
     const { unmount } = render(
-      <ConfirmationDialog title="Confirm" body="Proceed?" confirmLabel="Go" onConfirm={() => undefined} onCancel={() => undefined} />,
+      <ConfirmationDialog
+        title="Confirm"
+        body="Proceed?"
+        confirmLabel="Go"
+        onConfirm={() => undefined}
+        onCancel={() => undefined}
+      />,
     )
     expect(document.activeElement).not.toBe(opener)
     unmount()

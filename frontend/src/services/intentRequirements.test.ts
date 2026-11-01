@@ -52,13 +52,18 @@ describe('real adapter (mocks disabled)', () => {
     const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
     expect(url).toBe('/api/v1/intents')
     expect(init.method).toBe('POST')
-    expect(init.body).toBe(JSON.stringify({ schema_version: '1.0', text: 'The goal reward must be 100.' }))
+    expect(init.body).toBe(
+      JSON.stringify({ schema_version: '1.0', text: 'The goal reward must be 100.' }),
+    )
     expect(result.state).toBe('ok')
   })
 
   it('returns honest not_found until the planned endpoints are implemented', async () => {
     vi.stubEnv('VITE_USE_MOCKS', 'false')
-    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse(404, { detail: 'Not Found' })))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => jsonResponse(404, { detail: 'Not Found' })),
+    )
     const service = createIntentRequirementsService()
 
     const submission = await service.submitIntent('text')

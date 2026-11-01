@@ -56,12 +56,14 @@ type MockedEvidence = ReturnType<typeof labeledMockData<EvidenceReference[]>>
 type VerificationState = ServiceQueryState<VerificationResult | MockedVerification>
 type EvidenceState = ServiceQueryState<EvidenceReference[] | MockedEvidence>
 
-function renderPanel(overrides: {
-  verification?: Partial<VerificationState>
-  evidence?: Partial<EvidenceState>
-  onOpenEvidence?: (ref: string) => void
-  onReload?: () => void
-} = {}) {
+function renderPanel(
+  overrides: {
+    verification?: Partial<VerificationState>
+    evidence?: Partial<EvidenceState>
+    onOpenEvidence?: (ref: string) => void
+    onReload?: () => void
+  } = {},
+) {
   const verificationState: VerificationState =
     overrides.verification !== undefined
       ? ({ state: 'ok', data: verification, ...overrides.verification } as VerificationState)
@@ -83,7 +85,9 @@ function renderPanel(overrides: {
 
 describe('VerificationResultsPanel', () => {
   it('renders loading skeletons while requests are in flight', () => {
-    const { container } = renderPanel({ verification: { state: 'loading' } as unknown as Partial<VerificationState> })
+    const { container } = renderPanel({
+      verification: { state: 'loading' } as unknown as Partial<VerificationState>,
+    })
     expect(screen.queryByText('Overall: failed')).not.toBeInTheDocument()
     expect(screen.queryByTestId('verdict-req_goal_reward')).not.toBeInTheDocument()
     expect(container.querySelectorAll('div').length).toBeGreaterThan(0)
@@ -102,7 +106,10 @@ describe('VerificationResultsPanel', () => {
   })
 
   it('attaches the sample-data badge to fixture-backed payloads', () => {
-    renderPanel({ verification: { data: labeledMockData(verification) }, evidence: { data: labeledMockData(evidence) } })
+    renderPanel({
+      verification: { data: labeledMockData(verification) },
+      evidence: { data: labeledMockData(evidence) },
+    })
     expect(screen.getByText(MOCK_DATA_LABEL)).toBeInTheDocument()
   })
 
@@ -159,7 +166,9 @@ describe('VerificationResultsPanel', () => {
 
   it('reports an empty evidence scope and unavailable evidence listing distinctly', () => {
     renderPanel({ evidence: { data: [] } })
-    expect(screen.getByText('No evidence references have been recorded for this verification scope.')).toBeInTheDocument()
+    expect(
+      screen.getByText('No evidence references have been recorded for this verification scope.'),
+    ).toBeInTheDocument()
   })
 
   it('shows the evidence listing failure inline while results stay visible', () => {
@@ -182,7 +191,17 @@ describe('VerificationResultsPanel', () => {
           overall_status: 'pass',
           summary: 'All applicable deterministic checks passed.',
           results: [
-            { requirement_id: 'req_goal_reward', status: 'pass', expected: 100, actual: 100, tolerance: null, evidence_refs: [], details: null, is_mandatory: true, timestamp: null },
+            {
+              requirement_id: 'req_goal_reward',
+              status: 'pass',
+              expected: 100,
+              actual: 100,
+              tolerance: null,
+              evidence_refs: [],
+              details: null,
+              is_mandatory: true,
+              timestamp: null,
+            },
           ],
         },
       },

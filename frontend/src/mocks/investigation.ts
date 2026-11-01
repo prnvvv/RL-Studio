@@ -33,7 +33,8 @@ const DEMO_INVESTIGATION: InvestigationResult = {
   hypotheses: [
     {
       hypothesis_id: 'hyp_demo_reward_scale_change',
-      statement: 'The environment goal-reward scale changed during the recorded fault-injection interval.',
+      statement:
+        'The environment goal-reward scale changed during the recorded fault-injection interval.',
       reasoning:
         'Only goal-reward observations diverge while step-penalty checks stay within tolerance, which matches a scale change on the goal-reward path in this fixture.',
       supporting_evidence_refs: ['evt_demo_step_812', 'evt_demo_step_860'],

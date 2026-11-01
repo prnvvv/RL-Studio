@@ -46,14 +46,20 @@ describe('client error mapping', () => {
   })
 
   it('returns ok with parsed JSON for a 2xx response', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse(200, { run_id: 'run_1' })))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => jsonResponse(200, { run_id: 'run_1' })),
+    )
     const client = createApiClient()
     const result = await client.get<{ run_id: string }>('/api/v1/runs/run_1/status')
     expect(result).toEqual({ state: 'ok', data: { run_id: 'run_1' } })
   })
 
   it('represents 204 responses as ok with null instead of inventing a body', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse(204, undefined)))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => jsonResponse(204, undefined)),
+    )
     const client = createApiClient()
     const result = await client.get<null>('/api/v1/runs/run_1/stop')
     expect(result).toEqual({ state: 'ok', data: null })
@@ -62,7 +68,10 @@ describe('client error mapping', () => {
   it('maps an empty 2xx body to ok(null)', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn(async () => new Response('', { status: 200, headers: { 'Content-Type': 'application/json' } })),
+      vi.fn(
+        async () =>
+          new Response('', { status: 200, headers: { 'Content-Type': 'application/json' } }),
+      ),
     )
     const client = createApiClient()
     const result = await client.get<null>('/x')
@@ -98,7 +107,10 @@ describe('client error mapping', () => {
       [502, 'server_error'],
     ]
     for (const [status, kind] of cases) {
-      vi.stubGlobal('fetch', vi.fn(async () => jsonResponse(status, { detail: 'backend detail' })))
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async () => jsonResponse(status, { detail: 'backend detail' })),
+      )
       const client = createApiClient()
       const result = await client.get<unknown>('/x')
       if (result.state !== 'error') {
@@ -112,9 +124,12 @@ describe('client error mapping', () => {
   })
 
   it('maps a fetch failure to network without implying the operation failed', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => {
-      throw new TypeError('Failed to fetch')
-    }))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw new TypeError('Failed to fetch')
+      }),
+    )
     const client = createApiClient()
     const result = await client.get<unknown>('/x')
     expect(result.state).toBe('error')

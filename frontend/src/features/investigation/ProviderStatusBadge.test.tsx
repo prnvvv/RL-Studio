@@ -9,9 +9,12 @@ describe('ProviderStatusBadge', () => {
   it('labels each investigation state explicitly', () => {
     for (const state of STATES) {
       const { unmount } = render(<ProviderStatusBadge state={state} />)
-      if (state === 'no_record') expect(screen.getByText('No investigation recorded')).toBeInTheDocument()
-      if (state === 'completed') expect(screen.getByText('Investigation completed')).toBeInTheDocument()
-      if (state === 'provider_unavailable') expect(screen.getByText('Provider unavailable')).toBeInTheDocument()
+      if (state === 'no_record')
+        expect(screen.getByText('No investigation recorded')).toBeInTheDocument()
+      if (state === 'completed')
+        expect(screen.getByText('Investigation completed')).toBeInTheDocument()
+      if (state === 'provider_unavailable')
+        expect(screen.getByText('Provider unavailable')).toBeInTheDocument()
       if (state === 'failed') expect(screen.getByText('Investigation failed')).toBeInTheDocument()
       unmount()
     }

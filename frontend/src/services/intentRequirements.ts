@@ -36,7 +36,9 @@ export function requirementDecisionPath(requirementId: string): string {
   return `/api/v1/requirements/${encodeURIComponent(requirementId)}/review-decision`
 }
 
-export type IntentSubmissionOutcome = ServiceResult<IntentSubmissionResult | MockData<IntentSubmissionResult>>
+export type IntentSubmissionOutcome = ServiceResult<
+  IntentSubmissionResult | MockData<IntentSubmissionResult>
+>
 
 export interface IntentRequirementsService {
   submitIntent(text: string): Promise<IntentSubmissionOutcome>
@@ -57,7 +59,9 @@ const realAdapter: IntentRequirementsService = {
     return api.get<RequirementRecord[]>(REQUIREMENTS_LIST_PATH)
   },
   decideRequirement(requirementId: string, decision: RequirementDecision) {
-    return api.post<RequirementRecord>(requirementDecisionPath(requirementId), { jsonBody: { decision } })
+    return api.post<RequirementRecord>(requirementDecisionPath(requirementId), {
+      jsonBody: { decision },
+    })
   },
 }
 

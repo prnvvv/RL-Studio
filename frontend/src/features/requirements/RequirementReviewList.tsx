@@ -1,4 +1,9 @@
-import type { ExtractedRequirementDraft, IntentExtractionStatus, RequirementDecision, RequirementReviewState } from '../../schemas/intent'
+import type {
+  ExtractedRequirementDraft,
+  IntentExtractionStatus,
+  RequirementDecision,
+  RequirementReviewState,
+} from '../../schemas/intent'
 import { RequirementCard } from './RequirementCard'
 
 interface ReviewItem {
@@ -38,7 +43,13 @@ function reviewStateFor(item: ReviewItem): RequirementReviewState {
  *   own card (`pendingId`).
  * - No auto-confirmation: deciding is always an explicit action per card.
  */
-export function RequirementReviewList({ extractionStatus, warnings, items, onDecide, pendingId }: RequirementReviewListProps) {
+export function RequirementReviewList({
+  extractionStatus,
+  warnings,
+  items,
+  onDecide,
+  pendingId,
+}: RequirementReviewListProps) {
   if (extractionStatus !== 'accepted') {
     return (
       <div
@@ -94,7 +105,9 @@ export function RequirementReviewList({ extractionStatus, warnings, items, onDec
         {STATUS_HEADINGS.accepted}
       </span>
       {items.length === 0 ? (
-        <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>No requirements were extracted.</span>
+        <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
+          No requirements were extracted.
+        </span>
       ) : (
         items.map((item) => {
           const decidedState = reviewStateFor(item)

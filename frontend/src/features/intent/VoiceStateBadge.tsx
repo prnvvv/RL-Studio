@@ -24,7 +24,13 @@ const STATE_LABELS: Record<VoiceDictationState, string> = {
 export function VoiceStateBadge({ state, message }: VoiceStateBadgeProps) {
   return (
     <span
-      role={state === 'listening' ? 'status' : state === 'error' || state === 'permission_denied' ? 'alert' : undefined}
+      role={
+        state === 'listening'
+          ? 'status'
+          : state === 'error' || state === 'permission_denied'
+            ? 'alert'
+            : undefined
+      }
       style={{ display: 'inline-flex' }}
     >
       <StatusBadge

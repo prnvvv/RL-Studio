@@ -1,5 +1,10 @@
 import { useRef, useState } from 'react'
-import type { ExtractedRequirementDraft, IntentExtractionStatus, IntentSubmissionResult, RequirementDecision } from '../../schemas/intent'
+import type {
+  ExtractedRequirementDraft,
+  IntentExtractionStatus,
+  IntentSubmissionResult,
+  RequirementDecision,
+} from '../../schemas/intent'
 import type { IntentSubmissionOutcome } from '../../services/intentRequirements'
 import { MOCK_DATA_LABEL, type MockData } from '../../mocks'
 import { StatusBadge } from '../../components/ui/StatusBadge'
@@ -30,7 +35,9 @@ interface ReviewedDraft {
   decision: RequirementDecision | null
 }
 
-function unwrap(data: IntentSubmissionResult | MockData<IntentSubmissionResult>): IntentSubmissionResult {
+function unwrap(
+  data: IntentSubmissionResult | MockData<IntentSubmissionResult>,
+): IntentSubmissionResult {
   if ('label' in data && 'data' in data) return data.data
   return data
 }
@@ -42,7 +49,11 @@ function unwrap(data: IntentSubmissionResult | MockData<IntentSubmissionResult>)
  * input and never triggers submission — submitting intent is always an
  * explicit action on reviewed text (approved voice decision D).
  */
-export function IntentComposer({ onSubmit, onDecide, transcriber = createWebSpeechTranscriber() }: IntentComposerProps) {
+export function IntentComposer({
+  onSubmit,
+  onDecide,
+  transcriber = createWebSpeechTranscriber(),
+}: IntentComposerProps) {
   const [text, setText] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [outcome, setOutcome] = useState<IntentSubmissionOutcome | null>(null)
@@ -167,7 +178,14 @@ export function IntentComposer({ onSubmit, onDecide, transcriber = createWebSpee
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: 'var(--space-3)',
+          flexWrap: 'wrap',
+        }}
+      >
         <div style={{ flex: '1 1 320px', minWidth: 0 }}>
           <FormField label="Intended behaviour" hint={HINT} error={errorCopy ?? undefined}>
             {(associatedProps) => (

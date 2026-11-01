@@ -17,7 +17,11 @@ interface HypothesisCardProps {
  * shown only when the record actually carries one, always labelled as an
  * unverified provider estimate rather than a calibrated probability.
  */
-export function HypothesisCard({ hypothesis, isAlternative = false, onOpenEvidence }: HypothesisCardProps) {
+export function HypothesisCard({
+  hypothesis,
+  isAlternative = false,
+  onOpenEvidence,
+}: HypothesisCardProps) {
   const evidenceRefs =
     hypothesis.supporting_evidence_refs.length > 0 ? hypothesis.supporting_evidence_refs : []
 
@@ -25,7 +29,9 @@ export function HypothesisCard({ hypothesis, isAlternative = false, onOpenEviden
     <article
       data-testid={`hypothesis-${hypothesis.hypothesis_id}`}
       style={{
-        border: isAlternative ? '1px dashed var(--border-primary)' : '1px solid var(--border-secondary)',
+        border: isAlternative
+          ? '1px dashed var(--border-primary)'
+          : '1px solid var(--border-secondary)',
         borderRadius: 'var(--radius-md)',
         padding: 'var(--space-3)',
         display: 'flex',
@@ -34,23 +40,51 @@ export function HypothesisCard({ hypothesis, isAlternative = false, onOpenEviden
         background: 'var(--bg-panel-raised)',
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 'var(--space-3)' }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'flex-start',
+          justifyContent: 'space-between',
+          gap: 'var(--space-3)',
+        }}
+      >
         <StatusBadge
           label={isAlternative ? 'Alternative explanation' : 'Hypothesis'}
           tone={isAlternative ? 'quiet' : 'strong'}
           glyph="query"
         />
         {hypothesis.confidence !== null && (
-          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', fontFamily: 'var(--font-sans)', whiteSpace: 'nowrap' }}>
+          <span
+            style={{
+              fontSize: 'var(--text-xs)',
+              color: 'var(--text-muted)',
+              fontFamily: 'var(--font-sans)',
+              whiteSpace: 'nowrap',
+            }}
+          >
             {`Confidence (provider estimate, unverified): ${hypothesis.confidence}`}
           </span>
         )}
       </div>
-      <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--text-primary)', lineHeight: 1.6 }}>
+      <p
+        style={{
+          margin: 0,
+          fontSize: 'var(--text-sm)',
+          color: 'var(--text-primary)',
+          lineHeight: 1.6,
+        }}
+      >
         {hypothesis.statement}
       </p>
       {hypothesis.reasoning && (
-        <p style={{ margin: 0, fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+        <p
+          style={{
+            margin: 0,
+            fontSize: 'var(--text-xs)',
+            color: 'var(--text-secondary)',
+            lineHeight: 1.6,
+          }}
+        >
           {hypothesis.reasoning}
         </p>
       )}
@@ -95,7 +129,8 @@ export function HypothesisCard({ hypothesis, isAlternative = false, onOpenEviden
       )}
       {hypothesis.confidence !== null && (
         <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
-          A hypothesis is a proposed explanation only; it does not establish cause and cannot authorise any recovery action.
+          A hypothesis is a proposed explanation only; it does not establish cause and cannot
+          authorise any recovery action.
         </span>
       )}
     </article>

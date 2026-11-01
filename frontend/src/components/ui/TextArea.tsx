@@ -13,5 +13,7 @@ interface TextAreaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
  * parent forms keep values across recoverable failures (§15.1).
  */
 export function TextArea({ invalid, rows = 4, ...rest }: TextAreaProps) {
-  return <textarea className="text-area" rows={rows} aria-invalid={invalid || undefined} {...rest} />
+  return (
+    <textarea className="text-area" rows={rows} aria-invalid={invalid || undefined} {...rest} />
+  )
 }

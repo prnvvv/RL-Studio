@@ -32,7 +32,8 @@ const UNSUPPORTED_WARNINGS = [
   'Supported statements describe goal reward, step penalty, collision penalty, observation fidelity, or episode termination.',
 ]
 
-const DOMAIN_PATTERN = /\b(goal reward|step penalty|collision penalty|observation|terminate|termination)\b/i
+const DOMAIN_PATTERN =
+  /\b(goal reward|step penalty|collision penalty|observation|terminate|termination)\b/i
 const ASSERTION_HINT = /\b(must|should|equal|=)\b/i
 
 /** Demo draft with the id always present (client-assigned demo ids). */
@@ -104,11 +105,17 @@ function extract(text: string): {
   }
 
   const requirements: ExtractedRequirementDraft[] = []
-  const goalReward = text.match(/goal reward\s+(?:must |should )?(?:be |equal(?:s)?(?: to)? )?(\d+(?:\.\d+)?)/i)
+  const goalReward = text.match(
+    /goal reward\s+(?:must |should )?(?:be |equal(?:s)?(?: to)? )?(\d+(?:\.\d+)?)/i,
+  )
   if (goalReward) requirements.push(DEMO_DRAFTS.req_mock_goal_reward)
-  const stepPenalty = text.match(/step penalty\s+(?:must |should )?(?:be |equal(?:s)?(?: to)? |cost )?(\d+(?:\.\d+)?)/i)
+  const stepPenalty = text.match(
+    /step penalty\s+(?:must |should )?(?:be |equal(?:s)?(?: to)? |cost )?(\d+(?:\.\d+)?)/i,
+  )
   if (stepPenalty) requirements.push(DEMO_DRAFTS.req_mock_step_penalty)
-  const observation = text.match(/observation(?:s)?\s+(?:must |should )?(?:be |stay |remain )?(intact|unchanged|uncorrupted)/i)
+  const observation = text.match(
+    /observation(?:s)?\s+(?:must |should )?(?:be |stay |remain )?(intact|unchanged|uncorrupted)/i,
+  )
   if (observation) requirements.push(DEMO_DRAFTS.req_mock_observation)
   const termination = text.match(/(terminate[sd]?|termination)/i)
   if (termination && /\b(valid|supported|recorded|logged)\b/i.test(text)) {
@@ -124,7 +131,9 @@ function extract(text: string): {
 }
 
 export interface MockIntentRequirementsAdapter {
-  submitIntent(text: string): Promise<{ data: IntentSubmissionResult; label: typeof MOCK_DATA_LABEL }>
+  submitIntent(
+    text: string,
+  ): Promise<{ data: IntentSubmissionResult; label: typeof MOCK_DATA_LABEL }>
   decideRequirement(
     requirementId: string,
     decision: RequirementDecision,
@@ -175,7 +184,12 @@ export const mockIntentRequirementsAdapter: MockIntentRequirementsAdapter = {
     for (const draft of Object.values(DEMO_DRAFTS)) {
       const value = decided.get(draft.requirement_id)
       if (value === undefined) continue
-      confirmed.push({ ...draft, confirmed: value, source_version: 'mock-adapter@1.0', created_at: null })
+      confirmed.push({
+        ...draft,
+        confirmed: value,
+        source_version: 'mock-adapter@1.0',
+        created_at: null,
+      })
     }
     return labeledMockData(confirmed)
   },

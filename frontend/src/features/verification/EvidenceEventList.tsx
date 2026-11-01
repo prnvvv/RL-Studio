@@ -52,7 +52,14 @@ export function EvidenceEventList({ evidence, onOpenEvidence }: EvidenceEventLis
             borderTop: '1px solid var(--border-secondary)',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 'var(--space-2)',
+              flexWrap: 'wrap',
+            }}
+          >
             {onOpenEvidence ? (
               <button
                 type="button"
@@ -71,11 +78,19 @@ export function EvidenceEventList({ evidence, onOpenEvidence }: EvidenceEventLis
                 {ref.id}
               </button>
             ) : (
-              <code style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--text-primary)' }}>
+              <code
+                style={{
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: 'var(--text-xs)',
+                  color: 'var(--text-primary)',
+                }}
+              >
                 {ref.id}
               </code>
             )}
-            <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>Source: {ref.source}</span>
+            <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>
+              Source: {ref.source}
+            </span>
           </div>
           <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
             {displayTimestamp(ref.timestamp)}

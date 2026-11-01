@@ -11,7 +11,9 @@ import type { InvestigationResult, InvestigationState } from '../../schemas/inve
 import type { MockData } from '../../mocks'
 import type { ServiceQueryState } from '../../hooks/useServiceQuery'
 
-export type InvestigationPanelState = ServiceQueryState<InvestigationResult | MockData<InvestigationResult>>
+export type InvestigationPanelState = ServiceQueryState<
+  InvestigationResult | MockData<InvestigationResult>
+>
 
 export function investigateState(query: InvestigationPanelState): InvestigationState {
   if (query.state === 'ok') return 'completed'

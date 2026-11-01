@@ -14,20 +14,24 @@ describe('mock intent adapter', () => {
 
   it('fails closed when mocks are disabled', async () => {
     vi.stubEnv('VITE_USE_MOCKS', 'false')
-    await expect(mockIntentRequirementsAdapter.submitIntent('The goal reward must be 100.')).rejects.toThrow(
-      /VITE_USE_MOCKS/,
-    )
+    await expect(
+      mockIntentRequirementsAdapter.submitIntent('The goal reward must be 100.'),
+    ).rejects.toThrow(/VITE_USE_MOCKS/)
   })
 
   it('labels every payload as sample data', async () => {
     enable()
-    const submission = await mockIntentRequirementsAdapter.submitIntent('The goal reward must be 100.')
+    const submission = await mockIntentRequirementsAdapter.submitIntent(
+      'The goal reward must be 100.',
+    )
     expect(submission.label).toBe(MOCK_DATA_LABEL)
   })
 
   it('extracts an accepted reward requirement', async () => {
     enable()
-    const { data } = await mockIntentRequirementsAdapter.submitIntent('The goal reward must be 100.')
+    const { data } = await mockIntentRequirementsAdapter.submitIntent(
+      'The goal reward must be 100.',
+    )
     expect(data.extraction_status).toBe('accepted')
     expect(data.warnings).toEqual([])
     expect(data.requirements).toHaveLength(1)
@@ -38,7 +42,9 @@ describe('mock intent adapter', () => {
 
   it('reports ambiguous when the domain matches but no value is asserted', async () => {
     enable()
-    const { data } = await mockIntentRequirementsAdapter.submitIntent('Observation handling and the goal reward.')
+    const { data } = await mockIntentRequirementsAdapter.submitIntent(
+      'Observation handling and the goal reward.',
+    )
     expect(data.extraction_status).toBe('ambiguous')
     expect(data.warnings.length).toBeGreaterThan(0)
     expect(data.requirements).toEqual([])
@@ -46,7 +52,9 @@ describe('mock intent adapter', () => {
 
   it('reports unsupported statements outside the domain without fabricating', async () => {
     enable()
-    const { data } = await mockIntentRequirementsAdapter.submitIntent('Render the vision model faster.')
+    const { data } = await mockIntentRequirementsAdapter.submitIntent(
+      'Render the vision model faster.',
+    )
     expect(data.extraction_status).toBe('unsupported')
     expect(data.warnings.length).toBeGreaterThan(0)
     expect(data.requirements).toEqual([])
@@ -65,17 +73,23 @@ describe('mock intent adapter', () => {
 
   it('returns a confirmed or rejected record only for known demo drafts', async () => {
     enable()
-    const confirmed = await mockIntentRequirementsAdapter.decideRequirement('req_mock_goal_reward', 'confirm')
+    const confirmed = await mockIntentRequirementsAdapter.decideRequirement(
+      'req_mock_goal_reward',
+      'confirm',
+    )
     expect(confirmed.data.requirement_id).toBe('req_mock_goal_reward')
     expect(confirmed.data.confirmed).toBe(true)
     expect(confirmed.data.confirmed).not.toBeNull()
 
-    const rejected = await mockIntentRequirementsAdapter.decideRequirement('req_mock_step_penalty', 'reject')
+    const rejected = await mockIntentRequirementsAdapter.decideRequirement(
+      'req_mock_step_penalty',
+      'reject',
+    )
     expect(rejected.data.confirmed).toBe(false)
 
-    await expect(mockIntentRequirementsAdapter.decideRequirement('req_unknown', 'confirm')).rejects.toThrow(
-      /holds no draft/,
-    )
+    await expect(
+      mockIntentRequirementsAdapter.decideRequirement('req_unknown', 'confirm'),
+    ).rejects.toThrow(/holds no draft/)
   })
 
   it('lists only decided requirements this session; empty is honest', async () => {

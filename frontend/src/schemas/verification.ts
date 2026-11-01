@@ -88,10 +88,7 @@ export interface VerificationResult {
 
 /** Detector output types (`AnomalyObservation`), distinct from confirmed faults. */
 export type AnomalyType =
-  | 'statistical'
-  | 'distribution_shift'
-  | 'reward_deviation'
-  | 'observation_corruption'
+  'statistical' | 'distribution_shift' | 'reward_deviation' | 'observation_corruption'
 
 /**
  * Anomaly signal (`AnomalyObservation`) — a detector's output is NOT a

@@ -12,10 +12,18 @@ describe('mock verification adapter', () => {
 
   it('fails closed when mocks are disabled', async () => {
     vi.stubEnv('VITE_USE_MOCKS', 'false')
-    await expect(mockVerificationAdapter.getIncident(DEMO_INCIDENT_ID)).rejects.toThrow(/VITE_USE_MOCKS/)
-    await expect(mockVerificationAdapter.getVerificationResult(DEMO_INCIDENT_ID)).rejects.toThrow(/VITE_USE_MOCKS/)
-    await expect(mockVerificationAdapter.listEvidence(DEMO_INCIDENT_ID)).rejects.toThrow(/VITE_USE_MOCKS/)
-    await expect(mockVerificationAdapter.listAnomalies(DEMO_INCIDENT_ID)).rejects.toThrow(/VITE_USE_MOCKS/)
+    await expect(mockVerificationAdapter.getIncident(DEMO_INCIDENT_ID)).rejects.toThrow(
+      /VITE_USE_MOCKS/,
+    )
+    await expect(mockVerificationAdapter.getVerificationResult(DEMO_INCIDENT_ID)).rejects.toThrow(
+      /VITE_USE_MOCKS/,
+    )
+    await expect(mockVerificationAdapter.listEvidence(DEMO_INCIDENT_ID)).rejects.toThrow(
+      /VITE_USE_MOCKS/,
+    )
+    await expect(mockVerificationAdapter.listAnomalies(DEMO_INCIDENT_ID)).rejects.toThrow(
+      /VITE_USE_MOCKS/,
+    )
   })
 
   it('serves the demo incident and verification result for the demo id', async () => {

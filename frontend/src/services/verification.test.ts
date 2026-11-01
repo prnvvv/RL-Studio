@@ -22,9 +22,15 @@ describe('planned request paths', () => {
     expect(buildRequestUrl('http://localhost:8000', incidentPath(DEMO_INCIDENT_ID))).toBe(
       `http://localhost:8000/api/v1/incidents/${DEMO_INCIDENT_ID}`,
     )
-    expect(buildRequestUrl('', incidentVerificationPath('inc/one'))).toBe('/api/v1/incidents/inc%2Fone/verification')
-    expect(buildRequestUrl('', incidentEvidencePath('inc/one'))).toBe('/api/v1/incidents/inc%2Fone/evidence')
-    expect(buildRequestUrl('', incidentAnomaliesPath('inc/one'))).toBe('/api/v1/incidents/inc%2Fone/anomalies')
+    expect(buildRequestUrl('', incidentVerificationPath('inc/one'))).toBe(
+      '/api/v1/incidents/inc%2Fone/verification',
+    )
+    expect(buildRequestUrl('', incidentEvidencePath('inc/one'))).toBe(
+      '/api/v1/incidents/inc%2Fone/evidence',
+    )
+    expect(buildRequestUrl('', incidentAnomaliesPath('inc/one'))).toBe(
+      '/api/v1/incidents/inc%2Fone/anomalies',
+    )
   })
 })
 
@@ -55,7 +61,10 @@ describe('real adapter (mocks disabled)', () => {
 
   it('returns honest not_found / unavailable until the planned endpoints exist', async () => {
     vi.stubEnv('VITE_USE_MOCKS', 'false')
-    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse(404, { detail: 'Not Found' })))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => jsonResponse(404, { detail: 'Not Found' })),
+    )
     const service = createVerificationService()
 
     for (const call of [

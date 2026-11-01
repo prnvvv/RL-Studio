@@ -28,7 +28,9 @@ describe('real adapter (mocks disabled)', () => {
 
   it('fetches and requests investigations on the planned endpoint', async () => {
     vi.stubEnv('VITE_USE_MOCKS', 'false')
-    const fetchMock = vi.fn(async () => jsonResponse(200, { investigation_id: 'inv_1', incident_id: DEMO_INCIDENT_ID }))
+    const fetchMock = vi.fn(async () =>
+      jsonResponse(200, { investigation_id: 'inv_1', incident_id: DEMO_INCIDENT_ID }),
+    )
     vi.stubGlobal('fetch', fetchMock)
     const service = createInvestigationService()
 
@@ -47,7 +49,10 @@ describe('real adapter (mocks disabled)', () => {
 
   it('returns honest not_found / service errors until the endpoint exists', async () => {
     vi.stubEnv('VITE_USE_MOCKS', 'false')
-    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse(503, { detail: 'Service Unavailable' })))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => jsonResponse(503, { detail: 'Service Unavailable' })),
+    )
     const service = createInvestigationService()
 
     const fetched = await service.getInvestigation(DEMO_INCIDENT_ID)

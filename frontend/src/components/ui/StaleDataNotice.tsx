@@ -32,7 +32,13 @@ export function StaleDataNotice({ asOf, subject }: StaleDataNoticeProps) {
     >
       <span
         aria-hidden="true"
-        style={{ display: 'inline-flex', border: '1px solid var(--border-primary)', width: '8px', height: '8px', borderRadius: '50%' }}
+        style={{
+          display: 'inline-flex',
+          border: '1px solid var(--border-primary)',
+          width: '8px',
+          height: '8px',
+          borderRadius: '50%',
+        }}
       />
       {noun}
       {asOf ? <span style={{ color: 'var(--text-muted)' }}>as of {asOf}</span> : null}

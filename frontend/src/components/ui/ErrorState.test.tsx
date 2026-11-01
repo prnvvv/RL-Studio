@@ -4,7 +4,9 @@ import { ErrorState } from './ErrorState'
 
 describe('ErrorState', () => {
   it('announces the failure with the provided title and description', () => {
-    render(<ErrorState title="Request failed" description="The service is currently unavailable." />)
+    render(
+      <ErrorState title="Request failed" description="The service is currently unavailable." />,
+    )
     expect(screen.getByRole('alert')).toBeInTheDocument()
     expect(screen.getByText('Request failed')).toBeInTheDocument()
     expect(screen.getByText('The service is currently unavailable.')).toBeInTheDocument()
@@ -12,7 +14,9 @@ describe('ErrorState', () => {
 
   it('offers the retry affordance only when provided', () => {
     const onRetry = vi.fn()
-    const { rerender } = render(<ErrorState title="Request failed" description="Timeout reached." />)
+    const { rerender } = render(
+      <ErrorState title="Request failed" description="Timeout reached." />,
+    )
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
 
     rerender(

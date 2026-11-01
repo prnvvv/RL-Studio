@@ -42,7 +42,8 @@ export function ConfirmationDialog({
   const previouslyFocused = useRef<HTMLElement | null>(null)
 
   useEffect(() => {
-    previouslyFocused.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    previouslyFocused.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null
     cancelButtonRef.current?.focus()
     return () => {
       previouslyFocused.current?.focus()

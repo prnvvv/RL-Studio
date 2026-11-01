@@ -41,26 +41,55 @@ function LoadedVerification({
 }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
+      <div
+        style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', flexWrap: 'wrap' }}
+      >
         <StatusBadge
           label={OVERALL_LABELS[verification.overall_status]}
           tone={verification.overall_status === 'fail' ? 'strong' : 'neutral'}
-          glyph={verification.overall_status === 'fail' ? 'cross' : verification.overall_status === 'pass' ? 'check' : 'query'}
+          glyph={
+            verification.overall_status === 'fail'
+              ? 'cross'
+              : verification.overall_status === 'pass'
+                ? 'check'
+                : 'query'
+          }
         />
         {label && <StatusBadge label={label} tone="quiet" glyph="dot" />}
       </div>
       {verification.summary && (
-        <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+        <p
+          style={{
+            margin: 0,
+            fontSize: 'var(--text-sm)',
+            color: 'var(--text-secondary)',
+            lineHeight: 1.6,
+          }}
+        >
           {verification.summary}
         </p>
       )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
         {verification.results.map((result) => (
-          <VerificationVerdictCard key={result.requirement_id} result={result} onOpenEvidence={onOpenEvidence} />
+          <VerificationVerdictCard
+            key={result.requirement_id}
+            result={result}
+            onOpenEvidence={onOpenEvidence}
+          />
         ))}
       </div>
       {verification.warnings.length > 0 && (
-        <ul style={{ margin: 0, paddingLeft: '18px', display: 'flex', flexDirection: 'column', gap: 'var(--space-1)', fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>
+        <ul
+          style={{
+            margin: 0,
+            paddingLeft: '18px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 'var(--space-1)',
+            fontSize: 'var(--text-xs)',
+            color: 'var(--text-secondary)',
+          }}
+        >
           {verification.warnings.map((warning) => (
             <li key={warning}>{warning}</li>
           ))}
@@ -78,7 +107,12 @@ function LoadedVerification({
  * results — with fixture-backed payloads visibly labelled as sample data.
  * The panel never synthesises verification outcomes.
  */
-export function VerificationResultsPanel({ verification, evidence, onOpenEvidence, onReload }: VerificationResultsPanelProps) {
+export function VerificationResultsPanel({
+  verification,
+  evidence,
+  onOpenEvidence,
+  onReload,
+}: VerificationResultsPanelProps) {
   if (verification.state === 'loading') {
     return <LoadingSkeleton rows={4} />
   }
@@ -89,8 +123,15 @@ export function VerificationResultsPanel({ verification, evidence, onOpenEvidenc
       return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
           <StaleDataNotice subject="Verification results" />
-          <ErrorState title="Verification could not be refreshed" description={verification.error.message} />
-          <RetainedVerification verification={verification.data} onOpenEvidence={onOpenEvidence} evidence={evidence} />
+          <ErrorState
+            title="Verification could not be refreshed"
+            description={verification.error.message}
+          />
+          <RetainedVerification
+            verification={verification.data}
+            onOpenEvidence={onOpenEvidence}
+            evidence={evidence}
+          />
         </div>
       )
     }
@@ -122,7 +163,13 @@ export function VerificationResultsPanel({ verification, evidence, onOpenEvidenc
     )
   }
 
-  return <RetainedVerification verification={verification.data} onOpenEvidence={onOpenEvidence} evidence={evidence} />
+  return (
+    <RetainedVerification
+      verification={verification.data}
+      onOpenEvidence={onOpenEvidence}
+      evidence={evidence}
+    />
+  )
 }
 
 function RetainedVerification({
@@ -161,7 +208,10 @@ function EvidenceSection({
 
   if (evidence.state === 'error') {
     return (
-      <p role="status" style={{ margin: 0, fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>
+      <p
+        role="status"
+        style={{ margin: 0, fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}
+      >
         Evidence listing is not available right now: {describeEvidenceProblem(evidence.error)}
       </p>
     )
@@ -171,7 +221,10 @@ function EvidenceSection({
   const list = 'label' in payload ? payload.data : payload
   if (list.length === 0) {
     return (
-      <p role="status" style={{ margin: 0, fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>
+      <p
+        role="status"
+        style={{ margin: 0, fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}
+      >
         No evidence references have been recorded for this verification scope.
       </p>
     )

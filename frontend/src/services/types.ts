@@ -50,11 +50,16 @@ export interface ServiceError {
   status?: number
 }
 
-export type ServiceResult<T> =
-  | { state: 'ok'; data: T }
-  | { state: 'error'; error: ServiceError }
+export type ServiceResult<T> = { state: 'ok'; data: T } | { state: 'error'; error: ServiceError }
 
 /** Construct a caller-friendly error result. */
-export function serviceError(kind: ServiceErrorKind, message: string, status?: number): ServiceResult<never> {
-  return { state: 'error', error: status === undefined ? { kind, message } : { kind, message, status } }
+export function serviceError(
+  kind: ServiceErrorKind,
+  message: string,
+  status?: number,
+): ServiceResult<never> {
+  return {
+    state: 'error',
+    error: status === undefined ? { kind, message } : { kind, message, status },
+  }
 }

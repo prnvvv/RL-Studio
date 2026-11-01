@@ -11,7 +11,12 @@
  * `not_found` even in mock mode — fixtures never pretend arbitrary incidents
  * exist.
  */
-import type { AnomalyObservation, EvidenceReference, IncidentRecord, VerificationResult } from '../schemas/verification'
+import type {
+  AnomalyObservation,
+  EvidenceReference,
+  IncidentRecord,
+  VerificationResult,
+} from '../schemas/verification'
 import type { MockData } from '../mocks/index'
 import type { ServiceResult } from './types'
 import { api, recordNotFound } from './client'

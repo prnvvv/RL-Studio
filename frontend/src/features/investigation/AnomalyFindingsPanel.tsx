@@ -55,8 +55,21 @@ export function AnomalyFindingsPanel({ anomalies, onOpenEvidence }: AnomalyFindi
               gap: 'var(--space-2)',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 'var(--space-3)' }}>
-              <code style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--text-primary)' }}>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'baseline',
+                justifyContent: 'space-between',
+                gap: 'var(--space-3)',
+              }}
+            >
+              <code
+                style={{
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: 'var(--text-xs)',
+                  color: 'var(--text-primary)',
+                }}
+              >
                 {anomaly.anomaly_type}
               </code>
               <span
@@ -71,12 +84,25 @@ export function AnomalyFindingsPanel({ anomalies, onOpenEvidence }: AnomalyFindi
               </span>
             </div>
             {anomaly.description && (
-              <p style={{ margin: 0, fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: 'var(--text-xs)',
+                  color: 'var(--text-secondary)',
+                  lineHeight: 1.6,
+                }}
+              >
                 {anomaly.description}
               </p>
             )}
             {score && (
-              <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>
+              <span
+                style={{
+                  fontSize: 'var(--text-xs)',
+                  color: 'var(--text-secondary)',
+                  fontFamily: 'var(--font-mono)',
+                }}
+              >
                 {score}
               </span>
             )}

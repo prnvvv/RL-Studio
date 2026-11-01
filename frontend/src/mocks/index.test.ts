@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { MOCK_DATA_LABEL, assertMocksEnabled, labeledMockData, labeledMockResult, mocksEnabled } from './index'
+import {
+  MOCK_DATA_LABEL,
+  assertMocksEnabled,
+  labeledMockData,
+  labeledMockResult,
+  mocksEnabled,
+} from './index'
 
 describe('mocksEnabled', () => {
   afterEach(() => {

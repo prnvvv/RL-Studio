@@ -54,7 +54,11 @@ describe('VerificationVerdictCard', () => {
   it.each(['unknown', 'blocked', 'error', 'pending'] as const satisfies readonly CheckStatus[])(
     'renders %s as an inability to judge, not a pass or violation',
     (status) => {
-      render(<VerificationVerdictCard result={check({ status, expected: null, actual: null, evidence_refs: [] })} />)
+      render(
+        <VerificationVerdictCard
+          result={check({ status, expected: null, actual: null, evidence_refs: [] })}
+        />,
+      )
       expect(screen.queryByText('Passed')).not.toBeInTheDocument()
       expect(screen.queryByText('Failed')).not.toBeInTheDocument()
     },
@@ -64,7 +68,9 @@ describe('VerificationVerdictCard', () => {
     render(<VerificationVerdictCard result={check({ status: 'unknown', evidence_refs: [] })} />)
     expect(screen.getByText('Not evaluable')).toBeInTheDocument()
     expect(
-      screen.getByText('No applicable expectation is recorded for this requirement in the current scope, so no pass/fail claim is made.'),
+      screen.getByText(
+        'No applicable expectation is recorded for this requirement in the current scope, so no pass/fail claim is made.',
+      ),
     ).toBeInTheDocument()
   })
 
@@ -76,7 +82,12 @@ describe('VerificationVerdictCard', () => {
 
   it('navigates to evidence only through the explicit handler', () => {
     const onOpenEvidence = vi.fn()
-    render(<VerificationVerdictCard result={check({ evidence_refs: ['evt_1', 'evt_2'] })} onOpenEvidence={onOpenEvidence} />)
+    render(
+      <VerificationVerdictCard
+        result={check({ evidence_refs: ['evt_1', 'evt_2'] })}
+        onOpenEvidence={onOpenEvidence}
+      />,
+    )
 
     fireEvent.click(screen.getByRole('button', { name: 'evt_2' }))
     expect(onOpenEvidence).toHaveBeenCalledOnce()

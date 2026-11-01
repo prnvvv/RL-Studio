@@ -19,7 +19,10 @@ const SOURCE_LABELS: Record<ExtractedRequirementDraft['source'], string> = {
 }
 
 /** Describe the rule without pretending to have validated it. */
-function ruleSummary(ruleType: string | null, parameters: Record<string, unknown> | null): string | null {
+function ruleSummary(
+  ruleType: string | null,
+  parameters: Record<string, unknown> | null,
+): string | null {
   if (!ruleType) return null
   const paramText =
     parameters && Object.keys(parameters).length > 0
@@ -37,7 +40,13 @@ function ruleSummary(ruleType: string | null, parameters: Record<string, unknown
  * and persisted by the backend it is a draft awaiting the developer's review
  * decision, and the badge plus source wording carry that distinction.
  */
-export function RequirementCard({ draft, reviewState = 'draft', pending = false, onConfirm, onReject }: RequirementCardProps) {
+export function RequirementCard({
+  draft,
+  reviewState = 'draft',
+  pending = false,
+  onConfirm,
+  onReject,
+}: RequirementCardProps) {
   const summary = ruleSummary(draft.rule_type, draft.parameters)
 
   return (
@@ -53,8 +62,22 @@ export function RequirementCard({ draft, reviewState = 'draft', pending = false,
         background: 'var(--bg-panel-raised)',
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 'var(--space-3)' }}>
-        <p style={{ margin: 0, color: 'var(--text-primary)', fontSize: 'var(--text-sm)', fontFamily: 'var(--font-sans)' }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'flex-start',
+          justifyContent: 'space-between',
+          gap: 'var(--space-3)',
+        }}
+      >
+        <p
+          style={{
+            margin: 0,
+            color: 'var(--text-primary)',
+            fontSize: 'var(--text-sm)',
+            fontFamily: 'var(--font-sans)',
+          }}
+        >
           {draft.description}
         </p>
         <RequirementStatusBadge state={reviewState} />

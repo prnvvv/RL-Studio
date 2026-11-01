@@ -28,7 +28,8 @@ const VERDICTS: Record<CheckStatus, VerdictPresentation> = {
 
 /** Unknown explanations come with the card, not as a guess. */
 const UNKNOWN_EXPLANATIONS: Partial<Record<CheckStatus, string>> = {
-  unknown: 'No applicable expectation is recorded for this requirement in the current scope, so no pass/fail claim is made.',
+  unknown:
+    'No applicable expectation is recorded for this requirement in the current scope, so no pass/fail claim is made.',
   blocked: 'The check could not run against the available evidence; no pass/fail claim is made.',
 }
 
@@ -56,15 +57,35 @@ export function VerificationVerdictCard({ result, onOpenEvidence }: Verification
         background: 'var(--bg-panel-raised)',
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 'var(--space-3)' }}>
-        <code style={{ fontSize: 'var(--text-xs)', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'flex-start',
+          justifyContent: 'space-between',
+          gap: 'var(--space-3)',
+        }}
+      >
+        <code
+          style={{
+            fontSize: 'var(--text-xs)',
+            color: 'var(--text-primary)',
+            fontFamily: 'var(--font-mono)',
+          }}
+        >
           {result.requirement_id}
         </code>
         <StatusBadge label={verdict.label} tone={verdict.tone} glyph={verdict.glyph} />
       </div>
 
       {unknownExplanation ? (
-        <p style={{ margin: 0, fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+        <p
+          style={{
+            margin: 0,
+            fontSize: 'var(--text-xs)',
+            color: 'var(--text-secondary)',
+            lineHeight: 1.6,
+          }}
+        >
           {unknownExplanation}
         </p>
       ) : (
@@ -84,15 +105,28 @@ export function VerificationVerdictCard({ result, onOpenEvidence }: Verification
           {result.tolerance !== null && (
             <div style={row}>
               <span style={{ color: 'var(--text-secondary)', minWidth: '72px' }}>Tolerance</span>
-              <span style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>±{result.tolerance}</span>
+              <span style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
+                ±{result.tolerance}
+              </span>
             </div>
           )}
         </div>
       )}
 
-      <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center', flexWrap: 'wrap', fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>
+      <div
+        style={{
+          display: 'flex',
+          gap: 'var(--space-3)',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          fontSize: 'var(--text-xs)',
+          color: 'var(--text-secondary)',
+        }}
+      >
         <span>{result.is_mandatory ? 'Mandatory check' : 'Advisory check'}</span>
-        {result.evidence_refs.length > 0 && <span>{result.evidence_refs.length} evidence ref(s)</span>}
+        {result.evidence_refs.length > 0 && (
+          <span>{result.evidence_refs.length} evidence ref(s)</span>
+        )}
       </div>
 
       {result.evidence_refs.length > 0 && (

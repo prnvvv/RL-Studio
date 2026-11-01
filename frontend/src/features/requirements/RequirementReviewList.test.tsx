@@ -63,7 +63,9 @@ describe('RequirementReviewList', () => {
         items={[]}
       />,
     )
-    expect(screen.getByText('Intent is outside the supported domain', { exact: false })).toBeInTheDocument()
+    expect(
+      screen.getByText('Intent is outside the supported domain', { exact: false }),
+    ).toBeInTheDocument()
   })
 
   it('renders stated decisions and removes actions for decided drafts', () => {
@@ -80,7 +82,9 @@ describe('RequirementReviewList', () => {
 
     expect(screen.getByText('Confirmed for this session')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Confirm' })).not.toBeInTheDocument()
-    expect(screen.getByText('backend persistence is not yet wired', { exact: false })).toBeInTheDocument()
+    expect(
+      screen.getByText('backend persistence is not yet wired', { exact: false }),
+    ).toBeInTheDocument()
   })
 
   it('disables only the card whose decision request is pending', () => {

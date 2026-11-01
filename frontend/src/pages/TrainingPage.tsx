@@ -8,7 +8,10 @@ import { LineChart } from '../components/charts/LineChart'
 import { TrainingWorkflow, WorkflowStage } from '../features/training/TrainingWorkflow'
 import { IntentComposer } from '../features/intent/IntentComposer'
 import type { ExtractedRequirementDraft, RequirementDecision } from '../schemas/intent'
-import { createIntentRequirementsService, type IntentSubmissionOutcome } from '../services/intentRequirements'
+import {
+  createIntentRequirementsService,
+  type IntentSubmissionOutcome,
+} from '../services/intentRequirements'
 
 const intentRequirementsService = createIntentRequirementsService()
 
@@ -38,7 +41,10 @@ export function TrainingPage() {
   const submitIntent = (text: string): Promise<IntentSubmissionOutcome> =>
     intentRequirementsService.submitIntent(text)
 
-  const decideRequirement = async (draft: ExtractedRequirementDraft, decision: RequirementDecision) => {
+  const decideRequirement = async (
+    draft: ExtractedRequirementDraft,
+    decision: RequirementDecision,
+  ) => {
     if (draft.requirement_id === null) {
       throw new Error('Draft has no recorded requirement id; it cannot be decided.')
     }
@@ -99,10 +105,7 @@ export function TrainingPage() {
         >
           {/* Anchor target for /training#intent deep links. */}
           <span id="intent" />
-          <IntentComposer
-            onSubmit={submitIntent}
-            onDecide={decideRequirement}
-          />
+          <IntentComposer onSubmit={submitIntent} onDecide={decideRequirement} />
         </Panel>
 
         <Panel title="Workflow" description="Six-stage training and recovery lifecycle">

@@ -9,7 +9,11 @@ describe('TextArea', () => {
     function Harness() {
       const [value, setValue] = useState('')
       return (
-        <TextArea value={value} onChange={(event) => setValue(event.target.value)} aria-label="Intent" />
+        <TextArea
+          value={value}
+          onChange={(event) => setValue(event.target.value)}
+          aria-label="Intent"
+        />
       )
     }
     render(<Harness />)

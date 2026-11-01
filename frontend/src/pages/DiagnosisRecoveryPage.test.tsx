@@ -131,9 +131,7 @@ describe('DiagnosisRecoveryPage with a focused incident (sample-data mode)', () 
     renderFocused()
 
     const diagnosis = await screen.findByRole('region', { name: 'AI Diagnosis' })
-    expect(
-      await within(diagnosis).findByText('No investigation has been run'),
-    ).toBeInTheDocument()
+    expect(await within(diagnosis).findByText('No investigation has been run')).toBeInTheDocument()
 
     // Nothing requested an analysis implicitly — the panel opens with the
     // explicit request control only.

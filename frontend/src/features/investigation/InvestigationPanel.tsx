@@ -40,7 +40,13 @@ const listRowStyle = {
   fontFamily: 'var(--font-sans)',
 } as const
 
-function EvidenceChips({ refs, onOpenEvidence }: { refs: string[]; onOpenEvidence?: (id: string) => void }) {
+function EvidenceChips({
+  refs,
+  onOpenEvidence,
+}: {
+  refs: string[]
+  onOpenEvidence?: (id: string) => void
+}) {
   if (refs.length === 0) return null
   return (
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
@@ -94,12 +100,21 @@ function LoadedInvestigation({
 }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+      <div
+        style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}
+      >
         {label && <StatusBadge label={label} tone="quiet" glyph="dot" />}
       </div>
 
       {investigation.summary && (
-        <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--text-primary)', lineHeight: 1.6 }}>
+        <p
+          style={{
+            margin: 0,
+            fontSize: 'var(--text-sm)',
+            color: 'var(--text-primary)',
+            lineHeight: 1.6,
+          }}
+        >
           {investigation.summary}
         </p>
       )}
@@ -110,10 +125,17 @@ function LoadedInvestigation({
         </span>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>Observed facts</span>
+          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
+            Observed facts
+          </span>
           {investigation.facts.map((fact) => (
-            <div key={fact.statement} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
-              <p style={{ margin: 0, fontSize: 'var(--text-xs)', color: 'var(--text-primary)' }}>{fact.statement}</p>
+            <div
+              key={fact.statement}
+              style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}
+            >
+              <p style={{ margin: 0, fontSize: 'var(--text-xs)', color: 'var(--text-primary)' }}>
+                {fact.statement}
+              </p>
               <EvidenceChips refs={fact.evidence_refs} onOpenEvidence={onOpenEvidence} />
             </div>
           ))}
@@ -126,24 +148,40 @@ function LoadedInvestigation({
         </span>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>Proposed hypotheses</span>
+          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
+            Proposed hypotheses
+          </span>
           {investigation.hypotheses.map((hypothesis) => (
-            <HypothesisCard key={hypothesis.hypothesis_id} hypothesis={hypothesis} onOpenEvidence={onOpenEvidence} />
+            <HypothesisCard
+              key={hypothesis.hypothesis_id}
+              hypothesis={hypothesis}
+              onOpenEvidence={onOpenEvidence}
+            />
           ))}
         </div>
       )}
 
       {investigation.alternatives.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>Alternative explanations</span>
+          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
+            Alternative explanations
+          </span>
           {investigation.alternatives.map((hypothesis) => (
-            <HypothesisCard key={hypothesis.hypothesis_id} hypothesis={hypothesis} isAlternative onOpenEvidence={onOpenEvidence} />
+            <HypothesisCard
+              key={hypothesis.hypothesis_id}
+              hypothesis={hypothesis}
+              isAlternative
+              onOpenEvidence={onOpenEvidence}
+            />
           ))}
         </div>
       )}
 
       {investigation.contradictions.length > 0 && (
-        <ExpandableSection title="Contradictions" summary={`${investigation.contradictions.length} recorded`}>
+        <ExpandableSection
+          title="Contradictions"
+          summary={`${investigation.contradictions.length} recorded`}
+        >
           <ul style={listStyle}>
             {investigation.contradictions.map((contradiction) => (
               <li key={contradiction}>{contradiction}</li>
@@ -153,7 +191,10 @@ function LoadedInvestigation({
       )}
 
       {investigation.recommended_tests.length > 0 && (
-        <ExpandableSection title="Recommended diagnostic tests" summary={`${investigation.recommended_tests.length} suggested`}>
+        <ExpandableSection
+          title="Recommended diagnostic tests"
+          summary={`${investigation.recommended_tests.length} suggested`}
+        >
           <ul style={listStyle}>
             {investigation.recommended_tests.map((test) => (
               <li key={test}>{test}</li>
@@ -173,26 +214,51 @@ function LoadedInvestigation({
             gap: 'var(--space-2)',
           }}
         >
-          <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center', flexWrap: 'wrap' }}>
+          <div
+            style={{
+              display: 'flex',
+              gap: 'var(--space-2)',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+            }}
+          >
             <StatusBadge label="Suggested action — not executed" tone="quiet" glyph="dot" />
             {investigation.suggested_action.requires_confirmation && (
               <StatusBadge label="Requires confirmation" tone="neutral" glyph="query" />
             )}
           </div>
-          <p style={{ margin: 0, fontSize: 'var(--text-xs)', color: 'var(--text-primary)', lineHeight: 1.6 }}>
+          <p
+            style={{
+              margin: 0,
+              fontSize: 'var(--text-xs)',
+              color: 'var(--text-primary)',
+              lineHeight: 1.6,
+            }}
+          >
             {investigation.suggested_action.description}
           </p>
           {investigation.suggested_action.target && (
-            <code style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>
+            <code
+              style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: 'var(--text-xs)',
+                color: 'var(--text-secondary)',
+              }}
+            >
               Target: {investigation.suggested_action.target}
             </code>
           )}
         </div>
       )}
 
-      <ExpandableSection title="Missing evidence" summary={`${investigation.missing_evidence.length} gap(s)`}>
+      <ExpandableSection
+        title="Missing evidence"
+        summary={`${investigation.missing_evidence.length} gap(s)`}
+      >
         {investigation.missing_evidence.length === 0 ? (
-          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>No evidence gaps were recorded.</span>
+          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>
+            No evidence gaps were recorded.
+          </span>
         ) : (
           <ul style={listStyle}>
             {investigation.missing_evidence.map((gap) => (
@@ -202,7 +268,10 @@ function LoadedInvestigation({
         )}
       </ExpandableSection>
 
-      <ExpandableSection title="Limitations" summary={`${investigation.limitations.length} recorded`}>
+      <ExpandableSection
+        title="Limitations"
+        summary={`${investigation.limitations.length} recorded`}
+      >
         <ul style={listStyle}>
           {investigation.limitations.map((limitation) => (
             <li key={limitation}>{limitation}</li>
@@ -212,15 +281,31 @@ function LoadedInvestigation({
 
       {investigation.provider && (
         <ExpandableSection title="Analysis details" summary="Provider metadata">
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)', fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 'var(--space-1)',
+              fontSize: 'var(--text-xs)',
+              color: 'var(--text-secondary)',
+            }}
+          >
             <span style={listRowStyle}>
-              Provider provider: <code style={{ fontFamily: 'var(--font-mono)' }}>{investigation.provider.provider}</code>
+              Provider provider:{' '}
+              <code style={{ fontFamily: 'var(--font-mono)' }}>
+                {investigation.provider.provider}
+              </code>
             </span>
             <span style={listRowStyle}>
-              Model: <code style={{ fontFamily: 'var(--font-mono)' }}>{investigation.provider.model ?? 'not recorded'}</code>
+              Model:{' '}
+              <code style={{ fontFamily: 'var(--font-mono)' }}>
+                {investigation.provider.model ?? 'not recorded'}
+              </code>
             </span>
             {investigation.provider.prompt_version && (
-              <span style={listRowStyle}>Prompt version: {investigation.provider.prompt_version}</span>
+              <span style={listRowStyle}>
+                Prompt version: {investigation.provider.prompt_version}
+              </span>
             )}
           </div>
         </ExpandableSection>
@@ -265,9 +350,16 @@ export function InvestigationPanel({
         {investigation.data !== null ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
             <StaleDataNotice subject="Investigation findings" />
-            <ErrorState title="Investigation could not be refreshed" description={investigation.error.message} />
+            <ErrorState
+              title="Investigation could not be refreshed"
+              description={investigation.error.message}
+            />
             <LoadedInvestigation
-              investigation={'label' in investigation.data ? investigation.data.data : (investigation.data as InvestigationResult)}
+              investigation={
+                'label' in investigation.data
+                  ? investigation.data.data
+                  : (investigation.data as InvestigationResult)
+              }
               label={'label' in investigation.data ? MOCK_DATA_LABEL : undefined}
               onOpenEvidence={onOpenEvidence}
             />
@@ -305,7 +397,10 @@ export function InvestigationPanel({
             }
           />
         ) : (
-          <ErrorState title="The investigation could not be loaded" description={investigation.error.message} />
+          <ErrorState
+            title="The investigation could not be loaded"
+            description={investigation.error.message}
+          />
         )}
       </div>
     )
@@ -315,7 +410,11 @@ export function InvestigationPanel({
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
       <ProviderStatusBadge state="completed" />
       <LoadedInvestigation
-        investigation={'label' in investigation.data ? investigation.data.data : (investigation.data as InvestigationResult)}
+        investigation={
+          'label' in investigation.data
+            ? investigation.data.data
+            : (investigation.data as InvestigationResult)
+        }
         label={'label' in investigation.data ? MOCK_DATA_LABEL : undefined}
         onOpenEvidence={onOpenEvidence}
       />

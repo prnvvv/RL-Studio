@@ -61,10 +61,14 @@ describe('TrainingPage', () => {
     )
     renderTraining()
 
-    fireEvent.change(screen.getByLabelText('Intended behaviour'), { target: { value: 'The goal reward must be 100.' } })
+    fireEvent.change(screen.getByLabelText('Intended behaviour'), {
+      target: { value: 'The goal reward must be 100.' },
+    })
     fireEvent.click(screen.getByRole('button', { name: 'Submit intent' }))
 
-    await waitFor(() => expect(screen.getByText('The intent could not be submitted')).toBeInTheDocument())
+    await waitFor(() =>
+      expect(screen.getByText('The intent could not be submitted')).toBeInTheDocument(),
+    )
     // The failed request must never be turned into an empty review list.
     expect(screen.queryByText('Requirements extracted')).not.toBeInTheDocument()
     vi.unstubAllGlobals()

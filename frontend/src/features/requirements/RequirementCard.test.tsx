@@ -45,12 +45,25 @@ describe('RequirementCard', () => {
   })
 
   it('offers no actions while the requirement id is unassigned', () => {
-    render(<RequirementCard draft={draft({ requirement_id: null })} onConfirm={() => undefined} onReject={() => undefined} />)
+    render(
+      <RequirementCard
+        draft={draft({ requirement_id: null })}
+        onConfirm={() => undefined}
+        onReject={() => undefined}
+      />,
+    )
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
   })
 
   it('stops duplicate submissions while a decision request is pending', () => {
-    render(<RequirementCard draft={draft()} pending onConfirm={() => undefined} onReject={() => undefined} />)
+    render(
+      <RequirementCard
+        draft={draft()}
+        pending
+        onConfirm={() => undefined}
+        onReject={() => undefined}
+      />,
+    )
     expect(screen.getByRole('button', { name: 'Confirm' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Reject' })).toBeDisabled()
   })

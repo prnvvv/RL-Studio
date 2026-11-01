@@ -14,8 +14,12 @@ describe('mock investigation adapter', () => {
 
   it('fails closed when mocks are disabled', async () => {
     vi.stubEnv('VITE_USE_MOCKS', 'false')
-    await expect(mockInvestigationAdapter.getInvestigation(DEMO_INCIDENT_ID)).rejects.toThrow(/VITE_USE_MOCKS/)
-    await expect(mockInvestigationAdapter.requestInvestigation(DEMO_INCIDENT_ID)).rejects.toThrow(/VITE_USE_MOCKS/)
+    await expect(mockInvestigationAdapter.getInvestigation(DEMO_INCIDENT_ID)).rejects.toThrow(
+      /VITE_USE_MOCKS/,
+    )
+    await expect(mockInvestigationAdapter.requestInvestigation(DEMO_INCIDENT_ID)).rejects.toThrow(
+      /VITE_USE_MOCKS/,
+    )
   })
 
   it('starts with no investigation for the demo incident — none was run yet', async () => {
@@ -64,6 +68,8 @@ describe('mock investigation adapter', () => {
   it('refuses to fabricate an investigation for unknown incident ids', async () => {
     enableMocks()
     expect(await mockInvestigationAdapter.getInvestigation('inc_unknown')).toBeNull()
-    await expect(mockInvestigationAdapter.requestInvestigation('inc_unknown')).rejects.toThrow(/No demo investigation/)
+    await expect(mockInvestigationAdapter.requestInvestigation('inc_unknown')).rejects.toThrow(
+      /No demo investigation/,
+    )
   })
 })

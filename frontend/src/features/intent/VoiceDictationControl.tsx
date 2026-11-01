@@ -24,8 +24,14 @@ const BUTTON_LABELS: Record<'start' | 'stop', string> = {
  * - The control forwards final transcripts upward and never submits anything
  *   itself — insertion and submission belong to the composer.
  */
-export function VoiceDictationControl({ transcriber, onFinalTranscript, onErrorMessage }: VoiceDictationControlProps) {
-  const [state, setState] = useState<VoiceDictationState>(transcriber.supported ? 'idle' : 'unsupported')
+export function VoiceDictationControl({
+  transcriber,
+  onFinalTranscript,
+  onErrorMessage,
+}: VoiceDictationControlProps) {
+  const [state, setState] = useState<VoiceDictationState>(
+    transcriber.supported ? 'idle' : 'unsupported',
+  )
   const [message, setMessage] = useState<string | undefined>(undefined)
 
   const handleEvent = useCallback(
@@ -60,11 +66,14 @@ export function VoiceDictationControl({ transcriber, onFinalTranscript, onErrorM
   }
 
   const listening = state === 'listening'
-  const restartable = state === 'recognised' || state === 'idle' || state === 'error' || state === 'permission_denied'
+  const restartable =
+    state === 'recognised' || state === 'idle' || state === 'error' || state === 'permission_denied'
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+      <div
+        style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}
+      >
         {!listening && restartable && (
           <button
             type="button"
@@ -106,7 +115,8 @@ export function VoiceDictationControl({ transcriber, onFinalTranscript, onErrorM
       </div>
       {state === 'permission_denied' && (
         <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>
-          Microphone access was refused by the browser. Type the intent instead, or grant access and dictate again.
+          Microphone access was refused by the browser. Type the intent instead, or grant access and
+          dictate again.
         </span>
       )}
     </div>

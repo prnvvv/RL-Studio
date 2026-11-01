@@ -27,7 +27,9 @@ describe('AnomalyFindingsPanel', () => {
     render(<AnomalyFindingsPanel anomalies={[anomaly()]} />)
     expect(screen.getByText('Reward deviation')).toBeInTheDocument()
     expect(screen.getByText('Detector score 0.82 (trigger threshold 0.5)')).toBeInTheDocument()
-    expect(screen.getByText('Goal-reward observations deviate from the recorded expectation.')).toBeInTheDocument()
+    expect(
+      screen.getByText('Goal-reward observations deviate from the recorded expectation.'),
+    ).toBeInTheDocument()
   })
 
   it('always keeps the not-a-confirmed-fault disclaimer visible', () => {

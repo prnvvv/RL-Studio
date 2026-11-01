@@ -12,12 +12,7 @@
  */
 
 export type VoiceDictationState =
-  | 'unsupported'
-  | 'permission_denied'
-  | 'idle'
-  | 'listening'
-  | 'recognised'
-  | 'error'
+  'unsupported' | 'permission_denied' | 'idle' | 'listening' | 'recognised' | 'error'
 
 export type TranscriberEvent =
   | { type: 'state'; state: Exclude<VoiceDictationState, 'error'>; message?: undefined }
@@ -43,7 +38,8 @@ export interface SpeechRecognitionLike {
   maxAlternatives: number
   start(): void
   stop(): void
-  onresult: ((event: { resultIndex: number; results: SpeechRecognitionResultLike[] }) => void) | null
+  onresult:
+    ((event: { resultIndex: number; results: SpeechRecognitionResultLike[] }) => void) | null
   onerror: ((event: { error: string }) => void) | null
   onend: (() => void) | null
 }
@@ -85,7 +81,9 @@ function stateForEngineError(kind: string): { state: VoiceDictationState; messag
   return { state: 'error', message: ENGINE_ERROR_MESSAGES[kind] ?? 'Dictation failed.' }
 }
 
-export function createWebSpeechTranscriber(ctor: SpeechRecognitionCtor | null = detectSpeechRecognitionCtor()): VoiceTranscriber {
+export function createWebSpeechTranscriber(
+  ctor: SpeechRecognitionCtor | null = detectSpeechRecognitionCtor(),
+): VoiceTranscriber {
   type Listener = (event: TranscriberEvent) => void
   const listeners = new Set<Listener>()
   let recognition: SpeechRecognitionLike | null = null

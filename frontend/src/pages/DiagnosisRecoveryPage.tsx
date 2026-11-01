@@ -18,10 +18,7 @@ import { createVerificationService, type VerificationService } from '../services
 import { createInvestigationService, type InvestigationService } from '../services/investigation'
 import type { ServiceError } from '../services/types'
 import { mocksEnabled, MOCK_DATA_LABEL, type MockData } from '../mocks'
-import type {
-  AnomalyObservation,
-  IncidentRecord,
-} from '../schemas/verification'
+import type { AnomalyObservation, IncidentRecord } from '../schemas/verification'
 
 // Recovery stages are rendered only from a recorded recovery plan (Person 4's
 // records). No plan is loaded here, so no stage sequence is assumed.
@@ -148,8 +145,8 @@ function StaticDiagnosisSection() {
             >
               The investigator analyses evidence recorded for a specific incident: the violated
               requirement, expected and observed values, and the affected run and environment
-              version. No incident or evidence package is connected, so no finding, hypothesis,
-              or explanation is shown.
+              version. No incident or evidence package is connected, so no finding, hypothesis, or
+              explanation is shown.
             </p>
           </div>
         </div>
@@ -170,9 +167,9 @@ function StaticDiagnosisSection() {
           >
             <p style={emptyText}>
               Provider, model, prompt and schema versions, alternative explanations, missing
-              evidence, and limitations appear here when a diagnosis record exists. Model
-              confidence is shown only if the provider or a defined scoring method supplies it,
-              and is labelled as an estimate.
+              evidence, and limitations appear here when a diagnosis record exists. Model confidence
+              is shown only if the provider or a defined scoring method supplies it, and is labelled
+              as an estimate.
             </p>
           </ExpandableSection>
           <ExpandableSection
@@ -392,9 +389,9 @@ function IncidentWorkspace({ incidentId }: { incidentId: string }) {
         />
         {investigationBadgeState === 'no_record' && (
           <p style={{ ...emptyText, marginTop: 'var(--space-2)' }}>
-            Requesting an analysis is explicit and per-incident; nothing requests it
-            automatically. A hypothesis from the investigator is not a confirmed root cause and
-            cannot authorise a recovery action.
+            Requesting an analysis is explicit and per-incident; nothing requests it automatically.
+            A hypothesis from the investigator is not a confirmed root cause and cannot authorise a
+            recovery action.
           </p>
         )}
       </Panel>

@@ -81,7 +81,10 @@ const MESSAGES: Record<ServiceErrorKind, string> = {
 }
 
 function errorResult(kind: ServiceErrorKind, status?: number): ServiceResult<never> {
-  return { state: 'error', error: { kind, message: MESSAGES[kind], ...(status !== undefined ? { status } : {}) } }
+  return {
+    state: 'error',
+    error: { kind, message: MESSAGES[kind], ...(status !== undefined ? { status } : {}) },
+  }
 }
 
 /**

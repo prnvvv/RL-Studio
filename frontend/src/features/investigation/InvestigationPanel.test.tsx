@@ -12,7 +12,10 @@ const DEMO_RESULT: InvestigationResult = {
   incident_id: DEMO_INCIDENT_ID,
   summary: 'Evidence implicates a changed goal-reward scale.',
   facts: [
-    { statement: 'Goal reward was observed as 40 where the requirement expects 100.', evidence_refs: ['evt_812'] },
+    {
+      statement: 'Goal reward was observed as 40 where the requirement expects 100.',
+      evidence_refs: ['evt_812'],
+    },
     { statement: 'Step-penalty checks passed unchanged.', evidence_refs: [] },
   ],
   contradictions: ['No contradictions recorded.'],
@@ -26,7 +29,13 @@ const DEMO_RESULT: InvestigationResult = {
     },
   ],
   alternatives: [
-    { hypothesis_id: 'hyp_2', statement: 'The policy simply undertrained on the new layout.', reasoning: null, supporting_evidence_refs: [], confidence: null },
+    {
+      hypothesis_id: 'hyp_2',
+      statement: 'The policy simply undertrained on the new layout.',
+      reasoning: null,
+      supporting_evidence_refs: [],
+      confidence: null,
+    },
   ],
   recommended_tests: ['Re-run evaluation episodes in the healthy configuration.'],
   suggested_action: {
@@ -37,7 +46,12 @@ const DEMO_RESULT: InvestigationResult = {
   },
   missing_evidence: ['No observation-checksum events are referenced.'],
   limitations: ['Sample data: produced by deterministic fixtures.'],
-  provider: { provider: 'meta_model_api', model: null, prompt_version: null, schema_version: '1.0' },
+  provider: {
+    provider: 'meta_model_api',
+    model: null,
+    prompt_version: null,
+    schema_version: '1.0',
+  },
   created_at: null,
   schema_version: '1.0',
 }
@@ -45,13 +59,15 @@ const DEMO_RESULT: InvestigationResult = {
 type Mocked = ReturnType<typeof labeledMockData<InvestigationResult>>
 type PanelState = ServiceQueryState<InvestigationResult | Mocked>
 
-function renderPanel(overrides: {
-  incidentId?: string | null
-  investigation?: Partial<PanelState>
-  onRequest?: () => void
-  requestPending?: boolean
-  onOpenEvidence?: (id: string) => void
-} = {}) {
+function renderPanel(
+  overrides: {
+    incidentId?: string | null
+    investigation?: Partial<PanelState>
+    onRequest?: () => void
+    requestPending?: boolean
+    onOpenEvidence?: (id: string) => void
+  } = {},
+) {
   const state: PanelState =
     overrides.investigation !== undefined
       ? ({ state: 'ok', data: DEMO_RESULT, ...overrides.investigation } as PanelState)
@@ -74,7 +90,9 @@ describe('InvestigationPanel', () => {
     expect(screen.getByText('Investigation completed')).toBeInTheDocument()
     expect(screen.getByText('Observed facts')).toBeInTheDocument()
     expect(screen.getByText('Proposed hypotheses')).toBeInTheDocument()
-    expect(screen.getByText('Goal reward was observed as 40 where the requirement expects 100.')).toBeInTheDocument()
+    expect(
+      screen.getByText('Goal reward was observed as 40 where the requirement expects 100.'),
+    ).toBeInTheDocument()
     expect(screen.getByText(/The environment goal-reward scale changed/)).toBeInTheDocument()
   })
 
@@ -165,7 +183,10 @@ describe('InvestigationPanel', () => {
     renderPanel({
       investigation: {
         state: 'error',
-        error: { kind: 'timeout', message: 'The request timed out; the backend operation state is unknown.' },
+        error: {
+          kind: 'timeout',
+          message: 'The request timed out; the backend operation state is unknown.',
+        },
         data: DEMO_RESULT,
       },
     })
@@ -186,7 +207,9 @@ describe('InvestigationPanel', () => {
       },
     })
 
-    expect(screen.getByText('No observed facts were recorded for this investigation.')).toBeInTheDocument()
+    expect(
+      screen.getByText('No observed facts were recorded for this investigation.'),
+    ).toBeInTheDocument()
     expect(
       screen.getByText('The provider returned no hypotheses; no cause claim is implied.'),
     ).toBeInTheDocument()
@@ -221,7 +244,9 @@ describe('InvestigationPanel', () => {
     })
 
     expect(screen.queryByRole('button', { name: 'Request investigation' })).not.toBeInTheDocument()
-    expect(screen.getByText('Focus an incident to make investigation available.')).toBeInTheDocument()
+    expect(
+      screen.getByText('Focus an incident to make investigation available.'),
+    ).toBeInTheDocument()
   })
 
   it('derives the badge state from service results only', () => {
@@ -230,7 +255,11 @@ describe('InvestigationPanel', () => {
       investigateState({ state: 'error', error: { kind: 'not_found', message: 'x' }, data: null }),
     ).toBe('no_record')
     expect(
-      investigateState({ state: 'error', error: { kind: 'unavailable', message: 'x' }, data: null }),
+      investigateState({
+        state: 'error',
+        error: { kind: 'unavailable', message: 'x' },
+        data: null,
+      }),
     ).toBe('provider_unavailable')
     expect(
       investigateState({ state: 'error', error: { kind: 'network', message: 'x' }, data: null }),

@@ -6,8 +6,10 @@ import { HypothesisCard } from './HypothesisCard'
 function hypothesis(overrides: Partial<InvestigationHypothesis> = {}): InvestigationHypothesis {
   return {
     hypothesis_id: 'hyp_demo_reward_scale_change',
-    statement: 'The environment goal-reward scale changed during the recorded fault-injection interval.',
-    reasoning: 'Only goal-reward observations diverge while step-penalty checks stay within tolerance.',
+    statement:
+      'The environment goal-reward scale changed during the recorded fault-injection interval.',
+    reasoning:
+      'Only goal-reward observations diverge while step-penalty checks stay within tolerance.',
     supporting_evidence_refs: ['evt_demo_step_812'],
     confidence: 0.72,
     ...overrides,
@@ -53,6 +55,8 @@ describe('HypothesisCard', () => {
 
   it('warns that a hypothesis cannot authorise recovery even with confidence shown', () => {
     render(<HypothesisCard hypothesis={hypothesis()} />)
-    expect(screen.getByText(/does not establish cause and cannot authorise any recovery action/)).toBeInTheDocument()
+    expect(
+      screen.getByText(/does not establish cause and cannot authorise any recovery action/),
+    ).toBeInTheDocument()
   })
 })
