@@ -147,7 +147,9 @@ Changed in this audit:
   with verified facts.
 
 Person 3 implementation and test files were committed individually per
-repository policy in commits `7fea23b` .. `d74b775` (41 commits).
+repository policy in commits `7fea23b`..`d74b775` (41 commits), followed by
+documentation commits up to `94d447e` (3 commits), plus a final documentation
+commit recording this PR.
 
 ## 9. Branch and working tree
 
@@ -160,11 +162,12 @@ repository policy in commits `7fea23b` .. `d74b775` (41 commits).
 
 ## 10. Pull request
 
-- URL: _pending — filled after creation_
+- URL: https://github.com/prnvvv/RL-Studio/pull/41
 - Title: `feat: complete Person 3 verification audit, routing tests and canonical E2E`
 - Base: `main`
 - Head: `backend3`
-- Status: open, not merged.
+- Status: OPEN, MERGEABLE, not merged (merge approval left to the owner).
+- No earlier open PR for this branch existed; PRs #35 and #40 are already merged.
 
 ## 11. Safety confirmation
 
