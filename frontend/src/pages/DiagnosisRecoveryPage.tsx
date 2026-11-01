@@ -1,17 +1,30 @@
+import { useCallback, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { ApplicationShell } from '../components/layout/ApplicationShell'
 import { Panel } from '../components/ui/Panel'
 import { DefinitionList } from '../components/ui/DefinitionList'
 import { ExpandableSection } from '../components/ui/ExpandableSection'
 import { StatusBadge } from '../components/ui/StatusBadge'
 import { UnavailableState } from '../components/ui/UnavailableState'
+import { ErrorState } from '../components/ui/ErrorState'
+import { LoadingSkeleton } from '../components/ui/LoadingSkeleton'
 import { RecoveryWorkflow, RecoveryStage } from '../features/recovery/RecoveryWorkflow'
+import { VerificationResultsPanel } from '../features/verification/VerificationResultsPanel'
+import { AnomalyFindingsPanel } from '../features/investigation/AnomalyFindingsPanel'
+import { InvestigationPanel } from '../features/investigation/InvestigationPanel'
+import { investigateState } from '../features/investigation/investigationState'
+import { useServiceQuery, type ServiceQueryState } from '../hooks/useServiceQuery'
+import { createVerificationService, type VerificationService } from '../services/verification'
+import { createInvestigationService, type InvestigationService } from '../services/investigation'
+import type { ServiceError } from '../services/types'
+import { mocksEnabled, MOCK_DATA_LABEL, type MockData } from '../mocks'
+import type { AnomalyObservation, IncidentRecord } from '../schemas/verification'
 
-// No incident, evidence package, diagnosis, or recovery plan is connected.
-// Nothing below is inferred from metrics: the page states what is missing and
-// keeps detection, diagnosis, execution, and evaluation as separate claims.
+// Recovery stages are rendered only from a recorded recovery plan (Person 4's
+// records). No plan is loaded here, so no stage sequence is assumed.
 const recoveryStages: RecoveryStage[] = []
 
-const incidentDetails = [
+const fallbackIncidentDetails = [
   { id: 'incident-id', label: 'Incident', value: null },
   { id: 'severity', label: 'Severity', value: null },
   { id: 'detection-status', label: 'Detection status', value: null },
@@ -49,6 +62,14 @@ const emptyText = {
   maxWidth: '80ch',
 } as const
 
+const inlineStatus = {
+  margin: 0,
+  fontSize: 'var(--text-xs)',
+  color: 'var(--text-secondary)',
+  fontFamily: 'var(--font-sans)',
+  lineHeight: 1.6,
+} as const
+
 function DiagnosticsGlyph() {
   return (
     <svg
@@ -74,7 +95,315 @@ function DiagnosticsGlyph() {
   )
 }
 
+/** Remove the shared `Sample data` wrapper from a service payload. */
+function unwrapMock<T extends object>(payload: T | MockData<T>): T {
+  return 'label' in payload ? (payload as MockData<T>).data : payload
+}
+
+/**
+ * The layout shown when no incident is identified in the URL. Nothing is
+ * loaded, connected, or inferred: the page states what is missing and keeps
+ * detection, diagnosis, execution, and evaluation as separate claims.
+ */
+function StaticDiagnosisSection() {
+  return (
+    <div className="split-layout">
+      <Panel
+        title="AI Diagnosis"
+        description="Deterministic verification and recovery validation remain authoritative."
+      >
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-4)' }}>
+          <DiagnosticsGlyph />
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 'var(--space-2)',
+              minWidth: 0,
+            }}
+          >
+            <StatusBadge label="No incident loaded" tone="quiet" glyph="none" />
+            <h3
+              style={{
+                margin: 0,
+                fontSize: 'var(--text-lg)',
+                fontWeight: 600,
+                color: 'var(--text-primary)',
+                fontFamily: 'var(--font-sans)',
+              }}
+            >
+              No root cause available
+            </h3>
+            <p
+              style={{
+                margin: 0,
+                fontSize: 'var(--text-sm)',
+                color: 'var(--text-secondary)',
+                fontFamily: 'var(--font-sans)',
+                lineHeight: 1.6,
+              }}
+            >
+              The investigator analyses evidence recorded for a specific incident: the violated
+              requirement, expected and observed values, and the affected run and environment
+              version. No incident or evidence package is connected, so no finding, hypothesis, or
+              explanation is shown.
+            </p>
+          </div>
+        </div>
+
+        <div style={{ marginTop: 'var(--space-4)' }}>
+          <ExpandableSection
+            title="Evidence Used"
+            summary="Not available — no evidence package loaded."
+          >
+            <p style={emptyText}>
+              Evidence identifiers, timestamps, sequence numbers, requirement versions, and
+              fault-injection metadata appear here once an incident package is loaded.
+            </p>
+          </ExpandableSection>
+          <ExpandableSection
+            title="Analysis Details"
+            summary="Not available — diagnosis not started."
+          >
+            <p style={emptyText}>
+              Provider, model, prompt and schema versions, alternative explanations, missing
+              evidence, and limitations appear here when a diagnosis record exists. Model confidence
+              is shown only if the provider or a defined scoring method supplies it, and is labelled
+              as an estimate.
+            </p>
+          </ExpandableSection>
+          <ExpandableSection
+            title="Recommended Recovery Plan"
+            summary="Not available — no plan has been proposed."
+          >
+            <p style={emptyText}>
+              Suggested recovery steps appear here as a proposal. A proposal is not an executed
+              action, and no recovery runs without deterministic compatibility validation.
+            </p>
+          </ExpandableSection>
+        </div>
+      </Panel>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+        <Panel title="Incident">
+          <DefinitionList
+            rows={fallbackIncidentDetails}
+            caption="Populated only from a loaded incident record. Missing expectations are never treated as a pass."
+          />
+        </Panel>
+      </div>
+    </div>
+  )
+}
+
+/** Build incident-detail rows from a loaded record; absent fields stay null. */
+function incidentRows(record: IncidentRecord | null) {
+  return [
+    { id: 'incident-id', label: 'Incident', value: record ? record.incident_id : null },
+    { id: 'severity', label: 'Severity', value: record ? record.severity : null },
+    {
+      id: 'detection-status',
+      label: 'Detection status',
+      value: record ? record.detection_status : null,
+    },
+    {
+      id: 'diagnosis-status',
+      label: 'Diagnosis status',
+      value: record ? record.diagnosis_status : null,
+    },
+    { id: 'requirement', label: 'Requirement', value: record ? record.requirement_id : null },
+    { id: 'requirement-origin', label: 'Requirement origin', value: null },
+    { id: 'requirement-confirmed', label: 'Confirmation state', value: null },
+    { id: 'expected', label: 'Expected value', value: null },
+    { id: 'actual', label: 'Observed value', value: null },
+    {
+      id: 'evidence',
+      label: 'Evidence references',
+      value: record && record.evidence_refs.length > 0 ? record.evidence_refs.join(', ') : null,
+    },
+    { id: 'run', label: 'Run', value: record ? record.run_id : null },
+    {
+      id: 'environment',
+      label: 'Environment version',
+      value: record ? record.environment_version : null,
+    },
+    { id: 'step', label: 'Training step', value: null },
+    {
+      id: 'detector',
+      label: 'Detection method',
+      value: record ? record.detector_id : null,
+    },
+  ]
+}
+
+/** Anomaly listing state rendered inside its panel wrapper. */
+function AnomalySection({
+  anomalies,
+}: {
+  anomalies: ServiceQueryState<AnomalyObservation[] | MockData<AnomalyObservation[]>>
+}) {
+  if (anomalies.state === 'loading') {
+    return <LoadingSkeleton rows={2} />
+  }
+
+  if (anomalies.state === 'error') {
+    return (
+      <p role="status" style={inlineStatus}>
+        Anomaly listings are not available right now: {anomalies.error.message}
+      </p>
+    )
+  }
+
+  const labeled = 'label' in anomalies.data
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+      {labeled && (
+        <div>
+          <StatusBadge label={MOCK_DATA_LABEL} tone="quiet" glyph="dot" />
+        </div>
+      )}
+      <AnomalyFindingsPanel anomalies={unwrapMock(anomalies.data)} />
+    </div>
+  )
+}
+
+/**
+ * Live incident workspace: all four panels are driven by the domain services.
+ * Detection (deterministic verification), statistical signals (anomalies), and
+ * the advisory AI investigation remain separate sections, and no investigator
+ * analysis is requested implicitly.
+ */
+function IncidentWorkspace({ incidentId }: { incidentId: string }) {
+  const services = useMemo(
+    () =>
+      ({
+        verification: createVerificationService() as VerificationService,
+        investigation: createInvestigationService() as InvestigationService,
+      }) as const,
+    [],
+  )
+
+  const incident = useServiceQuery(
+    () => services.verification.getIncident(incidentId),
+    [services, incidentId],
+  )
+  const verification = useServiceQuery(
+    () => services.verification.getVerificationResult(incidentId),
+    [services, incidentId],
+  )
+  const evidence = useServiceQuery(
+    () => services.verification.listEvidence(incidentId),
+    [services, incidentId],
+  )
+  const anomalies = useServiceQuery(
+    () => services.verification.listAnomalies(incidentId),
+    [services, incidentId],
+  )
+  const investigation = useServiceQuery(
+    () => services.investigation.getInvestigation(incidentId),
+    [services, incidentId],
+  )
+
+  const [requestPending, setRequestPending] = useState(false)
+  const [requestError, setRequestError] = useState<ServiceError | null>(null)
+  // `reload` is a stable callback; destructuring keeps the request handler's
+  // dependency list meaningful to both the linter and readers.
+  const { reload: reloadInvestigation } = investigation
+
+  // Explicit user action only: the panel's request button is the trigger,
+  // duplicates are prevented while one request is in flight, and failures are
+  // surfaced as an error next to the panel instead of being silently retried.
+  const handleRequestInvestigation = useCallback(async () => {
+    if (requestPending) return
+    setRequestPending(true)
+    setRequestError(null)
+    const result = await services.investigation.requestInvestigation(incidentId)
+    if (result.state === 'error') {
+      setRequestError(result.error)
+    } else {
+      reloadInvestigation()
+    }
+    setRequestPending(false)
+  }, [requestPending, services, incidentId, reloadInvestigation])
+
+  const incidentState = incident.state
+  const incidentRecord = incidentState.state === 'ok' ? unwrapMock(incidentState.data) : null
+  const investigationBadgeState = investigateState(investigation.state)
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+      <div className="split-layout">
+        <Panel
+          title="Deterministic verification"
+          description="Check outcomes are computed against confirmed requirements; not-evaluable scopes are never reported as passes."
+        >
+          <VerificationResultsPanel
+            verification={verification.state}
+            evidence={evidence.state}
+            onReload={verification.reload}
+          />
+        </Panel>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+          <Panel title="Incident">
+            <DefinitionList
+              rows={incidentRows(incidentRecord)}
+              caption="Populated only from the loaded incident record. Fields the record does not carry stay unavailable."
+            />
+            {incidentState.state === 'loading' && (
+              <p role="status" style={{ ...inlineStatus, marginTop: 'var(--space-2)' }}>
+                Loading incident record…
+              </p>
+            )}
+            {incidentState.state === 'error' && (
+              <p role="status" style={{ ...inlineStatus, marginTop: 'var(--space-2)' }}>
+                Incident record could not be loaded: {incidentState.error.message}
+              </p>
+            )}
+          </Panel>
+
+          <Panel
+            title="Anomaly findings"
+            description="Detector signals only — deterministic verification above remains authoritative."
+          >
+            <AnomalySection anomalies={anomalies.state} />
+          </Panel>
+        </div>
+      </div>
+
+      <Panel
+        title="AI Diagnosis"
+        description="The analysis is an AI-assisted interpretation of recorded evidence and is advisory."
+      >
+        {requestError && (
+          <ErrorState
+            title="The investigation request could not be completed"
+            description={requestError.message}
+          />
+        )}
+        <InvestigationPanel
+          incidentId={incidentId}
+          investigation={investigation.state}
+          onRequest={handleRequestInvestigation}
+          requestPending={requestPending}
+        />
+        {investigationBadgeState === 'no_record' && (
+          <p style={{ ...emptyText, marginTop: 'var(--space-2)' }}>
+            Requesting an analysis is explicit and per-incident; nothing requests it automatically.
+            A hypothesis from the investigator is not a confirmed root cause and cannot authorise a
+            recovery action.
+          </p>
+        )}
+      </Panel>
+    </div>
+  )
+}
+
 export function DiagnosisRecoveryPage() {
+  const [searchParams] = useSearchParams()
+  const incidentParam = searchParams.get('incidentId')
+  const incidentId = incidentParam !== null && incidentParam.trim() !== '' ? incidentParam : null
+
   return (
     <ApplicationShell>
       <div className="page-stack">
@@ -125,92 +454,16 @@ export function DiagnosisRecoveryPage() {
           configured acceptance criteria.
         </p>
 
-        <div className="split-layout">
-          <Panel
-            title="AI Diagnosis"
-            description="Deterministic verification and recovery validation remain authoritative."
-          >
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-4)' }}>
-              <DiagnosticsGlyph />
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 'var(--space-2)',
-                  minWidth: 0,
-                }}
-              >
-                <StatusBadge label="No incident loaded" tone="quiet" glyph="none" />
-                <h3
-                  style={{
-                    margin: 0,
-                    fontSize: 'var(--text-lg)',
-                    fontWeight: 600,
-                    color: 'var(--text-primary)',
-                    fontFamily: 'var(--font-sans)',
-                  }}
-                >
-                  No root cause available
-                </h3>
-                <p
-                  style={{
-                    margin: 0,
-                    fontSize: 'var(--text-sm)',
-                    color: 'var(--text-secondary)',
-                    fontFamily: 'var(--font-sans)',
-                    lineHeight: 1.6,
-                  }}
-                >
-                  The investigator analyses evidence recorded for a specific incident: the violated
-                  requirement, expected and observed values, and the affected run and environment
-                  version. No incident or evidence package is connected, so no finding, hypothesis,
-                  or explanation is shown.
-                </p>
-              </div>
-            </div>
+        <p style={inlineStatus}>
+          {incidentId
+            ? `Focused incident: ${incidentId}.`
+            : 'No incident is focused. Load an incident by opening this page with ?incidentId=<incident identifier>.'}
+          {!incidentId && mocksEnabled()
+            ? ' In sample-data mode the demo incident is inc_demo_warehouse_reward_scale.'
+            : ''}
+        </p>
 
-            <div style={{ marginTop: 'var(--space-4)' }}>
-              <ExpandableSection
-                title="Evidence Used"
-                summary="Not available — no evidence package loaded."
-              >
-                <p style={emptyText}>
-                  Evidence identifiers, timestamps, sequence numbers, requirement versions, and
-                  fault-injection metadata appear here once an incident package is loaded.
-                </p>
-              </ExpandableSection>
-              <ExpandableSection
-                title="Analysis Details"
-                summary="Not available — diagnosis not started."
-              >
-                <p style={emptyText}>
-                  Provider, model, prompt and schema versions, alternative explanations, missing
-                  evidence, and limitations appear here when a diagnosis record exists. Model
-                  confidence is shown only if the provider or a defined scoring method supplies it,
-                  and is labelled as an estimate.
-                </p>
-              </ExpandableSection>
-              <ExpandableSection
-                title="Recommended Recovery Plan"
-                summary="Not available — no plan has been proposed."
-              >
-                <p style={emptyText}>
-                  Suggested recovery steps appear here as a proposal. A proposal is not an executed
-                  action, and no recovery runs without deterministic compatibility validation.
-                </p>
-              </ExpandableSection>
-            </div>
-          </Panel>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-            <Panel title="Incident">
-              <DefinitionList
-                rows={incidentDetails}
-                caption="Populated only from a loaded incident record. Missing expectations are never treated as a pass."
-              />
-            </Panel>
-          </div>
-        </div>
+        {incidentId ? <IncidentWorkspace incidentId={incidentId} /> : <StaticDiagnosisSection />}
 
         <Panel title="Recovery" description="Proposed and executed actions are tracked separately.">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>

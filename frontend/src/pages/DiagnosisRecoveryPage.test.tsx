@@ -1,13 +1,15 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { ThemeProvider } from '../contexts/ThemeContext'
+import { mockInvestigationAdapter } from '../mocks/investigation'
 import { DiagnosisRecoveryPage } from './DiagnosisRecoveryPage'
+import { DEMO_INCIDENT_ID } from '../mocks/verification'
 
-function renderPage() {
+function renderPage(initialEntry = '/diagnosis-recovery') {
   render(
     <ThemeProvider>
-      <MemoryRouter initialEntries={['/diagnosis-recovery']}>
+      <MemoryRouter initialEntries={[initialEntry]}>
         <DiagnosisRecoveryPage />
       </MemoryRouter>
     </ThemeProvider>,
@@ -82,5 +84,78 @@ describe('DiagnosisRecoveryPage', () => {
     expect(
       within(recovery).getByText(/reported as successful only when the evaluation record/i),
     ).toBeInTheDocument()
+  })
+})
+
+describe('DiagnosisRecoveryPage with a focused incident (sample-data mode)', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+    mockInvestigationAdapter.resetMockInvestigationState()
+  })
+
+  function renderFocused() {
+    vi.stubEnv('VITE_USE_MOCKS', 'true')
+    renderPage(`/diagnosis-recovery?incidentId=${DEMO_INCIDENT_ID}`)
+  }
+
+  it('loads the incident record and the labeled deterministic verification', async () => {
+    renderFocused()
+
+    // Fixture-backed payloads carry the shared sample-data label.
+    expect(await screen.findAllByText('Sample data')).not.toHaveLength(0)
+
+    expect(await screen.findByText('Overall: failed')).toBeInTheDocument()
+    // The requirement id appears both in the incident rows and its verdict card.
+    expect((await screen.findAllByText('req_demo_goal_reward')).length).toBeGreaterThan(0)
+    // The canonical fault is visible as an explicit mismatch: expected 100 vs observed 40.
+    expect(await screen.findByText('100')).toBeInTheDocument()
+    expect(await screen.findByText('40')).toBeInTheDocument()
+    // Not-evaluable scope stays honest inside the composed page.
+    expect(await screen.findAllByText('Not evaluable')).not.toHaveLength(0)
+
+    const incident = screen.getByRole('region', { name: 'Incident' })
+    expect(within(incident).getByText('inc_demo_warehouse_reward_scale')).toBeInTheDocument()
+    expect(within(incident).getAllByText('Not available').length).toBeGreaterThan(0)
+  })
+
+  it('labels anomaly findings as detector signals, not confirmed faults', async () => {
+    renderFocused()
+
+    const anomalies = await screen.findByRole('region', { name: 'Anomaly findings' })
+    expect(
+      await within(anomalies).findByText(/Detector signal — not a confirmed fault/),
+    ).toBeInTheDocument()
+  })
+
+  it('starts with no investigation recorded and records one after an explicit request', async () => {
+    renderFocused()
+
+    const diagnosis = await screen.findByRole('region', { name: 'AI Diagnosis' })
+    expect(await within(diagnosis).findByText('No investigation has been run')).toBeInTheDocument()
+
+    // Nothing requested an analysis implicitly — the panel opens with the
+    // explicit request control only.
+    fireEvent.click(await within(diagnosis).findByRole('button', { name: 'Request investigation' }))
+
+    // The recorded (still sample-labeled) analysis then renders from the service.
+    expect(await screen.findByText('Investigation completed')).toBeInTheDocument()
+    expect(screen.getByText('Suggested action — not executed')).toBeInTheDocument()
+    expect(screen.getByText('Requires confirmation')).toBeInTheDocument()
+  })
+
+  it('offers no recovery action while no recovery plan record exists', () => {
+    renderFocused()
+
+    const recovery = screen.getByRole('region', { name: 'Recovery' })
+    expect(within(recovery).getByText('No recovery plan')).toBeInTheDocument()
+    expect(within(recovery).queryAllByRole('button')).toHaveLength(0)
+  })
+
+  it('keeps the no-incident focus claim when the URL has no incident id', () => {
+    vi.stubEnv('VITE_USE_MOCKS', 'true')
+    renderPage()
+
+    expect(screen.getByText('No incident loaded')).toBeInTheDocument()
+    expect(screen.queryByText('Deterministic verification')).not.toBeInTheDocument()
   })
 })
