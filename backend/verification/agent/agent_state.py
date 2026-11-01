@@ -40,7 +40,10 @@ class VerificationState:
     # Aggregation and decision
     overall_status: CheckStatus | None = None
     decision_details: str = ""
+    #: Advisory statistical signals; never change the deterministic status.
     anomalies: list[AnomalyObservation] = field(default_factory=list)
+    #: Structured consistency summary (problems + contradictions); advisory.
+    consistency: dict[str, Any] | None = None
 
     # Workflow control
     step: str = "start"  # start, normalizing, planning, validating, checking, aggregating, complete
