@@ -40,16 +40,35 @@ def extract_requirements(
     requirements_data: list[dict[str, Any]] = parsed.get("requirements", [])
 
     for rd in requirements_data:
+        metadata: dict[str, Any] = {"original_intent": original_text}
+        # Constraint-level metadata from the parser (``required_event``,
+        # ``forbidden_event``, ``config_key``, ``max_steps``) is carried through
+        # unchanged; ``None`` values are dropped so that a checker never receives
+        # an explicit "no constraint" in place of an absent key.
+        raw_metadata = rd.get("metadata")
+        if isinstance(raw_metadata, dict):
+            for key, value in raw_metadata.items():
+                if value is not None:
+                    metadata[str(key)] = value
+
+        source = RequirementSource.code_inferred
+        raw_source = rd.get("source")
+        if isinstance(raw_source, str):
+            try:
+                source = RequirementSource(raw_source)
+            except ValueError:
+                source = RequirementSource.code_inferred
+
         req = VerificationRequirement(
             id=str(uuid.uuid4()),
             description=rd.get("description", "requirement extracted from intent"),
-            source=RequirementSource.code_inferred,
+            source=source,
             type=RequirementType(rd["type"]),
             expected_value=rd.get("expected_value"),
             comparison_operator=rd.get("comparison_operator"),
-            tolerance=None,
+            tolerance=rd.get("tolerance"),
             is_mandatory=True,
-            metadata={"original_intent": original_text},
+            metadata=metadata,
         )
         requirements.append(req)
 
