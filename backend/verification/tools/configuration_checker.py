@@ -1,16 +1,20 @@
 """Environment and configuration verification checker.
 
-Verifies developer requirements against the configuration that is actually
-available from the existing system.  Supports all canonical requirement types
-and handles numeric and non-numeric configuration values without uncaught
-exceptions.
+Compares an explicit requirement against the configuration that is actually
+available from the existing system.
 
-See ``backend/verification/tools/`` for the package README and integration notes.
+Non-negotiable rules (AGENTS.md §4.4):
+
+* A missing configured value or missing expectation is ``UNKNOWN``, never a
+  ``FAIL`` and never a fabricated default.
+* Non-finite values are reported as ``UNKNOWN`` input rather than compared.
+* Only real evidence identifiers are attached to the result.
 """
 
 from __future__ import annotations
 
 import math
+from collections.abc import Callable
 from typing import Any
 
 from backend.verification.models import (
@@ -20,55 +24,91 @@ from backend.verification.models import (
     VerificationRequirement,
 )
 
-
-def _extract_config_value(
-    config: dict[str, Any],
-    key: str,
-    default: Any = None,
-) -> Any:
-    """Safely extract a scalar value from a configuration dict.
-
-    Returns *default* if the key is absent or the value is not a simple type.
-    """
-    if config is None:
-        return default
-    val = config.get(key, default)
-    if isinstance(val, (str, int, float, bool)):
-        return val
-    return default
-
-
-def _add_evidence_dict(
-    details: dict[str, Any],
-    source: str,
-    run_identifier: str | None = None,
-    environment_identifier: str | None = None,
-) -> dict[str, Any]:
-    """Add evidence provenance to the details dict."""
-    if "source" not in details:
-        details["source"] = source
-    if run_identifier is not None:
-        details["run_identifier"] = run_identifier
-    if environment_identifier is not None:
-        details["environment_identifier"] = environment_identifier
-    return details
-
-
-# ---------------------------------------------------------------------------
-# Configuration checker
-# ---------------------------------------------------------------------------
-
-_TYPE_EXTRACTORS: dict[RequirementType, callable] = {
-    RequirementType.reward: lambda config, key: _extract_config_value(config, "reward", None),
-    RequirementType.termination: lambda config, key: _extract_config_value(config, "max_episodes", None),
-    RequirementType.metric: lambda config, key: _extract_config_value(config, "metric_threshold", None),
-    RequirementType.event: lambda config, key: _extract_config_value(config, "event_config", None),
-    RequirementType.configuration: lambda config, key: _extract_config_value(config, "config_value", None),
-    RequirementType.observation: lambda config, key: _extract_config_value(config, "observation_range", None),
-    RequirementType.action_space: lambda config, key: _extract_config_value(config, "action_space_bounds", None),
-    RequirementType.grid_goal: lambda config, key: _extract_config_value(config, "goal_coordinates", None),
-    RequirementType.collision: lambda config, key: _extract_config_value(config, "collision_penalty", None),
+#: Candidate configuration keys per requirement type, in lookup order.
+_CONFIG_KEY_CANDIDATES: dict[RequirementType, tuple[str, ...]] = {
+    RequirementType.reward: (
+        "reward",
+        "reward_value",
+        "goal_reward",
+        "reward_goal",
+        "step_reward",
+    ),
+    RequirementType.termination: (
+        "max_episodes",
+        "max_steps",
+        "termination",
+        "termination_condition",
+    ),
+    RequirementType.metric: ("metric_threshold", "threshold", "metric", "metrics"),
+    RequirementType.event: ("event_config", "events", "event"),
+    RequirementType.configuration: ("config_value", "value", "config", "setting"),
+    RequirementType.observation: (
+        "observation_range",
+        "observation_space",
+        "observation_bounds",
+        "observation",
+    ),
+    RequirementType.action_space: (
+        "action_space_bounds",
+        "action_space",
+        "actions",
+    ),
+    RequirementType.grid_goal: ("goal_coordinates", "goal_position", "goal", "grid_goal"),
+    RequirementType.collision: ("collision_penalty", "collision", "collision_cost"),
 }
+
+
+def _is_scalar(value: Any) -> bool:
+    return isinstance(value, (str, int, float, bool))
+
+
+def _lookup(
+    config: dict[str, Any] | None,
+    keys: tuple[str, ...],
+) -> tuple[str | None, Any]:
+    """Return the first present key and its scalar value."""
+    if not isinstance(config, dict):
+        return None, None
+    for key in keys:
+        if key in config and _is_scalar(config[key]):
+            return key, config[key]
+    return None, None
+
+
+def _comparison_keys(requirement: VerificationRequirement) -> tuple[str, ...]:
+    """Resolve the candidate configuration keys for *requirement*."""
+    configured_key = requirement.metadata.get("config_key")
+    candidates = _CONFIG_KEY_CANDIDATES.get(requirement.type, ())
+    if isinstance(configured_key, str) and configured_key:
+        return (configured_key, *[key for key in candidates if key != configured_key])
+    return candidates
+
+
+def _result(
+    requirement: VerificationRequirement,
+    status: CheckStatus,
+    *,
+    expected: Any,
+    actual: Any,
+    tolerance: float | None,
+    evidence_refs: list[str],
+    note: str,
+    source: str,
+    extra: dict[str, Any] | None = None,
+) -> VerificationCheckResult:
+    details: dict[str, Any] = {"note": note, "source": source}
+    if extra:
+        details.update(extra)
+    return VerificationCheckResult(
+        requirement_id=requirement.id,
+        status=status,
+        expected=expected,
+        actual=actual,
+        tolerance=tolerance,
+        evidence_refs=list(evidence_refs or []),
+        details=details,
+        is_mandatory=requirement.is_mandatory,
+    )
 
 
 def execute_check(
@@ -76,155 +116,189 @@ def execute_check(
     requirement: VerificationRequirement,
     config: dict[str, Any] | None,
     *,
+    evidence_refs: list[str] | None = None,
     source: str = "configuration",
 ) -> VerificationCheckResult:
     """Execute a configuration verification check.
 
-    Compares the requirement's expected value against the actual configured
-    value.  Supports all canonical requirement types; returns ``UNKNOWN``
-    when the configured value for the requirement's type is not available.
-
     Args:
-        check_id: Identifier for this check (used for evidence provenance).
-        requirement: The ``VerificationRequirement`` describing what is expected.
+        check_id: Identifier for this check (provenance only).
+        requirement: The ``VerificationRequirement`` describing the contract.
         config: The actual configuration dict from the environment/system.
-        source: Human-readable source label for evidence provenance.
+        evidence_refs: Real evidence identifiers backing the configuration.
+        source: Provenance label recorded in ``details``.
 
     Returns:
-        A ``VerificationCheckResult`` with status ``PASS``, ``FAIL``,
-        ``UNKNOWN``, or ``BLOCKED``.
+        A ``VerificationCheckResult`` with status ``PASS``, ``FAIL`` or
+        ``UNKNOWN``.
     """
-    # Extract the configured value for this requirement's type.
-    extractor = _TYPE_EXTRACTORS.get(requirement.type)
-    if extractor is None:
-        return VerificationCheckResult(
-            requirement_id=requirement.id,
-            status=CheckStatus.UNKNOWN,
-            expected=requirement.expected_value,
+    expected = requirement.expected_value
+    refs = list(dict.fromkeys(evidence_refs or []))
+
+    if requirement.type not in _CONFIG_KEY_CANDIDATES:
+        return _result(
+            requirement,
+            CheckStatus.UNKNOWN,
+            expected=expected,
             actual=None,
             tolerance=None,
-            evidence_refs=[],
-            details={"error": f"Unsupported requirement type: {requirement.type}"},
+            evidence_refs=refs,
+            note=f"Unsupported requirement type: {requirement.type!r}",
+            source=source,
         )
 
-    configured_value = extractor(config, requirement.type) if config else None
+    key, configured_value = _lookup(config, _comparison_keys(requirement))
 
-    expected = requirement.expected_value
-    actual = configured_value
-
-    # If either side is missing, return UNKNOWN (not FAIL).
-    if expected is None or actual is None:
-        details = {"note": "Missing configuration or expected value; cannot compare"}
-        _add_evidence_dict(details, source)
-        return VerificationCheckResult(
-            requirement_id=requirement.id,
-            status="unknown",
+    if configured_value is None:
+        return _result(
+            requirement,
+            CheckStatus.UNKNOWN,
             expected=expected,
-            actual=actual,
+            actual=None,
             tolerance=None,
-            evidence_refs=[],
-            details=details,
+            evidence_refs=refs,
+            note=(
+                "No configured value for this requirement type is available; "
+                "the configuration cannot be evaluated"
+            ),
+            source=source,
+            extra={"candidate_keys": list(_comparison_keys(requirement))},
         )
 
-    # Compare using the requirement's comparison operator and tolerance
+    # The compared configuration entry is the evidence for this check.  It is a
+    # location inside the configuration the caller supplied, not a fabricated
+    # event or metric identifier, and it keeps a PASS traceable.
+    config_ref = f"config.{key}"
+    if config_ref not in refs:
+        refs.append(config_ref)
+
+    if expected is None:
+        return _result(
+            requirement,
+            CheckStatus.UNKNOWN,
+            expected=expected,
+            actual=configured_value,
+            tolerance=None,
+            evidence_refs=refs,
+            note="No expected value is defined in the requirement; cannot compare",
+            source=source,
+            extra={"config_key": key},
+        )
+
     operator = requirement.comparison_operator or "=="
     tolerance = requirement.tolerance
+    status, description = _compare(expected, configured_value, operator, tolerance)
 
-    # Perform comparison _compare_numeric now handles non-finite values safely
-    try:
-        comparison_result = _compare_numeric(expected, actual, operator, tolerance)
-    except (ValueError, TypeError) as exc:
-        return VerificationCheckResult(
-            requirement_id=requirement.id,
-            status="error",
-            expected=expected,
-            actual=actual,
-            tolerance=tolerance,
-            evidence_refs=[],
-            details={"msg": f"Comparison error: {exc}"},
-        )
-
-    details = {"description": comparison_result["description"]}
-    _add_evidence_dict(details, source)
-
-    return VerificationCheckResult(
-        requirement_id=requirement.id,
-        status=comparison_result["status"],
+    return _result(
+        requirement,
+        status,
         expected=expected,
-        actual=actual,
+        actual=configured_value,
         tolerance=tolerance,
-        evidence_refs=[],
-        details=details,
+        evidence_refs=refs,
+        note=description,
+        source=source,
+        extra={"config_key": key, "operator": operator},
     )
 
 
-def _compare_numeric(
-    expected: float,
-    actual: float,
+def _compare(
+    expected: Any,
+    actual: Any,
     operator: str,
     tolerance: float | None,
-) -> dict[str, Any]:
-    """Compare two numeric values using the given operator and tolerance.
+) -> tuple[CheckStatus, str]:
+    """Compare expected and configured values.
 
-    Returns a dict with ``status`` and a plain‑string ``description``.
-    Handles NaN, positive/negative infinity, and malformed values gracefully.
-
-    Returns:
-        A dict with keys ``status`` one of ``'pass'``, ``'fail'``, ``'unknown'``
-        and ``description`` a plain string.
+    Numeric values are compared numerically; string/boolean values are
+    compared for equality.  Non-comparable combinations return ``UNKNOWN``.
     """
-    # Handle non-finite values
-    if not isinstance(expected, (int, float)) or not isinstance(actual, (int, float)):
-        return {"status": "unknown", "description": f"Non-numeric comparison: expected={expected!r}, actual={actual!r}"}
+    numeric = (
+        isinstance(expected, (int, float))
+        and not isinstance(expected, bool)
+        and isinstance(actual, (int, float))
+        and not isinstance(actual, bool)
+    )
 
-    if math.isnan(expected):  # NaN check
-        return {"status": "unknown", "description": "Expected value is NaN; cannot compare"}
-    if math.isnan(actual):  # NaN check
-        return {"status": "unknown", "description": "Actual value is NaN; cannot compare"}
-    if expected == float("inf") or expected == float("-inf"):
-        return {"status": "unknown", "description": "Expected value is infinity; cannot compare"}
-    if actual == float("inf") or actual == float("-inf"):
-        return {"status": "unknown", "description": "Actual value is infinity; cannot compare"}
+    if not numeric:
+        if operator in ("==", "!="):
+            equal = bool(expected == actual)
+            matched = equal if operator == "==" else not equal
+            return (
+                CheckStatus.PASS if matched else CheckStatus.FAIL,
+                f"expected={expected!r}, actual={actual!r}",
+            )
+        return (
+            CheckStatus.UNKNOWN,
+            (
+                f"Operator {operator!r} is not supported for non-numeric values "
+                f"(expected={expected!r}, actual={actual!r})"
+            ),
+        )
 
-    diff = actual - expected
+    expected_number = float(expected)
+    actual_number = float(actual)
+
+    if not math.isfinite(expected_number) or not math.isfinite(actual_number):
+        return (
+            CheckStatus.UNKNOWN,
+            f"Non-finite value cannot be compared (expected={expected!r}, actual={actual!r})",
+        )
+
+    diff = actual_number - expected_number
 
     if operator == "==":
         if tolerance is not None:
-            if abs(diff) <= tolerance:
-                return {"status": "pass", "description": f"|actual - expected|={abs(diff):.2f} <= tolerance={tolerance}"}
-            return {"status": "fail", "description": f"|actual - expected|={abs(diff):.2f} > tolerance={tolerance}"}
-        if diff == 0:
-            return {"status": "pass", "description": "exact match"}
-        return {"status": "fail", "description": f"expected={expected}, actual={actual}"}
-
-    elif operator == ">=":
+            matched = abs(diff) <= tolerance
+            return (
+                CheckStatus.PASS if matched else CheckStatus.FAIL,
+                f"|actual - expected|={abs(diff):g} vs tolerance={tolerance}",
+            )
+        matched = diff == 0
+        return (
+            CheckStatus.PASS if matched else CheckStatus.FAIL,
+            f"expected={expected_number:g}, actual={actual_number:g}",
+        )
+    if operator == "!=":
+        matched = diff != 0
+        return (
+            CheckStatus.PASS if matched else CheckStatus.FAIL,
+            f"expected={expected_number:g}, actual={actual_number:g}",
+        )
+    if operator == ">=":
         threshold = -tolerance if tolerance is not None else 0
-        if diff >= threshold:
-            return {"status": "pass", "description": f"actual - expected >= {threshold}"}
-        return {"status": "fail", "description": f"actual - expected < {threshold}"}
-
-    elif operator == "<=":
+        matched = diff >= threshold
+        return (
+            CheckStatus.PASS if matched else CheckStatus.FAIL,
+            f"actual - expected={diff:g} vs threshold={threshold:g}",
+        )
+    if operator == "<=":
         threshold = tolerance if tolerance is not None else 0
-        if diff <= threshold:
-            return {"status": "pass", "description": f"actual - expected <= {threshold}"}
-        return {"status": "fail", "description": f"actual - expected > {threshold}"}
-
-    elif operator == ">":
+        matched = diff <= threshold
+        return (
+            CheckStatus.PASS if matched else CheckStatus.FAIL,
+            f"actual - expected={diff:g} vs threshold={threshold:g}",
+        )
+    if operator == ">":
         threshold = tolerance if tolerance is not None else 0
-        if diff > threshold:
-            return {"status": "pass", "description": f"actual - expected > {threshold}"}
-        return {"status": "fail", "description": f"actual - expected <= {threshold}"}
-
-    elif operator == "<":
+        matched = diff > threshold
+        return (
+            CheckStatus.PASS if matched else CheckStatus.FAIL,
+            f"actual - expected={diff:g} vs threshold={threshold:g}",
+        )
+    if operator == "<":
         threshold = tolerance if tolerance is not None else 0
-        if diff < threshold:
-            return {"status": "pass", "description": f"actual - expected < {threshold}"}
-        return {"status": "fail", "description": f"actual - expected >= {threshold}"}
+        matched = diff < threshold
+        return (
+            CheckStatus.PASS if matched else CheckStatus.FAIL,
+            f"actual - expected={diff:g} vs threshold={threshold:g}",
+        )
 
-    elif operator == "!=":
-        if diff != 0:
-            return {"status": "pass", "description": "values differ"}
-        return {"status": "fail", "description": "values are equal"}
+    return CheckStatus.UNKNOWN, f"Unsupported operator: {operator!r}"
 
-    else:
-        return {"status": "unknown", "description": f"Unsupported operator: {operator!r}"}
+
+#: Explicit typed alias kept for callers that introspect the extractor table.
+Extractor = Callable[[dict[str, Any], str], Any]
+
+
+__all__ = ["execute_check"]

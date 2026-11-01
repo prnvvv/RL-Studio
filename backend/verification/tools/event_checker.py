@@ -1,8 +1,15 @@
 """Event and transition verification checker.
 
-Verifies requirements about events that actually occurred or were recorded.
+Verifies requirements about events that were actually recorded during a run.
 
-See ``backend/verification/tools/`` for the package README and integration notes.
+Non-negotiable rules (AGENTS.md §4.4, §6):
+
+* An absent required event is a ``FAIL`` **only** when the caller asserts the
+  evidence is complete.  Otherwise the result is ``UNKNOWN``.
+* A check with no usable constraint is ``UNKNOWN``, never ``PASS``.
+* ``PASS`` requires at least one satisfied constraint backed by real recorded
+  events.
+* Only real evidence identifiers are attached to the result.
 """
 
 from __future__ import annotations
@@ -15,59 +22,128 @@ from backend.verification.models import (
     VerificationRequirement,
 )
 
+#: Keys that may carry an event name.
+_NAME_KEYS = ("event_name", "name", "event_type", "event")
 
-def _find_event_in_records(
-    records: list[dict[str, Any]] | None,
-    event_name: str,
-    required: bool = True,
-) -> dict[str, Any] | None:
-    """Find an event with the given name in a list of record dicts.
+#: Fields whose presence means the record carries semantic event detail.
+_SEMANTIC_FIELDS = ("timestep", "timestamp", "episode_id", "run_id", "payload")
 
-    Returns the first matching event dict, or None if not found.
-    Checks multiple possible field names including ``event_name``,
-    ``name``, and direct key matches.
-    Also inspects the ``event_name`` value within each record dict
-    when the record is a dict with an ``event_name`` field.
+
+def _event_name(record: dict[str, Any]) -> str | None:
+    """Extract a normalised event name from a recorded event dict."""
+    for key in _NAME_KEYS:
+        value = record.get(key)
+        if isinstance(value, str) and value:
+            return value
+    return None
+
+
+def _event_ref(record: dict[str, Any]) -> str | None:
+    """Return the record's real evidence identifier, if it has one."""
+    for key in ("event_id", "id"):
+        value = record.get(key)
+        if isinstance(value, str) and value:
+            return value
+    return None
+
+
+def _deduplicate(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Drop repeated deliveries of the same event ID, keeping first occurrence.
+
+    The event stream may be delivered more than once (retries, reconnect
+    replay).  Counting or matching duplicates would let a single violation
+    occur "twice" or make a count requirement pass on repeated copies, so
+    records are deduplicated by their real identifier.  Records without an
+    identifier cannot be proven duplicates and are therefore kept.
     """
-    if records is None:
-        return None if required else {"found": False, "reason": "no_records"}
+    seen: set[str] = set()
+    unique: list[dict[str, Any]] = []
     for record in records:
         if not isinstance(record, dict):
+            unique.append(record)
             continue
-        # Check direct key matches first
-        possible_keys = [
-            event_name,
-            f"event_{event_name}",
-            f"{event_name}_event",
-            "name",
-            "event",
-        ]
-        for key in possible_keys:
-            if key in record:
-                return {"found": True, "event": record, "field": key}
-        # If no direct key match, check the event_name value inside the dict
-        record_event_name = record.get("event_name") or record.get("name")
-        if record_event_name == event_name:
-            return {"found": True, "event": record, "field": "event_name"}
-    return {"found": False, "reason": f"event_{event_name}_not_found"}
+        ref = _event_ref(record)
+        if ref is None:
+            unique.append(record)
+            continue
+        if ref in seen:
+            continue
+        seen.add(ref)
+        unique.append(record)
+    return unique
 
 
-def _extract_event_payload(
-    event_record: dict[str, Any],
-    expected_fields: list[str] | None = None,
-) -> dict[str, Any]:
-    """Extract a subset of fields from an event record.
+def _collect_refs(
+    records: list[dict[str, Any]] | None,
+    names: set[str],
+    *,
+    limit: int,
+) -> list[str]:
+    """Collect real evidence identifiers for events named in *names*."""
+    refs: list[str] = []
+    for record in records or []:
+        if not isinstance(record, dict):
+            continue
+        name = _event_name(record)
+        if name not in names:
+            continue
+        ref = _event_ref(record)
+        if ref is not None and ref not in refs:
+            refs.append(ref)
+            if len(refs) >= limit:
+                break
+    return refs
 
-    Returns only the fields that exist in the record and are in
-    *expected_fields* (if provided).
+
+def _find_record(
+    records: list[dict[str, Any]] | None,
+    event_name: str,
+) -> dict[str, Any] | None:
+    """Return the first recorded event matching *event_name*."""
+    for record in records or []:
+        if isinstance(record, dict) and _event_name(record) == event_name:
+            return record
+    return None
+
+
+def _occurred(record: dict[str, Any] | None) -> bool:
+    """Return True when *record* represents an event that actually occurred.
+
+    A record whose only content is a ``False`` flag does not evidence an
+    occurrence, and a record with no semantic detail is not treated as proof.
     """
-    result: dict[str, Any] = {}
-    if expected_fields is None:
-        return dict(event_record)
-    for field in expected_fields:
-        if field in event_record:
-            result[field] = event_record[field]
-    return result
+    if record is None:
+        return False
+    flag_keys = [k for k in record if k not in _NAME_KEYS]
+    if not flag_keys:
+        return False
+    return not all(record.get(key) is False for key in flag_keys)
+
+
+def _result(
+    requirement: VerificationRequirement,
+    status: CheckStatus,
+    *,
+    expected: Any,
+    actual: Any,
+    evidence_refs: list[str],
+    note: str,
+    source: str,
+    extra: dict[str, Any] | None = None,
+) -> VerificationCheckResult:
+    details: dict[str, Any] = {"note": note, "source": source}
+    if extra:
+        details.update(extra)
+    return VerificationCheckResult(
+        requirement_id=requirement.id,
+        status=status,
+        expected=expected,
+        actual=actual,
+        tolerance=None,
+        evidence_refs=list(evidence_refs),
+        details=details,
+        is_mandatory=requirement.is_mandatory,
+    )
 
 
 def execute_check(
@@ -79,207 +155,259 @@ def execute_check(
     forbidden_event: str | None = None,
     expected_event_order: list[str] | None = None,
     event_count: dict[str, int] | None = None,
+    evidence_complete: bool | None = None,
     source: str = "event_check",
 ) -> VerificationCheckResult:
     """Execute an event verification check.
 
-    Verifies requirements about events that actually occurred or were recorded.
-
-    Only supports event-ordering, counting, and timing constraints when the
-    requirement models explicitly represent those constraints.
-
-    Key fix: required_event now checks the event's value, not just key presence.
-    A required event with value False does NOT satisfy a "must occur" requirement.
-    A forbidden event with value True IS a violation.
-
     Args:
-        check_id: Identifier for this check.
-        requirement: The ``VerificationRequirement`` describing what is expected.
-        recorded_events: Optional list of event dicts that were recorded during
-            the run.
-        required_event: If provided, this event must be found in recorded_events
-            with a truthy value.
-        forbidden_event: If provided, this event must NOT be found in recorded_events
-            with a truthy value.
-        expected_event_order: If provided, events must appear in this order.
-        event_count: If provided, a dict {event_name: count} specifying
-            required counts.
-        source: Human-readable source label for evidence provenance.
+        check_id: Identifier for this check (provenance only).
+        requirement: The ``VerificationRequirement`` describing the contract.
+        recorded_events: Event dicts recorded during the run.
+        required_event: Event that must have occurred.
+        forbidden_event: Event that must not have occurred.
+        expected_event_order: Required relative order of first occurrences.
+        event_count: Minimum required count per event name.
+        evidence_complete: ``True`` when the caller guarantees
+            *recorded_events* is the complete event stream.  Only then can a
+            missing event be reported as a violation.
+        source: Provenance label recorded in ``details``.
 
     Returns:
-        A ``VerificationCheckResult`` with status ``PASS``, ``FAIL``,
-        ``UNKNOWN``, or ``BLOCKED``.
+        A ``VerificationCheckResult`` with status ``PASS``, ``FAIL`` or
+        ``UNKNOWN``.
     """
     expected = requirement.expected_value
-    evidence_parts: list[str] = []
+    evidence_complete = bool(evidence_complete)
 
-    # Handle required_event
+    has_constraint = any(
+        value is not None
+        for value in (
+            required_event,
+            forbidden_event,
+            expected_event_order,
+            event_count if event_count else None,
+        )
+    )
+    if not has_constraint:
+        return _result(
+            requirement,
+            CheckStatus.UNKNOWN,
+            expected=expected,
+            actual=None,
+            evidence_refs=[],
+            note=(
+                "No event constraint (required/forbidden event, order or "
+                "count) is defined for this requirement; nothing to evaluate"
+            ),
+            source=source,
+        )
+
+    if recorded_events is None:
+        return _result(
+            requirement,
+            CheckStatus.UNKNOWN,
+            expected=expected,
+            actual=None,
+            evidence_refs=[],
+            note="No recorded events supplied; event evidence is unavailable",
+            source=source,
+        )
+
+    # Remove re-delivered duplicates before any constraint is evaluated.
+    recorded_events = _deduplicate(recorded_events)
+
+    satisfied: list[str] = []
+
+    # ---- required_event -------------------------------------------------
     if required_event is not None:
-        found = _find_event_in_records(recorded_events, required_event, required=True)
-        if found and found.get("found"):
-            # Check that the found event has meaningful semantics beyond
-            # a superficial key name match.  A record that only contains
-            # the key name (e.g. {"goal_reached": False}) is insufficient
-            # evidence for a "must occur" requirement.
-            event_record = found.get("event", {})
-            key_match = found.get("field", "")
-            # Check that the matched key has a truthy value in the record
-            event_value = event_record.get(key_match)
-            if event_value is False:
-                # The event key exists but is False — this does NOT satisfy
-                # a "must occur" requirement; treat as not found for this purpose.
-                from backend.verification.models import VerificationCheckResult
-
-                return VerificationCheckResult(
-                    requirement_id=requirement.id,
-                    status=CheckStatus.UNKNOWN,
-                    expected=expected,
-                    actual=None,
-                    tolerance=None,
-                    evidence_refs=evidence_parts,
-                    details={
-                        "note": f"required event '{required_event}' found but value is False; "
-                        "cannot satisfy a requirement that the event must occur"
-                    },
-                )
-            # If the only matching key is "name" or "event" without other
-            # event-specific fields, treat as insufficient evidence.
-            superficial_keys = {"name", "event"}
-            has_superficial_match = (
-                key_match in superficial_keys
-                and not any(k in event_record for k in ("event_name", "terminated", "truncated", "goal_attained"))
-            )
-            if has_superficial_match:
-                from backend.verification.models import VerificationCheckResult
-
-                return VerificationCheckResult(
-                    requirement_id=requirement.id,
-                    status=CheckStatus.UNKNOWN,
-                    expected=expected,
-                    actual=None,
-                    tolerance=None,
-                    evidence_refs=evidence_parts,
-                    details={
-                        "note": f"required event '{required_event}' found but evidence "
-                        "coverage may be insufficient; event record lacks semantic detail"
-                    },
-                )
-            evidence_parts.append(f"required_event:{required_event}=found")
-        else:
-            # Required event not found — this is a failure only if the
-            # requirement and evidence coverage establish a real violation.
-            # Treat as unknown/inconclusive when evidence coverage is insufficient.
-            from backend.verification.models import VerificationCheckResult
-
-            return VerificationCheckResult(
-                requirement_id=requirement.id,
-                status=CheckStatus.UNKNOWN,
+        record = _find_record(recorded_events, required_event)
+        if _occurred(record):
+            satisfied.append(f"required_event:{required_event}")
+        elif not evidence_complete:
+            return _result(
+                requirement,
+                CheckStatus.UNKNOWN,
                 expected=expected,
                 actual=None,
-                tolerance=None,
-                evidence_refs=evidence_parts,
-                details={
-                    "note": f"required event '{required_event}' not found in recorded events; "
-                    "evidence coverage may be insufficient"
-                },
+                evidence_refs=_collect_refs(recorded_events, {required_event}, limit=20),
+                note=(
+                    f"Required event {required_event!r} was not found in the "
+                    "recorded events, but evidence coverage is not asserted "
+                    "complete; this is inconclusive, not a violation"
+                ),
+                source=source,
             )
-
-    # Handle forbidden_event
-    if forbidden_event is not None:
-        found = _find_event_in_records(recorded_events, forbidden_event, required=False)
-        if found and found.get("found"):
-            from backend.verification.models import VerificationCheckResult
-
-            # Check that the forbidden event has a truthy value;
-            # if the event record has the key but value is False,
-            # that's not a violation of "must not occur".
-            event_record = found.get("event", {})
-            key_match = found.get("field", "")
-            event_value = event_record.get(key_match)
-            if event_value is not False:
-                return VerificationCheckResult(
-                    requirement_id=requirement.id,
-                    status=CheckStatus.FAIL,
-                    expected=expected,
-                    actual=f"forbidden event '{forbidden_event}' was recorded",
-                    tolerance=None,
-                    evidence_refs=evidence_parts,
-                    details={"note": f"forbidden event '{forbidden_event}' was recorded but was expected not to occur"},
-                )
-            # If the forbidden event key exists but value is False,
-            # that's what we want; continue without failure.
-            # Continue to other checks.
-        # Forbidden event not found — that's what we want; continue
-
-    # Handle expected_event_order
-    if expected_event_order is not None and recorded_events is not None:
-        # Simple order check: the first occurrence of each required event
-        # should appear in the specified order
-        required_set = set(expected_event_order)
-        found_events: list[str] = []
-        for ev in recorded_events:
-            if isinstance(ev, dict):
-                name = ev.get("event_name", ev.get("name", ""))
-                if name in required_set and name not in found_events:
-                    found_events.append(name)
-
-        # Check if the found events match the expected order
-        order_passed = True
-        if found_events != expected_event_order:
-            order_passed = False
-
-        if not order_passed:
-            from backend.verification.models import VerificationCheckResult
-
-            return VerificationCheckResult(
-                requirement_id=requirement.id,
-                status=CheckStatus.FAIL,
+        else:
+            return _result(
+                requirement,
+                CheckStatus.FAIL,
                 expected=expected,
-                actual=f"event order mismatch; expected {expected_event_order}, got {found_events}",
-                tolerance=None,
-                evidence_refs=evidence_parts,
-                details={
-                    "event_order_mismatch": f"expected {expected_event_order}, got {found_events}"
-                },
+                actual=None,
+                evidence_refs=_collect_refs(recorded_events, {required_event}, limit=20),
+                note=(
+                    f"Required event {required_event!r} was not recorded although "
+                    "the evidence stream is asserted complete"
+                ),
+                source=source,
             )
 
-    # Handle event_count
-    if event_count is not None and recorded_events is not None:
-        # Count occurrences of each event name
-        actual_counts: dict[str, int] = {}
-        for ev in recorded_events:
-            if isinstance(ev, dict):
-                name2 = ev.get("event_name", ev.get("name", ""))
-                actual_counts[name2] = actual_counts.get(name2, 0) + 1
+    # ---- forbidden_event ------------------------------------------------
+    if forbidden_event is not None:
+        record = _find_record(recorded_events, forbidden_event)
+        if _occurred(record):
+            return _result(
+                requirement,
+                CheckStatus.FAIL,
+                expected=expected,
+                actual=f"forbidden event {forbidden_event!r} was recorded",
+                evidence_refs=_collect_refs(recorded_events, {forbidden_event}, limit=20),
+                note=(
+                    f"Forbidden event {forbidden_event!r} was recorded but the "
+                    "requirement states it must not occur"
+                ),
+                source=source,
+            )
+        satisfied.append(f"forbidden_event:{forbidden_event}:absent")
 
-        # Check each required count
-        for event_name, required_count in event_count.items():
-            actual_count = actual_counts.get(event_name, 0)
-            if actual_count < required_count:
-                from backend.verification.models import VerificationCheckResult
+    # ---- expected_event_order -------------------------------------------
+    if expected_event_order is not None:
+        found_order: list[str] = []
+        for record in recorded_events:
+            if not isinstance(record, dict):
+                continue
+            name = _event_name(record)
+            if name in expected_event_order and name not in found_order:
+                found_order.append(name)
 
-                return VerificationCheckResult(
-                    requirement_id=requirement.id,
-                    status=CheckStatus.FAIL,
-                    expected=f"{event_name} count >= {required_count}",
-                    actual=f"{event_name} count = {actual_count}",
-                    tolerance=None,
-                    evidence_refs=evidence_parts,
-                    details={
-                        f"event_count_mismatch_{event_name}": f"required >= {required_count}, actual = {actual_count}"
-                    },
+        missing = [name for name in expected_event_order if name not in found_order]
+        if missing:
+            if not evidence_complete:
+                return _result(
+                    requirement,
+                    CheckStatus.UNKNOWN,
+                    expected=expected,
+                    actual=found_order,
+                    evidence_refs=_collect_refs(recorded_events, set(found_order), limit=20),
+                    note=(
+                        "Events required for the ordering constraint are missing "
+                        f"({missing}) and evidence coverage is not asserted complete"
+                    ),
+                    source=source,
                 )
+            return _result(
+                requirement,
+                CheckStatus.FAIL,
+                expected=expected,
+                actual=found_order,
+                evidence_refs=_collect_refs(recorded_events, set(found_order), limit=20),
+                note=f"Events required for the ordering constraint are missing: {missing}",
+                source=source,
+            )
 
-    # If we get here, the check passed (or has no specific constraints to violate)
-    from backend.verification.models import VerificationCheckResult
+        observed_order = [name for name in found_order]
+        if observed_order != list(expected_event_order):
+            return _result(
+                requirement,
+                CheckStatus.FAIL,
+                expected=expected,
+                actual=observed_order,
+                evidence_refs=_collect_refs(recorded_events, set(observed_order), limit=20),
+                note=(
+                    f"Event order mismatch: expected {list(expected_event_order)}, "
+                    f"observed {observed_order}"
+                ),
+                source=source,
+                extra={"expected_event_order": list(expected_event_order)},
+            )
+        satisfied.append("event_order")
 
-    result = VerificationCheckResult(
-        requirement_id=requirement.id,
-        status=CheckStatus.PASS,
+    # ---- event_count ----------------------------------------------------
+    if event_count:
+        actual_counts: dict[str, int] = {}
+        for record in recorded_events:
+            if not isinstance(record, dict):
+                continue
+            name = _event_name(record)
+            if name is not None:
+                actual_counts[name] = actual_counts.get(name, 0) + 1
+
+        for name, required_count in event_count.items():
+            actual_count = actual_counts.get(name, 0)
+            if actual_count < required_count:
+                if not evidence_complete:
+                    return _result(
+                        requirement,
+                        CheckStatus.UNKNOWN,
+                        expected=expected,
+                        actual=actual_counts,
+                        evidence_refs=_collect_refs(recorded_events, {name}, limit=20),
+                        note=(
+                            f"Observed {actual_count} occurrence(s) of {name!r}, "
+                            f"fewer than the required {required_count}, but "
+                            "evidence coverage is not asserted complete"
+                        ),
+                        source=source,
+                    )
+                return _result(
+                    requirement,
+                    CheckStatus.FAIL,
+                    expected=expected,
+                    actual=actual_counts,
+                    evidence_refs=_collect_refs(recorded_events, {name}, limit=20),
+                    note=(
+                        f"Observed {actual_count} occurrence(s) of {name!r}, "
+                        f"fewer than the required {required_count}"
+                    ),
+                    source=source,
+                )
+            satisfied.append(f"event_count:{name}>={required_count}")
+
+    # ---- aggregation ----------------------------------------------------
+    if not satisfied:
+        return _result(
+            requirement,
+            CheckStatus.UNKNOWN,
+            expected=expected,
+            actual=None,
+            evidence_refs=[],
+            note="No event constraint was actually evaluated against evidence",
+            source=source,
+        )
+
+    names: set[str] = set()
+    for item in satisfied:
+        _, _, raw = item.partition(":")
+        names.add(raw.split(":", 1)[0])
+    if required_event:
+        names.add(required_event)
+    if forbidden_event:
+        names.add(forbidden_event)
+
+    return _result(
+        requirement,
+        CheckStatus.PASS,
         expected=expected,
-        actual="events verified",
-        tolerance=None,
-        evidence_refs=evidence_parts,
-        details={"note": "Event requirements verified against recorded events"},
+        actual="event constraints satisfied",
+        evidence_refs=_collect_refs(recorded_events, names, limit=20) or _fallback_refs(recorded_events),
+        note="All defined event constraints were satisfied by recorded events",
+        source=source,
+        extra={"satisfied_constraints": satisfied},
     )
-    return result
+
+
+def _fallback_refs(records: list[dict[str, Any]] | None) -> list[str]:
+    """Return real event identifiers present in the evidence stream."""
+    refs: list[str] = []
+    for record in records or []:
+        if not isinstance(record, dict):
+            continue
+        ref = _event_ref(record)
+        if ref is not None and ref not in refs:
+            refs.append(ref)
+            if len(refs) >= 20:
+                break
+    return refs
+
+
+__all__ = ["execute_check"]

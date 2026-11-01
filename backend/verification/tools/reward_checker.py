@@ -1,59 +1,66 @@
 """Reward requirement verification checker.
 
-Distinguishes between configured reward values and observed runtime rewards.
+Compares an explicit, developer-confirmed expected reward against a reward that
+was **actually observed** during execution.
 
-See ``backend/verification/tools/`` for the package README and integration notes.
+Non-negotiable rules (AGENTS.md §7.3, §13):
+
+* A missing observation is ``UNKNOWN``/``not_evaluable`` — never a fabricated
+  ``0.0`` and never a PASS.
+* A missing expectation is ``UNKNOWN`` — never inferred from the observation.
+* Only real evidence identifiers are attached to the result.
+* Low reward alone is not an environment defect.
 """
 
 from __future__ import annotations
 
+import math
 from typing import Any
 
 from backend.verification.models import (
+    CheckStatus,
     VerificationCheckResult,
     VerificationRequirement,
 )
 
 
-def _extract_reward_value(
-    source: dict[str, Any] | None,
-    key: str = "reward",
-) -> float | None:
-    """Extract a numeric reward value from a dict-like source.
-
-    Returns None if the key is absent, the value is not numeric, or source is
-    None.
-    """
-    if source is None:
+def _finite_reward(value: float | None) -> float | None:
+    if value is None or isinstance(value, bool):
         return None
-    val = source.get(key)
-    if isinstance(val, (int, float)):
-        return float(val)
-    return None
-
-
-def _extract_episode_return(
-    source: dict[str, Any] | None,
-    key: str = "episode_return",
-) -> float | None:
-    """Extract an episode return (accumulated reward) from a dict-like source.
-
-    Returns None if the key is absent or the value is not numeric.
-    """
-    if source is None:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
         return None
-    val = source.get(key)
-    if isinstance(val, (int, float)):
-        return float(val)
-    return None
+    if not math.isfinite(number):
+        return None
+    return number
 
 
-def _make_details(note: str, source: str | None = None) -> dict[str, Any]:
-    """Create a details dict compatible with VerificationCheckResult."""
-    d: dict[str, Any] = {"note": note}
-    if source is not None:
-        d["source"] = source
-    return d
+def _result(
+    requirement: VerificationRequirement,
+    status: CheckStatus,
+    *,
+    expected: Any = None,
+    actual: Any = None,
+    tolerance: float | None = None,
+    evidence_refs: list[str] | None = None,
+    note: str,
+    source: str,
+    extra: dict[str, Any] | None = None,
+) -> VerificationCheckResult:
+    details: dict[str, Any] = {"note": note, "source": source}
+    if extra:
+        details.update(extra)
+    return VerificationCheckResult(
+        requirement_id=requirement.id,
+        status=status,
+        expected=expected,
+        actual=actual,
+        tolerance=tolerance,
+        evidence_refs=list(evidence_refs or []),
+        details=details,
+        is_mandatory=requirement.is_mandatory,
+    )
 
 
 def execute_check(
@@ -62,133 +69,92 @@ def execute_check(
     *,
     configured_reward: float | None = None,
     observed_reward: float | None = None,
-    episode_data: dict[str, Any] | None = None,
+    evidence_refs: list[str] | None = None,
     source: str = "reward_check",
 ) -> VerificationCheckResult:
     """Execute a reward requirement verification check.
 
-    Distinguishes between configured reward values and observed runtime rewards.
-
-    Only the checks supported by actual available evidence are implemented.
-
     Args:
-        check_id: Identifier for this check.
-        requirement: The ``VerificationRequirement`` describing what is expected.
+        check_id: Identifier for this check (provenance only).
+        requirement: The requirement describing the confirmed contract.
         configured_reward: The reward value configured in the environment, if
-            available.
-        observed_reward: The reward observed during execution, if available.
-        episode_data: Optional episode-level data that may contain reward
-            information.
-        source: Human-readable source label for evidence provenance.
+            supplied as evidence.
+        observed_reward: The reward value actually observed at runtime, if
+            supplied as evidence.  ``None`` means "not observed".
+        evidence_refs: Real evidence identifiers backing the observation.
+        source: Provenance label recorded in ``details``.
 
     Returns:
         A ``VerificationCheckResult`` with status ``PASS``, ``FAIL``,
-        ``UNKNOWN``, or ``ERROR``.
+        ``UNKNOWN`` or ``ERROR``.
     """
     expected = requirement.expected_value
-    actual = None
-    evidence_parts: list[str] = []
 
-    # Determine what evidence is available and what to compare
-    # Critical: if there is no observed reward (from actual execution evidence),
-    # we must NOT fabricate or default to the configured value.  Return UNKNOWN.
-    if observed_reward is None:
-        # No actual observed reward — cannot compare; return UNKNOWN
-        from backend.verification.models import VerificationCheckResult
-
-        return VerificationCheckResult(
-            requirement_id=requirement.id,
-            status="unknown",
+    # ---- 1. Observation gate ---------------------------------------------
+    observed_num = _finite_reward(observed_reward)
+    if observed_num is None:
+        note = (
+            "No usable observed reward available from execution evidence; "
+            "cannot compare"
+            if observed_reward is None
+            else "Observed reward is not a finite number; cannot compare"
+        )
+        return _result(
+            requirement,
+            CheckStatus.UNKNOWN,
             expected=expected,
             actual=None,
-            tolerance=None,
-            evidence_refs=[],
-            details={"note": "No observed reward available from execution evidence; cannot compare", "source": source},
+            note=note,
+            source=source,
         )
 
-    if configured_reward is None:
-        # Only observed reward available; use it as actual
-        actual = observed_reward
-        evidence_parts.append("observed_reward")
-    elif observed_reward is not None and configured_reward is not None:
-        # Both available — compare them
-        actual = observed_reward
-        evidence_parts.extend(["configured_reward", "observed_reward"])
-    else:
-        # Should not reach here (observed_reward is not None handled above),
-        # but be safe.
-        from backend.verification.models import VerificationCheckResult
-
-        return VerificationCheckResult(
-            requirement_id=requirement.id,
-            status="unknown",
-            expected=expected,
-            actual=None,
-            tolerance=None,
-            evidence_refs=[],
-            details={"note": "Unexpected evidence state", "source": source},
-        )
-
-    expected_num = float(expected) if expected is not None else None
-    actual_num = float(actual) if actual is not None else None
-
+    # ---- 2. Expectation gate ---------------------------------------------
+    expected_num = _finite_reward(expected)
     if expected_num is None:
-        from backend.verification.models import VerificationCheckResult
-
-        return VerificationCheckResult(
-            requirement_id=requirement.id,
-            status="unknown",
+        note = (
+            "No confirmed expected reward value; cannot evaluate the observation"
+            if expected is None
+            else "Expected reward is not a finite number; cannot compare"
+        )
+        return _result(
+            requirement,
+            CheckStatus.UNKNOWN,
             expected=expected,
-            actual=actual,
-            tolerance=None,
-            evidence_refs=[],
-            details={"note": "Expected reward value is null; cannot compare", "source": source},
+            actual=observed_reward,
+            evidence_refs=evidence_refs,
+            note=note,
+            source=source,
         )
 
-    # Use the requirement's comparison operator and tolerance
+    # ---- 3. Evaluate -----------------------------------------------------
     operator = requirement.comparison_operator or "=="
     tolerance = requirement.tolerance
+    comparison = _compare_reward_numeric(expected_num, observed_num, operator, tolerance)
 
-    # Perform comparison
-    try:
-        comparison_result = _compare_reward_numeric(
-            expected_num, actual_num, operator, tolerance
-        )
+    status = {
+        "pass": CheckStatus.PASS,
+        "fail": CheckStatus.FAIL,
+        "unknown": CheckStatus.UNKNOWN,
+    }[comparison["status"]]
 
-        from backend.verification.models import VerificationCheckResult
+    extra: dict[str, Any] = {}
+    if configured_reward is not None:
+        configured_num = _finite_reward(configured_reward)
+        extra["configured_reward"] = configured_num
+        if configured_num is not None and configured_num != expected_num:
+            extra["configured_reward_differs_from_requirement"] = True
 
-        details = {"msg": comparison_result["msg"], "source": source}
-
-        result = VerificationCheckResult(
-            requirement_id=requirement.id,
-            status=comparison_result["status"],
-            expected=expected,
-            actual=actual,
-            tolerance=tolerance,
-            evidence_refs=[],
-            details=details,
-        )
-
-        # Add evidence references if we have them
-        if evidence_parts:
-            result.evidence_refs.extend(
-                [f"reward_source:{p}" for p in evidence_parts]
-            )
-
-        return result
-
-    except (ValueError, TypeError) as exc:
-        from backend.verification.models import VerificationCheckResult
-
-        return VerificationCheckResult(
-            requirement_id=requirement.id,
-            status="error",
-            expected=expected,
-            actual=actual,
-            tolerance=tolerance,
-            evidence_refs=[],
-            details={"msg": f"Comparison error: {exc}", "source": source},
-        )
+    return _result(
+        requirement,
+        status,
+        expected=expected,
+        actual=observed_reward,
+        tolerance=tolerance,
+        evidence_refs=evidence_refs,
+        note=comparison["msg"],
+        source=source,
+        extra=extra,
+    )
 
 
 def _compare_reward_numeric(
@@ -197,59 +163,53 @@ def _compare_reward_numeric(
     operator: str,
     tolerance: float | None,
 ) -> dict[str, str]:
-    """Compare two numeric reward values using the given operator and tolerance.
+    """Compare two finite numeric reward values.
 
-    Returns a dict with ``status`` and ``msg`` (a plain string, compatible with
-    the ``details`` field of ``VerificationCheckResult`` after adding ``source``).
+    Returns ``{"status": "pass"|"fail"|"unknown", "msg": str}``.
     """
     diff = actual - expected
 
     if operator == "==":
         if tolerance is not None:
             if abs(diff) <= tolerance:
-                return {"status": "pass", "msg": f"|actual - expected|={abs(diff):.2f} <= tolerance={tolerance}"}
-            return {"status": "fail", "msg": f"|actual - expected|={abs(diff):.2f} > tolerance={tolerance}"}
+                return {
+                    "status": "pass",
+                    "msg": f"|actual - expected|={abs(diff):.4f} <= tolerance={tolerance}",
+                }
+            return {
+                "status": "fail",
+                "msg": f"|actual - expected|={abs(diff):.4f} > tolerance={tolerance}",
+            }
         if diff == 0:
             return {"status": "pass", "msg": "exact match"}
         return {"status": "fail", "msg": f"expected={expected}, actual={actual}"}
 
-    elif operator == ">=":
-        threshold = -tolerance if tolerance is not None else 0
-        if diff >= threshold:
-            return {"status": "pass", "msg": f"actual - expected >= {threshold}"}
-        return {"status": "fail", "msg": f"actual - expected < {threshold}"}
+    if operator == ">=":
+        if diff >= 0:
+            return {"status": "pass", "msg": "actual >= expected"}
+        return {"status": "fail", "msg": f"actual < expected (diff={diff:g})"}
 
-    elif operator == "<=":
-        threshold = tolerance if tolerance is not None else 0
-        if diff <= threshold:
-            return {"status": "pass", "msg": f"actual - expected <= {threshold}"}
-        return {"status": "fail", "msg": f"actual - expected > {threshold}"}
+    if operator == "<=":
+        if diff <= 0:
+            return {"status": "pass", "msg": "actual <= expected"}
+        return {"status": "fail", "msg": f"actual > expected (diff={diff:g})"}
 
-    elif operator == ">":
-        threshold = tolerance if tolerance is not None else 0
-        if diff > threshold:
-            return {"status": "pass", "msg": f"actual - expected > {threshold}"}
-        return {"status": "fail", "msg": f"actual - expected <= {threshold}"}
+    if operator == ">":
+        if diff > 0:
+            return {"status": "pass", "msg": "actual > expected"}
+        return {"status": "fail", "msg": f"actual <= expected (diff={diff:g})"}
 
-    elif operator == "<":
-        threshold = tolerance if tolerance is not None else 0
-        if diff < threshold:
-            return {"status": "pass", "msg": f"actual - expected < {threshold}"}
-        return {"status": "fail", "msg": f"actual - expected >= {threshold}"}
+    if operator == "<":
+        if diff < 0:
+            return {"status": "pass", "msg": "actual < expected"}
+        return {"status": "fail", "msg": f"actual >= expected (diff={diff:g})"}
 
-    elif operator == "!=":
+    if operator == "!=":
         if diff != 0:
             return {"status": "pass", "msg": "values differ"}
         return {"status": "fail", "msg": "values are equal"}
 
-    else:
-        return {"status": "unknown", "msg": f"Unsupported operator: {operator!r}"}
+    return {"status": "unknown", "msg": f"Unsupported operator: {operator!r}"}
 
 
-# ---------------------------------------------------------------------------
-# Module initialisation: no side effects beyond function definitions.
-# ---------------------------------------------------------------------------
-
-# Ensure the module can be imported without side effects beyond function
-# definitions and the harmless helper functions above.  No API calls, no
-# network hooks, no registry mutations occur at module load time.
+__all__ = ["execute_check"]

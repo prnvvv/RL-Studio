@@ -1,8 +1,15 @@
 """Metric and threshold verification checker.
 
-Compares actual metric observations with validated requirements.
+Compares metric observations that were **actually recorded** with an explicit
+expected value from a requirement.
 
-See ``backend/verification/tools/`` for the package README and integration notes.
+Non-negotiable rules (AGENTS.md §4.4):
+
+* A missing expectation is ``UNKNOWN`` — the observed value is never used as
+  its own expectation and ``None`` is never silently coerced to ``0.0``.
+* Non-finite or missing observations are reported as ``UNKNOWN`` inputs, not
+  as violations.
+* A ``PASS`` requires at least one real, finite observation.
 """
 
 from __future__ import annotations
@@ -11,6 +18,7 @@ import math
 from typing import Any
 
 from backend.verification.models import (
+    CheckStatus,
     MetricObservation,
     VerificationCheckResult,
     VerificationRequirement,
@@ -22,7 +30,7 @@ def _classify_observation_value(value: float | None) -> str:
     if value is None:
         return "missing"
     if isinstance(value, float):
-        if math.isnan(value):  # NaN check
+        if math.isnan(value):
             return "nan"
         if value == float("inf"):
             return "positive_inf"
@@ -31,371 +39,263 @@ def _classify_observation_value(value: float | None) -> str:
     return "numeric"
 
 
+def _coerce_value(raw: Any) -> float | None:
+    """Coerce a raw observation value into a float, or ``None``."""
+    if raw is None or isinstance(raw, bool):
+        return None
+    if isinstance(raw, (int, float)):
+        return float(raw)
+    try:
+        return float(raw)
+    except (TypeError, ValueError):
+        return None
+
+
+def _extract_from_dict(source: dict[str, Any]) -> tuple[float | None, str | None]:
+    """Extract ``(value, metric_name)`` from a dict-like observation."""
+    value = _coerce_value(source.get("value"))
+    name = source.get("metric_name")
+    return value, name if isinstance(name, str) else None
+
+
 def _evaluate_observation_against_threshold(
     expected: float,
     actual: float,
     operator: str,
     tolerance: float | None,
 ) -> str:
-    """Evaluate a single observation against a threshold.
+    """Evaluate one observation against a threshold.
 
-    Returns one of: 'pass', 'fail', 'unknown'.
+    Returns ``"pass"``, ``"fail"`` or ``"unknown"``.
     """
     diff = actual - expected
 
     if operator == "==":
         if tolerance is not None:
-            if abs(diff) <= tolerance:
-                return "pass"
-            return "fail"
-        # No tolerance: exact match
-        if diff == 0:
-            return "pass"
-        return "fail"
+            return "pass" if abs(diff) <= tolerance else "fail"
+        return "pass" if diff == 0 else "fail"
 
-    elif operator == ">=":
+    if operator == ">=":
         threshold = -tolerance if tolerance is not None else 0
-        if diff >= threshold:
-            return "pass"
-        return "fail"
+        return "pass" if diff >= threshold else "fail"
 
-    elif operator == "<=":
+    if operator == "<=":
         threshold = tolerance if tolerance is not None else 0
-        if diff <= threshold:
-            return "pass"
-        return "fail"
+        return "pass" if diff <= threshold else "fail"
 
-    elif operator == ">":
+    if operator == ">":
         threshold = tolerance if tolerance is not None else 0
-        if diff > threshold:
-            return "pass"
-        return "fail"
+        return "pass" if diff > threshold else "fail"
 
-    elif operator == "<":
+    if operator == "<":
         threshold = tolerance if tolerance is not None else 0
-        if diff < threshold:
-            return "pass"
-        return "fail"
+        return "pass" if diff < threshold else "fail"
 
-    elif operator == "!=":
-        if diff != 0:
-            return "pass"
-        return "fail"
+    if operator == "!=":
+        return "pass" if diff != 0 else "fail"
 
-    else:
-        return "unknown"
+    return "unknown"
 
 
-def _determine_overall_status(observation_results: list[str]) -> str:
-    """Determine the overall status from per-observation results.
+def _determine_overall_status(
+    observation_results: list[str],
+) -> CheckStatus:
+    """Aggregate per-observation outcomes.
 
-    Rules:
-    - If any observation fails -> overall FAIL
-    - If all observations pass -> overall PASS
-    - If some observations are missing/unknown and none fail -> UNKNOWN
+    A single observed failure is a violation; otherwise at least one real pass
+    is required for ``PASS``.  Anything else stays ``UNKNOWN``.
     """
-    has_fail = any(r == "fail" for r in observation_results)
-    all_pass = all(r == "pass" for r in observation_results)
-    has_unknown_or_missing = any(
-        r in ("unknown", "missing") for r in observation_results
-    )
-
-    if has_fail:
-        return "fail"
-    elif all_pass:
-        return "pass"
-    elif has_unknown_or_missing and not all_pass:
-        return "unknown"
-    else:
-        return "unknown"
+    if any(result == "fail" for result in observation_results):
+        return CheckStatus.FAIL
+    if observation_results and all(result == "pass" for result in observation_results):
+        return CheckStatus.PASS
+    return CheckStatus.UNKNOWN
 
 
-def _build_details_dict(
-    operator: str,
-    tolerance: float | None,
-    observation_count: int,
-    failing_indices: list[int],
-    all_values: list[float],
-    expected: float,
-) -> dict[str, str]:
-    """Build a details dict that is always Pydantic-compatible.
-
-    Returns a dict with a ``note`` key whose value is a plain string.
-    Never returns nested dicts or arbitrary structures, to avoid
-    ``pydantic.ValidationError: Input should be a valid dictionary``.
-    """
-    obs_descriptions: list[str] = []
-    for i, val in enumerate(all_values):
-        cls = _classify_observation_value(val)
-        obs_descriptions.append(f"obs[{i}]({cls}:{val})")
-
-    if failing_indices:
-        fail_parts: list[str] = []
-        for i in failing_indices:
-            actual = all_values[i]
-            diff_val = actual - expected
-            fail_parts.append(f"obs[{i}]: {operator} expected={expected} diff={diff_val:.2f}")
-        fail_detail = "; ".join(fail_parts)
-        note = (
-            f"Metric check: {observation_count} observations, "
-            f"{operator} expected={expected}; "
-            f"failed: {fail_detail}; "
-            f"all_values: {'; '.join(obs_descriptions)}"
-        )
-    else:
-        note = (
-            f"Metric check: {observation_count} observations, "
-            f"{operator} expected={expected}; "
-            f"all_values: {'; '.join(obs_descriptions)}"
-        )
-
-    return {"note": note}
-
-
-def _extract_metric_value(
-    source: dict[str, Any] | None,
-    key: str = "value",
-) -> float | None:
-    """Extract a numeric metric value from a dict-like source.
-
-    Returns None if the key is absent, the value is not numeric, or source is
-    None.
-    """
-    if source is None:
-        return None
-    val = source.get(key)
-    if isinstance(val, (int, float)):
-        return float(val)
-    return None
-
-
-def _extract_metric_timestamp(
-    source: dict[str, Any] | None,
-) -> str | None:
-    """Extract a timestamp string from a metric source dict, if present."""
-    if source is None:
-        return None
-    ts = source.get("timestamp")
-    if isinstance(ts, str):
-        return ts
-    if isinstance(ts, (int, float)):
-        from datetime import datetime, timezone
-
-        return datetime.fromtimestamp(ts, tz=timezone.utc).isoformat()
-    return None
+def _describe_values(values: list[float]) -> str:
+    parts = [
+        f"obs[{index}]({_classify_observation_value(value)}:{value})"
+        for index, value in enumerate(values)
+    ]
+    return "; ".join(parts)
 
 
 def execute_check(
     check_id: str,
     requirement: VerificationRequirement,
     *,
-    metric_observations: list[MetricObservation] | None = None,
+    metric_observations: list[MetricObservation | dict[str, Any]] | None = None,
     metric_values: list[float] | None = None,
     metric_names: list[str] | None = None,
     thresholds: dict[str, dict[str, Any]] | None = None,
+    evidence_refs: list[str] | None = None,
     source: str = "metric_check",
 ) -> VerificationCheckResult:
     """Execute a metric and threshold verification check.
 
-    Compares actual metric observations with validated requirements.
-
-    Only the checks supported by actual available evidence are implemented.
-
-    Key differences from the original implementation:
-    - Evaluates ALL metric observations, not just the first one.
-    - If any observation fails the comparison, the overall result is FAIL.
-    - NaN, positive infinity, negative infinity, and missing values are
-      classified and reported explicitly.
-    - The ``details`` field is always a dict with a ``note`` string; nested
-      dicts are avoided to prevent ``pydantic.ValidationError``.
-    - Handles ``metric_observations``, ``metric_values``, and ``thresholds``
-      paths consistently.
-
     Args:
-        check_id: Identifier for this check.
-        requirement: The ``VerificationRequirement`` describing what is expected.
-        metric_observations: Optional list of ``MetricObservation`` objects.
-        metric_values: Optional list of raw numeric metric values.
-        metric_names: Optional list of metric names corresponding to *metric_values*.
-        thresholds: Optional dict mapping metric names to threshold configs,
-            each with ``operator`` and ``tolerance`` keys.
-        source: Human-readable source label for evidence provenance.
+        check_id: Identifier for this check (provenance only).
+        requirement: The ``VerificationRequirement`` describing the contract.
+        metric_observations: Recorded ``MetricObservation`` objects or
+            equivalent dicts.
+        metric_values: Raw recorded numeric metric values.
+        metric_names: Metric names corresponding to *metric_values*.
+        thresholds: Optional per-metric ``{operator, tolerance}`` overrides.
+        evidence_refs: Real evidence identifiers backing the observations.
+        source: Provenance label recorded in ``details``.
 
     Returns:
-        A ``VerificationCheckResult`` with status ``PASS``, ``FAIL``,
-        ``UNKNOWN``, or ``ERROR``.
+        A ``VerificationCheckResult`` with status ``PASS``, ``FAIL`` or
+        ``UNKNOWN``.
     """
     expected = requirement.expected_value
-    evidence_parts: list[str] = []
+    refs: list[str] = list(dict.fromkeys(evidence_refs or []))
 
     # ------------------------------------------------------------------
-    # Phase 1: Extract actual values from the available source(s).
+    # Phase 1: extract the recorded observations.
     # ------------------------------------------------------------------
+    values: list[float] = []
+    classifications: list[str] = []
+    names_seen: list[str] = []
 
-    all_actuals: list[float] = []
-    all_classifications: list[str] = []
-
-    # Path A: metric_observations (list of MetricObservation)
-    if metric_observations is not None and len(metric_observations) > 0:
-        for obs in metric_observations:
-            if hasattr(obs, "value") and obs.value is not None:
-                val = float(obs.value)
-                all_actuals.append(val)
-                all_classifications.append(_classify_observation_value(val))
-            elif isinstance(obs, dict):
-                val = _extract_metric_value(obs)
-                if val is not None:
-                    all_actuals.append(val)
-                    all_classifications.append(_classify_observation_value(val))
-                else:
-                    all_actuals.append(float("nan"))
-                    all_classifications.append("missing")
+    if metric_observations:
+        for observation in metric_observations:
+            name: str | None = None
+            if isinstance(observation, MetricObservation):
+                value = _coerce_value(observation.value)
+                name = observation.metric_name
+            elif isinstance(observation, dict):
+                value, name = _extract_from_dict(observation)
             else:
-                all_actuals.append(float("nan"))
-                all_classifications.append("missing")
-        evidence_parts.append(f"metric_observations:{len(metric_observations)}")
-
-    # Path B: metric_values (list of raw floats)
-    elif metric_values is not None and len(metric_values) > 0:
-        for val in metric_values:
-            if val is not None:
-                all_actuals.append(float(val))
-                all_classifications.append(_classify_observation_value(float(val)))
+                value = _coerce_value(getattr(observation, "value", None))
+                name = getattr(observation, "metric_name", None)
+            if name is not None:
+                names_seen.append(name)
+            if value is None:
+                values.append(float("nan"))
+                classifications.append("missing")
             else:
-                all_actuals.append(float("nan"))
-                all_classifications.append("missing")
-        evidence_parts.append(f"metric_values:{len(metric_values)}")
+                values.append(value)
+                classifications.append(_classify_observation_value(value))
 
-    # Path C: thresholds defined but no observations
-    elif thresholds is not None:
-        from backend.verification.models import VerificationCheckResult
+    elif metric_values:
+        for raw in metric_values:
+            value = _coerce_value(raw)
+            if value is None:
+                values.append(float("nan"))
+                classifications.append("missing")
+            else:
+                values.append(value)
+                classifications.append(_classify_observation_value(value))
 
+    if not values:
+        note = (
+            "Thresholds are defined but no metric observation was recorded"
+            if thresholds
+            else "No metric observation is available for comparison"
+        )
         return VerificationCheckResult(
             requirement_id=requirement.id,
-            status="unknown",
+            status=CheckStatus.UNKNOWN,
             expected=expected,
             actual=None,
             tolerance=None,
-            evidence_refs=[],
+            evidence_refs=refs,
+            details={"note": note, "source": source},
+            is_mandatory=requirement.is_mandatory,
+        )
+
+    # ------------------------------------------------------------------
+    # Phase 2: resolve operator and tolerance.
+    # ------------------------------------------------------------------
+    operator: str = requirement.comparison_operator or "=="
+    tolerance = requirement.tolerance
+
+    metric_name = next((name for name in names_seen if thresholds and name in thresholds), None)
+    if metric_name is None and thresholds and metric_names:
+        metric_name = next((name for name in metric_names if name in thresholds), None)
+    if metric_name is not None and thresholds is not None:
+        threshold_config = thresholds[metric_name]
+        operator = str(threshold_config.get("operator", operator))
+        tolerance = threshold_config.get("tolerance", tolerance)
+
+    # ------------------------------------------------------------------
+    # Phase 3: expectation gate.
+    # ------------------------------------------------------------------
+    expected_number = _coerce_value(expected)
+    if expected_number is None or not math.isfinite(expected_number):
+        return VerificationCheckResult(
+            requirement_id=requirement.id,
+            status=CheckStatus.UNKNOWN,
+            expected=expected,
+            actual=values[0] if values else None,
+            tolerance=tolerance,
+            evidence_refs=refs,
             details={
-                "note": "Thresholds defined but no metric observations available"
+                "note": (
+                    "No finite expected metric value is defined in the "
+                    "requirement; recorded observations cannot be evaluated"
+                ),
+                "source": source,
+                "observed_values": _describe_values(values),
             },
-        )
-
-    # Path D: no evidence available at all
-    if not all_actuals:
-        from backend.verification.models import VerificationCheckResult
-
-        return VerificationCheckResult(
-            requirement_id=requirement.id,
-            status="unknown",
-            expected=expected,
-            actual=None,
-            tolerance=None,
-            evidence_refs=evidence_parts,
-            details={"note": "No metric value available for comparison"},
+            is_mandatory=requirement.is_mandatory,
         )
 
     # ------------------------------------------------------------------
-    # Phase 2: Determine operator and tolerance.
+    # Phase 4: evaluate every observation.
     # ------------------------------------------------------------------
-
-    if thresholds is not None and expected is not None:
-        # Look up the threshold for the relevant metric name
-        metric_name = metric_names[0] if metric_names else None
-        if metric_name and metric_name in thresholds:
-            threshold_config = thresholds[metric_name]
-            operator = threshold_config.get("operator", "==")
-            tolerance = threshold_config.get("tolerance")
-        else:
-            # Fall back to requirement's operator/tolerance
-            operator = requirement.comparison_operator or "=="
-            tolerance = requirement.tolerance
-    else:
-        operator = requirement.comparison_operator or "=="
-        tolerance = requirement.tolerance
-
-    # ------------------------------------------------------------------
-    # Phase 3: Evaluate every observation against the threshold.
-    # ------------------------------------------------------------------
-
-    # If no expected value is available, all evaluations are inconclusive.
-    if expected is None:
-        # Return UNKNOWN with all observations classified as unknown
-        from backend.verification.models import VerificationCheckResult
-
-        all_actuals_copy = list(all_actuals)
-        # Classify all values as missing/unknown since there's no expected value
-        details = {
-            "note": f"Metric check: {len(all_actuals)} observations, "
-                    f"no expected value available; all evaluations inconclusive"
-        }
-        return VerificationCheckResult(
-            requirement_id=requirement.id,
-            status="unknown",
-            expected=expected,
-            actual=all_actuals_copy[0] if all_actuals_copy else None,
-            tolerance=None,
-            evidence_refs=evidence_parts,
-            details=details,
-        )
-
     observation_results: list[str] = []
     failing_indices: list[int] = []
+    unknown_indices: list[int] = []
 
-    for i, (actual, classification) in enumerate(zip(all_actuals, all_classifications)):
-        # Skip NaN/missing observations — treat as unknown, not fail
-        if classification in ("nan", "missing"):
+    for index, (value, classification) in enumerate(zip(values, classifications)):
+        if not math.isfinite(value):
             observation_results.append("unknown")
-            failing_indices.append(i)  # track for reporting
+            unknown_indices.append(index)
             continue
-
-        result = _evaluate_observation_against_threshold(
-            expected=float(expected),
-            actual=actual,
+        outcome = _evaluate_observation_against_threshold(
+            expected=expected_number,
+            actual=value,
             operator=operator,
             tolerance=tolerance,
         )
-        observation_results.append(result)
-        if result == "fail":
-            failing_indices.append(i)
+        observation_results.append(outcome)
+        if outcome == "fail":
+            failing_indices.append(index)
+        elif outcome == "unknown":
+            unknown_indices.append(index)
 
-    # ------------------------------------------------------------------
-    # Phase 4: Determine overall status.
-    # ------------------------------------------------------------------
+    status = _determine_overall_status(observation_results)
 
-    overall = _determine_overall_status(observation_results)
+    note_parts = [
+        (
+            f"{len(values)} observation(s) evaluated with {operator!r} "
+            f"expected={expected_number}"
+        )
+    ]
+    if failing_indices:
+        note_parts.append(f"failed indices={failing_indices}")
+    if unknown_indices:
+        note_parts.append(f"inconclusive indices={unknown_indices}")
+    note_parts.append(f"observed={_describe_values(values)}")
 
-    # ------------------------------------------------------------------
-    # Phase 5: Build the result.
-    # ------------------------------------------------------------------
-
-    details = _build_details_dict(
-        operator=operator,
-        tolerance=tolerance,
-        observation_count=len(all_actuals),
-        failing_indices=failing_indices,
-        all_values=all_actuals,
-        expected=float(expected) if expected is not None else 0.0,
-    )
-
-    from backend.verification.models import VerificationCheckResult
-
-    result = VerificationCheckResult(
+    return VerificationCheckResult(
         requirement_id=requirement.id,
-        status=overall,
+        status=status,
         expected=expected,
-        actual=all_actuals[0] if all_actuals else None,
+        actual=values[0],
         tolerance=tolerance,
-        evidence_refs=evidence_parts,
-        details=details,
+        evidence_refs=refs,
+        details={
+            "note": "; ".join(note_parts),
+            "source": source,
+            "operator": operator,
+            "failing_indices": failing_indices,
+            "unknown_indices": unknown_indices,
+        },
+        is_mandatory=requirement.is_mandatory,
     )
 
-    # Add evidence references for metric observations
-    if metric_observations is not None:
-        for i, obs in enumerate(metric_observations[:3]):  # first 3
-            obs_ref = f"metric_obs:{i}"
-            if hasattr(obs, "id") or isinstance(obs, dict) and "metric_name" in obs:
-                result.evidence_refs.append(obs_ref)
 
-    return result
+__all__ = ["execute_check"]

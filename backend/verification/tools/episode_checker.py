@@ -1,74 +1,216 @@
 """Episode outcome verification checker.
 
-Verifies episode-level requirements using actual episode evidence.
+Verifies episode-level requirements using episode evidence that was actually
+recorded during execution.
 
-See ``backend/verification/tools/`` for the package README and integration notes.
+Non-negotiable rules (AGENTS.md §4.4, §6):
+
+* Missing evidence is ``UNKNOWN`` — never ``PASS``.
+* Only real evidence identifiers are attached to the result.
+* The ``details`` dict keeps the human-readable derivation; it never pretends
+  to be an evidence identifier.
 """
 
 from __future__ import annotations
 
+import math
 from typing import Any
 
 from backend.verification.models import (
+    CheckStatus,
     VerificationCheckResult,
     VerificationRequirement,
 )
 
+#: Event keys that may carry a termination signal.
+TERMINATION_KEYS = ("terminated", "done", "termination", "episode_terminated")
+#: Event keys that may carry a truncation signal.
+TRUNCATION_KEYS = ("truncated", "truncate", "truncation")
+#: Event keys that may carry a goal-attainment signal.
+GOAL_KEYS = ("goal_attained", "goal_reached", "goal_achieved", "success")
+#: Episode keys that may carry the observed episode length.
+STEP_KEYS = ("steps", "length", "timestep")
 
-def _find_termination_event(
-    episode_data: dict[str, Any] | None,
-) -> dict[str, Any] | None:
-    """Find the termination event in episode data, if present."""
-    if episode_data is None:
-        return None
-    for key in ("terminated", "done", "status", "termination"):
-        if key in episode_data:
-            val = episode_data[key]
-            if isinstance(val, bool):
-                return {"key": key, "value": val}
-            if isinstance(val, str) and val.lower() in ("true", "terminated", "yes"):
-                return {"key": key, "value": True}
+_TRUTHY_STRINGS = {"true", "yes", "terminated", "truncated", "reached"}
+
+
+def _as_bool(value: Any) -> bool | None:
+    """Coerce an evidence value into a tri-state boolean.
+
+    Returns ``None`` when the value carries no usable boolean signal.
+    """
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        lowered = value.strip().lower()
+        if lowered in _TRUTHY_STRINGS:
+            return True
+        if lowered in {"false", "no", "none"}:
+            return False
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        if value == 1:
+            return True
+        if value == 0:
+            return False
     return None
 
 
-def _find_truncation_event(
+def _find_flag(
     episode_data: dict[str, Any] | None,
-) -> dict[str, Any] | None:
-    """Find the truncation event in episode data, if present."""
-    if episode_data is None:
+    keys: tuple[str, ...],
+) -> tuple[str, bool] | None:
+    """Return ``(key, value)`` for the first present flag key, else ``None``."""
+    if not episode_data:
         return None
-    for key in ("truncated", "truncate", "truncation"):
+    for key in keys:
         if key in episode_data:
-            val = episode_data[key]
-            if isinstance(val, bool):
-                return {"key": key, "value": val}
-            if isinstance(val, str) and val.lower() in ("true", "truncated", "yes"):
-                return {"key": key, "value": True}
+            coerced = _as_bool(episode_data[key])
+            if coerced is not None:
+                return key, coerced
     return None
 
 
-def _find_goal_attainment_event(
-    episode_data: dict[str, Any] | None,
-) -> dict[str, Any] | None:
-    """Find goal attainment information in episode data, if present."""
-    if episode_data is None:
+def _evidence_refs(
+    episode_id: str | None,
+    evidence_refs: list[str] | None,
+) -> list[str]:
+    """Collect only *real* evidence identifiers (no synthesised labels)."""
+    refs: list[str] = []
+    for ref in evidence_refs or []:
+        if isinstance(ref, str) and ref and ref not in refs:
+            refs.append(ref)
+    if episode_id and episode_id not in refs:
+        refs.append(episode_id)
+    return refs
+
+
+def _observed_steps(episode_data: dict[str, Any] | None) -> tuple[str, int] | None:
+    """Return ``(key, steps)`` for the first recorded episode length, else ``None``.
+
+    Only real recorded values are used; nothing is derived from the bound being
+    checked.
+    """
+    if not isinstance(episode_data, dict):
         return None
-    for key in ("goal_attained", "goal_reached", "goal_achieved", "success"):
-        if key in episode_data:
-            val = episode_data[key]
-            if isinstance(val, bool):
-                return {"key": key, "value": val}
-            if isinstance(val, str) and val.lower() in ("true", "yes", "reached"):
-                return {"key": key, "value": True}
+    for key in STEP_KEYS:
+        if key not in episode_data:
+            continue
+        value = episode_data[key]
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            continue
+        if not math.isfinite(float(value)):
+            continue
+        return key, int(value)
     return None
 
 
-def _make_details(note: str, source: str | None = None) -> dict[str, Any]:
-    """Create a details dict compatible with VerificationCheckResult."""
-    d: dict[str, Any] = {"note": note}
-    if source is not None:
-        d["source"] = source
-    return d
+def _check_max_steps(
+    requirement: VerificationRequirement,
+    max_steps: int,
+    episode_data: dict[str, Any] | None,
+    refs: list[str],
+    source: str,
+) -> VerificationCheckResult:
+    """Evaluate an episode-step bound against recorded episode length."""
+    observed = _observed_steps(episode_data)
+    if observed is None:
+        return _result(
+            requirement,
+            CheckStatus.UNKNOWN,
+            expected=max_steps,
+            actual=None,
+            evidence_refs=refs,
+            note=(
+                "No recorded episode length (steps/length/timestep) is available; "
+                f"the {max_steps}-step bound cannot be evaluated"
+            ),
+            source=source,
+            extra={"max_steps": max_steps},
+        )
+
+    key, steps = observed
+    return _result(
+        requirement,
+        CheckStatus.PASS if steps <= max_steps else CheckStatus.FAIL,
+        expected=max_steps,
+        actual=steps,
+        evidence_refs=refs,
+        note=f"observed steps={steps} ({key}), max_steps={max_steps}",
+        source=source,
+        extra={"max_steps": max_steps, "steps_key": key},
+    )
+
+
+def _classify(
+    termination: tuple[str, bool] | None,
+    truncation: tuple[str, bool] | None,
+    goal: tuple[str, bool] | None,
+) -> str | None:
+    """Derive the observed episode outcome from boolean evidence.
+
+    Returns ``None`` when the available evidence does not determine an outcome.
+    """
+    goal_found = goal is not None and goal[1] is True
+    term_found = termination is not None and termination[1] is True
+    trunc_found = truncation is not None and truncation[1] is True
+
+    if goal_found:
+        return "goal_attained"
+    if trunc_found:
+        return "truncated"
+    if term_found:
+        return "terminated"
+    return None
+
+
+def _expected_outcome(expected: Any) -> str | None:
+    """Normalise an expected episode outcome into the observed vocabulary."""
+    if expected is True:
+        return "terminated"
+    if expected is False:
+        return "not_terminated"
+    if isinstance(expected, str):
+        normalised = expected.strip().lower().replace(" ", "_")
+        if normalised in {
+            "goal_attained",
+            "goal_reached",
+            "success",
+        }:
+            return "goal_attained"
+        if normalised in {"terminated", "termination", "done"}:
+            return "terminated"
+        if normalised in {"truncated", "truncation", "time_limit"}:
+            return "truncated"
+        if normalised in {"not_terminated", "not_truncated"}:
+            return normalised
+        return normalised
+    return None
+
+
+def _result(
+    requirement: VerificationRequirement,
+    status: CheckStatus,
+    *,
+    expected: Any,
+    actual: Any,
+    evidence_refs: list[str],
+    note: str,
+    source: str,
+    extra: dict[str, Any] | None = None,
+) -> VerificationCheckResult:
+    details: dict[str, Any] = {"note": note, "source": source}
+    if extra:
+        details.update(extra)
+    return VerificationCheckResult(
+        requirement_id=requirement.id,
+        status=status,
+        expected=expected,
+        actual=actual,
+        tolerance=None,
+        evidence_refs=list(evidence_refs),
+        details=details,
+        is_mandatory=requirement.is_mandatory,
+    )
 
 
 def execute_check(
@@ -80,214 +222,144 @@ def execute_check(
     termination_observed: bool | None = None,
     truncation_observed: bool | None = None,
     goal_attained_observed: bool | None = None,
+    max_steps: int | None = None,
+    evidence_refs: list[str] | None = None,
     source: str = "episode_check",
 ) -> VerificationCheckResult:
     """Execute an episode outcome verification check.
 
-    Verifies episode-level requirements using actual episode evidence.
-
-    Only the checks that can be established from actual available evidence are
-    implemented.
-
     Args:
-        check_id: Identifier for this check.
-        requirement: The ``VerificationRequirement`` describing what is expected.
-        episode_id: Optional episode identifier.
-        episode_data: Optional full episode data dict.
-        termination_observed: Optional boolean indicating if the episode
-            terminated (as opposed to truncation).
-        truncation_observed: Optional boolean indicating if the episode was
-            truncated (time limit).
-        goal_attained_observed: Optional boolean indicating if the goal was
-            attained.
-        source: Human-readable source label for evidence provenance.
+        check_id: Identifier for this check (provenance only).
+        requirement: The ``VerificationRequirement`` describing the contract.
+        episode_id: Identifier of the episode the evidence belongs to.  When
+            provided it becomes a real evidence reference on the result.
+        episode_data: Recorded episode summary dict.
+        termination_observed: Explicit termination flag, when available.
+        truncation_observed: Explicit truncation flag, when available.
+        goal_attained_observed: Explicit goal-attainment flag, when available.
+        max_steps: Optional step bound.  When provided, the recorded episode
+            length (``steps``/``length``/``timestep``) is compared against it.
+        evidence_refs: Additional real evidence identifiers.
+        source: Provenance label recorded in ``details``.
 
     Returns:
-        A ``VerificationCheckResult`` with status ``PASS``, ``FAIL``,
-        ``UNKNOWN``, or ``BLOCKED``.
+        A ``VerificationCheckResult`` with status ``PASS``, ``FAIL`` or
+        ``UNKNOWN``.
     """
     expected = requirement.expected_value
-    evidence_parts: list[str] = []
+    refs = _evidence_refs(episode_id, evidence_refs)
 
-    # Build a picture of what's available from explicit flags
-    term_provided = termination_observed is not None
-    trunc_provided = truncation_observed is not None
-    goal_provided = goal_attained_observed is not None
+    # ---- 0. Step bound ---------------------------------------------------
+    if max_steps is not None:
+        return _check_max_steps(requirement, max_steps, episode_data, refs, source)
 
-    # Determine what to compare based on what's available
-    if term_provided or trunc_provided or goal_provided:
-        actual_status: str | None = None
+    expected_outcome = _expected_outcome(expected)
 
-        if termination_observed is True:
-            actual_status = "terminated"
-        elif truncation_observed is True:
-            actual_status = "truncated"
-        elif goal_attained_observed is True:
-            actual_status = "goal_attained"
-        elif termination_observed is False:
-            actual_status = "not_terminated"
-        elif truncation_observed is False:
-            actual_status = "not_truncated"
-        elif goal_attained_observed is False:
-            actual_status = "goal_not_attained"
-        else:
-            actual_status = "unknown"
+    # ---- 1. Evidence collection -----------------------------------------
+    explicit = (
+        termination_observed is not None
+        or truncation_observed is not None
+        or goal_attained_observed is not None
+    )
 
-        expected_status = str(expected) if expected is not None else None
+    termination: tuple[str, bool] | None = (
+        ("termination_observed", termination_observed)
+        if termination_observed is not None
+        else None
+    )
+    truncation: tuple[str, bool] | None = (
+        ("truncation_observed", truncation_observed)
+        if truncation_observed is not None
+        else None
+    )
+    goal: tuple[str, bool] | None = (
+        ("goal_attained_observed", goal_attained_observed)
+        if goal_attained_observed is not None
+        else None
+    )
 
-        if expected_status and actual_status != "unknown":
-            if expected_status == actual_status:
-                status = "pass"
-                description = f"expected={expected_status}, actual={actual_status}"
-            else:
-                status = "fail"
-                description = f"expected={expected_status}, actual={actual_status}"
-        else:
-            status = "unknown"
-            description = f"expected={expected_status}, actual={actual_status}"
+    if not explicit:
+        termination = _find_flag(episode_data, TERMINATION_KEYS)
+        truncation = _find_flag(episode_data, TRUNCATION_KEYS)
+        goal = _find_flag(episode_data, GOAL_KEYS)
 
-        details = _make_details(description, source)
-
-        from backend.verification.models import VerificationCheckResult
-
-        result = VerificationCheckResult(
-            requirement_id=requirement.id,
-            status=status,
-            expected=expected,
-            actual=actual_status,
-            tolerance=None,
-            evidence_refs=evidence_parts,
-            details=details,
-        )
-
-        # Add evidence parts
-        result.evidence_refs.extend([f"episode:{p}" for p in evidence_parts])
-
-        return result
-
-    # If we have full episode_data, try to extract events from it and evaluate
-    if episode_data is not None:
-        term_event = _find_termination_event(episode_data)
-        trunc_event = _find_truncation_event(episode_data)
-        goal_event = _find_goal_attainment_event(episode_data)
-
-        new_evidence_parts: list[str] = []
-        if term_event is not None:
-            new_evidence_parts.append(f"term_event:{term_event['key']}={term_event['value']}")
-        if trunc_event is not None:
-            new_evidence_parts.append(f"trunc_event:{trunc_event['key']}={trunc_event['value']}")
-        if goal_event is not None:
-            new_evidence_parts.append(f"goal_event:{goal_event['key']}={goal_event['value']}")
-
-        evidence_parts.extend(new_evidence_parts)
-
-        # Evaluate based on extracted events with correct semantics:
-        # - Goal attainment takes priority
-        # - If termination event found with True value AND no truncation (trunc event False or absent), it's terminated
-        # - If truncation event found with True value, that's the status
-        # - Otherwise unknown
-        goal_found = goal_event is not None and goal_event["value"] is True
-        term_found = term_event is not None and term_event["value"] is True
-        trunc_found = trunc_event is not None and trunc_event["value"] is True
-
-        # Actual status determination with correct semantics:
-        # - If goal was attained, that's the status
-        # - If episode terminated (term event found with True value) and was NOT truncated (trunc event False or absent), it's terminated
-        # - If episode was truncated (trunc event found with True value), that's the status
-        # - Otherwise unknown
-        actual_status: str | None = None
-        if goal_found:
-            actual_status = "goal_attained"
-        elif term_found and not trunc_found:
-            # Episode terminated and was not truncated
-            actual_status = "terminated"
-        elif trunc_found:
-            # Episode was truncated
-            actual_status = "truncated"
-        else:
-            actual_status = "unknown"
-
-        expected_status = str(expected) if expected is not None else None
-
-        # Map expected boolean to the corresponding status string for comparison.
-        # expected_value=True for termination means "episode must terminate";
-        # the actual status string for termination is "terminated".
-        # expected_value=False means "episode must not terminate" / "episode must not
-        # successfully terminate"; the actual status string for not-terminating is
-        # "not_terminated".
-        expected_status_mapped: str | None = None
-        if expected is True:
-            expected_status_mapped = "terminated"
-        elif expected is False:
-            expected_status_mapped = "not_terminated"
-
-        if expected_status and actual_status != "unknown":
-            if expected_status_mapped is not None:
-                # Compare using the mapped status string for boolean expectations.
-                if expected_status_mapped == actual_status:
-                    status = "pass"
-                    description = f"expected={expected_status}, actual={actual_status}"
-                else:
-                    status = "fail"
-                    description = f"expected={expected_status}, actual={actual_status}"
-            elif expected_status == actual_status:
-                # Fallback: direct string comparison (e.g. expected="pass", actual="pass")
-                status = "pass"
-                description = f"expected={expected_status}, actual={actual_status}"
-            else:
-                status = "fail"
-                description = f"expected={expected_status}, actual={actual_status}"
-        else:
-            status = "unknown"
-            description = f"expected={expected_status}, actual={actual_status}"
-
-        details = _make_details(description, source)
-
-        from backend.verification.models import VerificationCheckResult
-
-        result = VerificationCheckResult(
-            requirement_id=requirement.id,
-            status=status,
-            expected=expected,
-            actual=actual_status,
-            tolerance=None,
-            evidence_refs=evidence_parts,
-            details=details,
-        )
-
-        # Add evidence parts
-        result.evidence_refs.extend([f"episode:{p}" for p in evidence_parts])
-
-        return result
-
-    # If we have no episode_data and no flags, return unknown
-    if not term_provided and not trunc_provided and not goal_provided and episode_data is None:
-        from backend.verification.models import VerificationCheckResult
-
-        return VerificationCheckResult(
-            requirement_id=requirement.id,
-            status="unknown",
+    if termination is None and truncation is None and goal is None:
+        return _result(
+            requirement,
+            CheckStatus.UNKNOWN,
             expected=expected,
             actual=None,
-            tolerance=None,
-            evidence_refs=[],
-            details=_make_details("No episode evidence provided and no termination/truncation/goal flags available", source),
+            evidence_refs=refs,
+            note=(
+                "No termination, truncation or goal-attainment evidence is "
+                "available; the episode outcome cannot be evaluated"
+            ),
+            source=source,
         )
 
-    # We have some evidence; return a result based on what we know.
-    # If we have a determined status, use it; otherwise unknown.
-    if "status" in dir() and "status" in dir():
-        pass
+    actual_outcome = _classify(termination, truncation, goal)
+    observed_signals: dict[str, Any] = {}
+    for label, signal in (
+        ("termination", termination),
+        ("truncation", truncation),
+        ("goal", goal),
+    ):
+        if signal is not None:
+            observed_signals[signal[0]] = signal[1]
 
-    # Fall back to unknown
-    from backend.verification.models import VerificationCheckResult
+    # ---- 2. Expectation gate --------------------------------------------
+    if expected_outcome is None:
+        return _result(
+            requirement,
+            CheckStatus.UNKNOWN,
+            expected=expected,
+            actual=actual_outcome,
+            evidence_refs=refs,
+            note=(
+                "No usable expected episode outcome is defined in the "
+                "requirement; the observation cannot be evaluated"
+            ),
+            source=source,
+            extra={"observed_signals": observed_signals},
+        )
 
-    return VerificationCheckResult(
-        requirement_id=requirement.id,
-        status="unknown",
+    # ---- 3. Evaluate -----------------------------------------------------
+    if actual_outcome is None:
+        return _result(
+            requirement,
+            CheckStatus.UNKNOWN,
+            expected=expected,
+            actual=None,
+            evidence_refs=refs,
+            note=(
+                "Episode evidence is present but does not determine the "
+                "outcome (no positive termination/truncation/goal signal)"
+            ),
+            source=source,
+            extra={"observed_signals": observed_signals},
+        )
+
+    # ``terminated`` and ``not_terminated`` describe the same dimension, so a
+    # recorded non-terminating episode satisfies an expectation of
+    # ``not_terminated`` even though ``_classify`` cannot produce it directly.
+    matches = expected_outcome == actual_outcome
+    if not matches and expected_outcome == "not_terminated":
+        matches = termination is not None and termination[1] is False
+    if not matches and expected_outcome == "not_truncated":
+        matches = truncation is not None and truncation[1] is False
+
+    note = f"expected={expected_outcome!r}, observed={actual_outcome!r}"
+
+    return _result(
+        requirement,
+        CheckStatus.PASS if matches else CheckStatus.FAIL,
         expected=expected,
-        actual=None,
-        tolerance=None,
-        evidence_refs=evidence_parts,
-        details=_make_details("Episode evidence partially available; see evidence_refs for details", source),
+        actual=actual_outcome,
+        evidence_refs=refs,
+        note=note,
+        source=source,
+        extra={"observed_signals": observed_signals},
     )
+
+
+__all__ = ["execute_check"]

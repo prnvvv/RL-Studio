@@ -14,6 +14,7 @@ Available prompt types:
 
 from __future__ import annotations
 
+import re
 from typing import Any, Literal
 
 # ---------------------------------------------------------------------------
@@ -35,18 +36,37 @@ PROMPT_VERIFICATION_EXPLANATION = "verification_explanation_v1"
 # only substitutes developer-controlled or configuration values.
 # ---------------------------------------------------------------------------
 
-def _safe_format(template: str, mapping: dict[str, Any]) -> str:
-    """Format *template* with *mapping*, rejecting any keys that are not
-    present in the mapping (prevents silent no-ops and hidden variable
-    injection).  Untrusted evidence should never be interpolated into
-    governing instructions.
+#: Placeholder pattern used by the partial prompt formatter.
+_PLACEHOLDER_RE = re.compile(r"\{([A-Za-z_][A-Za-z0-9_]*)\}")
 
-    This is a deliberately strict formatter; prompts that need dynamic
-    content should pass that content as a named variable, not via
-    ad-hoc string interpolation.
+
+def _render(template: str, variables: dict[str, Any]) -> str:
+    """Substitute only the placeholders whose values were supplied.
+
+    Unlike ``str.format``, a caller that supplies a subset of the variables does
+    not get a ``KeyError``; the remaining placeholders stay visible so an
+    incomplete call is obvious instead of silently producing an empty section.
     """
-    result = template.format(**mapping)
-    return result
+
+    def _replace(match: re.Match[str]) -> str:
+        key = match.group(1)
+        if key in variables:
+            return str(variables[key])
+        return match.group(0)
+
+    return _PLACEHOLDER_RE.sub(_replace, template)
+
+
+def _safe_format(template: str, mapping: dict[str, Any]) -> str:
+    """Format *template* with *mapping* via :func:`_render`.
+
+    Untrusted evidence must never be interpolated into governing instructions;
+    callers pass untrusted content through a named evidence variable only.
+
+    This is a deliberately strict formatter: it never evaluates attribute or
+    index lookups and never raises ``KeyError`` for uncovered placeholders.
+    """
+    return _render(template, mapping)
 
 
 # ---------------------------------------------------------------------------
@@ -259,10 +279,9 @@ def get_prompt(
 ) -> str:
     """Return the named prompt template with *variables* substituted safely.
 
-    The returned string uses ``{variable}`` placeholders that the caller
-    must fill in.  The ``_safe_format`` guard is applied at the caller
-    level; this function merely returns the template with variables
-    captured in its closure for documentation purposes.
+    Only the supplied ``**variables`` are substituted; any other placeholder is
+    left in place so a caller can see which inputs are still missing.  This
+    keeps prompt assembly total: a partial call never raises ``KeyError``.
 
     Raises:
         ValueError: If *name* does not correspond to a known prompt.
@@ -276,7 +295,7 @@ def get_prompt(
     }
     if name not in templates:
         raise ValueError(f"Unknown prompt name: {name!r}. Known: {list(templates.keys())}")
-    return templates[name]
+    return _render(templates[name], variables)
 
 
 # ---------------------------------------------------------------------------

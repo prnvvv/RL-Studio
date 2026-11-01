@@ -52,7 +52,13 @@ from backend.verification.tools.episode_checker import execute_check as episode_
 from backend.verification.tools.event_checker import execute_check as event_check
 from backend.verification.tools.metric_checker import execute_check as metric_check
 from backend.verification.tools.reward_checker import execute_check as reward_check
-from backend.verification.tools.tool_registry import register_check
+from backend.verification.tools.tool_registry import (
+    execute_check,
+    get_check_description,
+    is_check_registered,
+    list_checks,
+    register_check,
+)
 
 # Public API names
 __all__ = [
@@ -60,6 +66,7 @@ __all__ = [
     "episode_check",
     "event_check",
     "execute_check",
+    "get_check_description",
     "is_check_registered",
     "list_checks",
     "metric_check",

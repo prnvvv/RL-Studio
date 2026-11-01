@@ -9,17 +9,21 @@ Do not implement a competing registry or duplicate existing check logic.
 
 from __future__ import annotations
 
+import inspect
+import logging
+from collections.abc import Callable
 from typing import Any
 
-from backend.verification.exceptions import InputValidationError
-from backend.verification.models import VerificationCheckResult
+from backend.verification.models import CheckStatus, VerificationCheckResult
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Registry: maps stable check identifiers to handler callables.
 # ---------------------------------------------------------------------------
 
 #: Mapping of registered check IDs to their handler callables.
-_tool_handlers: dict[str, Any] = {}
+_tool_handlers: dict[str, Callable[..., Any]] = {}
 
 #: Mapping of check IDs to human-readable descriptions.
 _tool_descriptions: dict[str, str] = {}
@@ -38,7 +42,7 @@ _total_timeout: float | None = None
 
 def register_check(
     check_id: str,
-    handler: Any,
+    handler: Callable[..., Any],
     *,
     description: str = "",
     schema: Any = None,
@@ -46,17 +50,11 @@ def register_check(
 ) -> None:
     """Register a verification check handler in the global registry.
 
-    After registration, the check can be dispatched by ID from the LangGraph
-    controller or any other authorised component.
-
     Args:
-        check_id: Stable identifier for the check (e.g. ``"check_reward_scale"``).
-        handler: Callable that accepts ``context`` and ``arguments`` and returns
-            a ``VerificationCheckResult``.
+        check_id: Stable identifier for the check (e.g. ``"check_reward"``).
+        handler: Callable that returns a ``VerificationCheckResult``.
         description: Human-readable description of what the check does.
-        schema: Optional schema/validator for ``arguments``.  If provided, the
-            ``execute_check`` function will validate arguments against it before
-            dispatch.
+        schema: Optional schema/validator for ``arguments``.
         timeout: Optional execution timeout in seconds.  None means no timeout.
 
     Raises:
@@ -71,20 +69,15 @@ def register_check(
 
 
 def list_checks() -> dict[str, dict[str, Any]]:
-    """Return metadata for all currently registered checks.
-
-    Returns a dict mapping check IDs to ``{description, schema, timeout}``.
-    Useful for introspection and for the LangGraph controller to present to
-    the model at planning time.
-    """
-    result: dict[str, dict[str, Any]] = {}
-    for check_id in _tool_handlers:
-        result[check_id] = {
+    """Return metadata for all currently registered checks."""
+    return {
+        check_id: {
             "description": _tool_descriptions.get(check_id, ""),
             "schema": str(_tool_schemas.get(check_id, "none")),
             "timeout": _tool_timeout.get(check_id),
         }
-    return result
+        for check_id in _tool_handlers
+    }
 
 
 def is_check_registered(check_id: str) -> bool:
@@ -93,15 +86,101 @@ def is_check_registered(check_id: str) -> bool:
 
 
 def get_check_description(check_id: str) -> str:
-    """Return the human-readable description for a registered check, or '' if
-    unknown."""
+    """Return the human-readable description for a registered check."""
     return _tool_descriptions.get(check_id, "")
 
 
 # ---------------------------------------------------------------------------
-# Dispatch: execute a registered check with argument validation and error
-# handling.
+# Dispatch
 # ---------------------------------------------------------------------------
+
+
+def _error_result(check_id: str, message: str, requirement_id: str = "") -> VerificationCheckResult:
+    return VerificationCheckResult(
+        requirement_id=requirement_id,
+        status=CheckStatus.ERROR,
+        expected=None,
+        actual=None,
+        tolerance=None,
+        evidence_refs=[],
+        details={"error": message, "check_id": check_id},
+    )
+
+
+def _validate_arguments(check_id: str, arguments: dict[str, Any]) -> None:
+    """Validate *arguments* against the registered schema, when present."""
+    schema = _tool_schemas.get(check_id)
+    if schema is None:
+        return
+
+    if hasattr(schema, "model_validate"):
+        schema.model_validate(arguments)  # type: ignore[attr-defined]
+        return
+
+    if isinstance(schema, dict):
+        for key in schema.get("required", []):
+            if key not in arguments:
+                from backend.verification.exceptions import InputValidationError
+
+                raise InputValidationError(f"Missing required argument: {key!r}")
+
+
+def _build_call(
+    handler: Callable[..., Any],
+    check_id: str,
+    context: Any,
+    arguments: dict[str, Any],
+) -> tuple[list[Any], dict[str, Any]]:
+    """Map *arguments* onto the handler's declared parameters.
+
+    Handlers in this package follow ``(check_id, requirement, ...)`` while other
+    compatible handlers follow ``(context, arguments)``.  The mapping is derived
+    from the signature, never by mutating the caller's argument dict.
+    """
+    signature = inspect.signature(handler)
+    parameters = signature.parameters
+
+    if "context" in parameters and "check_id" not in parameters:
+        # Generic adapter style: (context, arguments).
+        return [context, dict(arguments)], {}
+
+    positional: list[Any] = []
+    keyword: dict[str, Any] = {}
+    consumed: set[str] = set()
+
+    for name, parameter in parameters.items():
+        if parameter.kind is inspect.Parameter.VAR_KEYWORD:
+            for key, value in arguments.items():
+                if key not in consumed and key not in keyword:
+                    keyword[key] = value
+            continue
+        if parameter.kind is inspect.Parameter.VAR_POSITIONAL:
+            continue
+
+        if name == "check_id":
+            value = check_id
+        elif name == "context":
+            value = context
+        elif name == "arguments":
+            value = dict(arguments)
+        elif name in arguments:
+            value = arguments[name]
+            consumed.add(name)
+        elif name == "config":
+            value = arguments.get("config")
+            consumed.add("config")
+        elif parameter.default is not inspect.Parameter.empty:
+            continue
+        else:
+            value = None
+
+        if parameter.kind is inspect.Parameter.POSITIONAL_ONLY or parameter.kind is inspect.Parameter.POSITIONAL_OR_KEYWORD:
+            positional.append(value)
+        else:
+            keyword[name] = value
+
+    return positional, keyword
+
 
 def execute_check(
     check_id: str,
@@ -110,129 +189,63 @@ def execute_check(
 ) -> VerificationCheckResult:
     """Execute a registered verification check and return its result.
 
-    The registry validates that *check_id* is known, validates arguments against
-    the registered schema (if any), and dispatch to the handler.  All exceptions
-    are normalised into ``VerificationCheckResult`` with appropriate status.
-
     Args:
         check_id: The registered check identifier.
-        context: VerificationContext or equivalent dict-like object.
-        arguments: Check-specific arguments.  Must conform to the registered
-            schema if one was provided at registration time.  Expected keys
-            depend on the registered check handler.
+        context: ``VerificationContext`` or equivalent dict-like object.
+        arguments: Check-specific arguments.  The caller's dict is never
+            mutated.
 
     Returns:
-        A ``VerificationCheckResult`` produced by the handler.
-
-    Raises:
-        ValueError: If *check_id* is not registered.
-        InputValidationError: If arguments fail schema validation.
+        A ``VerificationCheckResult`` produced by the handler.  Dispatch and
+        handler failures are normalised to ``CheckStatus.ERROR``.
     """
     if check_id not in _tool_handlers:
-        return VerificationCheckResult(
-            requirement_id="",
-            status="error",
-            expected=None,
-            actual=None,
-            tolerance=None,
-            evidence_refs=[],
-            details={"error": f"Unregistered check: {check_id!r}"},
-        )
+        return _error_result(check_id, f"Unregistered check: {check_id!r}")
+
+    requirement = arguments.get("requirement")
+    requirement_id = getattr(requirement, "id", "") or ""
+
+    try:
+        _validate_arguments(check_id, arguments)
+    except Exception as exc:
+        from backend.verification.exceptions import InputValidationError
+
+        if isinstance(exc, InputValidationError):
+            raise
+        raise InputValidationError(
+            f"Argument schema validation failed for check {check_id!r}: {exc}"
+        ) from exc
 
     handler = _tool_handlers[check_id]
-    schema = _tool_schemas.get(check_id)
-    timeout = _tool_timeout.get(check_id)
 
-    # Argument schema validation (if provided)
-    if schema is not None:
-        try:
-            # Support both Pydantic BaseModel and dict-based validation
-            if hasattr(schema, "model_validate"):
-                schema.model_validate(arguments)  # type: ignore[attr-defined]
-            elif isinstance(schema, dict):
-                # Lightweight dict validation: check required keys exist
-                required = schema.get("required", [])
-                # Allow missing required keys if the handler can deal with it;
-                # the checker will decide what to do with missing data.
-                for key in required:
-                    if key not in arguments:
-                        raise InputValidationError(
-                            f"Missing required argument: {key!r}"
-                        )
-            else:
-                # Unknown schema type; skip strict validation but log
-                pass
-        except InputValidationError:
-            raise
-        except Exception as exc:  # noqa: BLE001
-            raise InputValidationError(
-                f"Argument schema validation failed for check {check_id!r}: {exc}"
-            )
-
-    # Execute the handler — adapt arguments to the handler's expected signature.
-    # The handler (checker execute_check) may expect (check_id, requirement, ...)
-    # or (context, arguments, ...).  We detect and adapt.
     try:
-        # Try the standard adapter: extract requirement from arguments if present
-        requirement = arguments.pop("requirement", None)
-        # Also try to extract check_id if present
-        # Re-invoke handler with adapted arguments
-        if requirement is not None and hasattr(handler, "__code__"):
-            # For checkers that expect (check_id, requirement, ...)
-            import inspect
-            sig = inspect.signature(handler)
-            param_names = list(sig.parameters.keys())
-            if len(param_names) >= 2 and param_names[0] == "check_id" and param_names[1] == "requirement":
-                # Handler expects (check_id, requirement, ...); pass check_id from registry
-                result = handler(check_id, requirement, **arguments)
-            elif len(param_names) >= 1 and param_names[0] == "context":
-                # Handler expects (context, arguments, ...)
-                args_dict = dict(arguments)
-                if requirement is not None:
-                    args_dict["requirement"] = requirement
-                result = handler(context, args_dict)
-            else:
-                # Fallback: try original call pattern
-                result = handler(context, arguments)
-        else:
-            # Fallback: try original call pattern
-            result = handler(context, arguments)
-    except Exception as exc:  # noqa: BLE001
-        # If adaptation fails, return error result
-        return VerificationCheckResult(
-            requirement_id="",
-            status="error",
-            expected=None,
-            actual=None,
-            tolerance=None,
-            evidence_refs=[],
-            details={"error": f"Check execution error: {exc}"},
+        positional, keyword = _build_call(handler, check_id, context, arguments)
+        result = handler(*positional, **keyword)
+    except Exception as exc:  # noqa: BLE001 - boundary: normalise to ERROR
+        logger.warning("Verification check %r failed: %s", check_id, exc)
+        return _error_result(
+            check_id,
+            f"Check execution error: {type(exc).__name__}: {exc}",
+            requirement_id,
         )
 
-    # Ensure the result is a VerificationCheckResult
     if not isinstance(result, VerificationCheckResult):
-        return VerificationCheckResult(
-            requirement_id="",
-            status="error",
-            expected=None,
-            actual=None,
-            tolerance=None,
-            evidence_refs=[],
-            details={"error": f"Handler did not return VerificationCheckResult: {type(result).__name__}"},
+        return _error_result(
+            check_id,
+            f"Handler did not return VerificationCheckResult: {type(result).__name__}",
+            requirement_id,
         )
 
-    # Apply timeout if needed (runtime enforcement is caller + LangGraph
-    # responsibility; here we just record that a timeout was configured)
-    if timeout is not None:
-        pass
+    if not result.requirement_id and requirement_id:
+        result = result.model_copy(update={"requirement_id": requirement_id})
 
     return result
 
 
-# ---------------------------------------------------------------------------
-# Module initialisation: no side effects beyond function definitions.
-# ---------------------------------------------------------------------------
-
-# Ensure the module can be imported without side effects beyond function
-# definitions and the harmless dict initialisations above.  No API calls,
-# no network hooks, no registry mutations occur at module load time.
+__all__ = [
+    "execute_check",
+    "get_check_description",
+    "is_check_registered",
+    "list_checks",
+    "register_check",
+]
