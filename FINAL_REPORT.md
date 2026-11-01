@@ -200,9 +200,11 @@ hashes are recorded in the pull request description.
 
 - Branch: `backend3` (no other branch used).
 - PR #41 (`backend3 → main`) was merged by the repository owner at
-  `2026-11-01T07:34:31Z` (merge commit `54e6988`), so it cannot be updated. A new
-  pull request from `backend3` into `main` is created for this work; the URL is
-  recorded in the final push summary.
+  `2026-11-01T07:34:31Z` (merge commit `54e6988`), so it could not be updated.
+  This work is published as PR #42: https://github.com/prnvvv/RL-Studio/pull/42
+  (`backend3 → main`, OPEN, MERGEABLE, not merged).
+- `origin/main` was merged into `backend3` before pushing (`629814e`); no history
+  was rewritten and no force-push was used.
 
 ## 10. Safety confirmation
 
