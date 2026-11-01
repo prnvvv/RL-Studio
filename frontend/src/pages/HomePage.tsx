@@ -84,6 +84,21 @@ export function HomePage() {
               >
                 View Environments
               </Link>
+              <Link
+                to="/training#intent"
+                style={{
+                  padding: '8px 16px',
+                  background: 'var(--bg-panel)',
+                  color: 'var(--text-secondary)',
+                  textDecoration: 'none',
+                  border: '1px dashed var(--border-primary)',
+                  borderRadius: 'var(--radius-sm)',
+                  fontSize: 'var(--text-base)',
+                  fontFamily: 'var(--font-sans)',
+                }}
+              >
+                Describe intended behaviour
+              </Link>
             </div>
           </div>
 
