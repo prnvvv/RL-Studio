@@ -109,6 +109,8 @@ def serialize_verification_output(
     error: str | None = None,
     warnings: list[str] | None = None,
     diagnosis: dict[str, Any] | None = None,
+    anomalies: list[Any] | None = None,
+    consistency: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build the public, JSON-safe verification output payload."""
     requirements_payload = {
@@ -138,6 +140,10 @@ def serialize_verification_output(
         output["error"] = error
     if diagnosis is not None:
         output["diagnosis"] = to_jsonable(diagnosis)
+    if anomalies is not None:
+        output["anomalies"] = to_jsonable(anomalies)
+    if consistency is not None:
+        output["consistency"] = to_jsonable(consistency)
     return output
 
 
