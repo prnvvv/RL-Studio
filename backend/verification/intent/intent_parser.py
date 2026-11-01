@@ -186,6 +186,9 @@ def _parse_step_requirement(text: str) -> dict[str, Any] | None:
                 "comparison_operator": operator,
                 "description": f"episode within {steps} steps {operator}",
                 "source": RequirementSource.code_inferred.value,
+                # ``max_steps`` lets the episode checker evaluate the step bound
+                # without re-deriving it from free text.
+                "metadata": {"max_steps": steps},
             }
 
     return None
@@ -196,21 +199,25 @@ def _parse_termination_requirement(text: str) -> dict[str, Any] | None:
     text_lower = text.lower()
 
     if "terminate successfully" in text_lower or "terminate success" in text_lower:
+        # "Successfully" is stricter than "terminated": an episode that stops
+        # only because it was truncated has not terminated successfully.  The
+        # checker vocabulary distinguishes the two outcomes, so keep the
+        # stricter expectation instead of collapsing it to ``True``.
         return {
             "type": RequirementType.termination.value,
-            "expected_value": True,
+            "expected_value": "goal_attained",
             "comparison_operator": "==",
             "description": "episode terminate successfully",
             "source": RequirementSource.code_inferred.value,
         }
 
     if "terminate" in text_lower and "success" not in text_lower:
-        # "the episode must terminate" without qualification → we can
-        # record that termination is expected but not specify a Boolean
-        # value; return expected_value=None so the checker handles it.
+        # A plain "must terminate" is a confirmed expectation that the episode
+        # ends: termination is the expected outcome, so the expected value is
+        # the boolean ``True`` rather than an unresolved ``None``.
         return {
             "type": RequirementType.termination.value,
-            "expected_value": None,
+            "expected_value": True,
             "comparison_operator": "==",
             "description": "episode must terminate",
             "source": RequirementSource.code_inferred.value,
@@ -220,9 +227,26 @@ def _parse_termination_requirement(text: str) -> dict[str, Any] | None:
 
 
 def _parse_event_requirement(text: str) -> dict[str, Any] | None:
-    """Parse ``agent must never emit the forbidden event`` etc."""
+    """Parse ``agent must never emit the forbidden event`` etc.
+
+    A concrete event name is only recorded when the developer's own text names
+    one.  When the intent refers to "the forbidden event" without naming it,
+    the constraint stays unresolved (``forbidden_event`` is ``None``) and the
+    event checker reports ``UNKNOWN`` rather than inventing an event name.
+    """
     text_lower = text.lower()
 
+    #: Words that describe the *slot* of an event name rather than naming one.
+    #: Capturing these would invent a constraint the developer never stated.
+    placeholder_names = {"forbidden", "event", "the", "a", "an", "any"}
+
+    named_event = re.search(
+        r'must never emit (?:the )?["\'`]?([a-z][a-z0-9_]*)["\'`]?(?:\s+event)?',
+        text_lower,
+    )
+    event_name = named_event.group(1) if named_event else None
+    if event_name in placeholder_names:
+        event_name = None
     if "never emit" in text_lower or "forbidden event" in text_lower:
         return {
             "type": RequirementType.event.value,
@@ -230,6 +254,10 @@ def _parse_event_requirement(text: str) -> dict[str, Any] | None:
             "comparison_operator": "!=",  # "never" → event must not occur
             "description": "agent must never emit forbidden event",
             "source": RequirementSource.code_inferred.value,
+            "metadata": {
+                "forbidden_event": event_name,
+                "constraint": "forbidden_event",
+            },
         }
 
     if "must emit the goal reached event" in text_lower or "must emit goal_reached" in text_lower:
@@ -239,6 +267,10 @@ def _parse_event_requirement(text: str) -> dict[str, Any] | None:
             "comparison_operator": "==",
             "description": "agent must emit goal_reached event",
             "source": RequirementSource.code_inferred.value,
+            "metadata": {
+                "required_event": "goal_reached",
+                "constraint": "required_event",
+            },
         }
 
     return None
@@ -268,6 +300,7 @@ def _parse_learning_rate_requirement(text: str) -> dict[str, Any] | None:
             "comparison_operator": "==",
             "description": f"learning rate == {lr}",
             "source": RequirementSource.code_inferred.value,
+            "metadata": {"config_key": "learning_rate"},
         }
 
     # Also handle "learning rate should be X"
@@ -280,6 +313,7 @@ def _parse_learning_rate_requirement(text: str) -> dict[str, Any] | None:
             "comparison_operator": "==",
             "description": f"learning rate == {lr}",
             "source": RequirementSource.code_inferred.value,
+            "metadata": {"config_key": "learning_rate"},
         }
 
     return None
