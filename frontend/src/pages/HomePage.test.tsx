@@ -32,7 +32,9 @@ describe('HomePage', () => {
       'href',
       '/environments',
     )
-    expect(screen.getByRole('link', { name: 'Login' })).toHaveAttribute('href', '/login')
+    const loginLinks = screen.getAllByRole('link', { name: 'Login' })
+    expect(loginLinks.length).toBeGreaterThanOrEqual(1)
+    loginLinks.forEach((link) => expect(link).toHaveAttribute('href', '/login'))
     expect(screen.getByRole('link', { name: 'Describe intended behaviour' })).toHaveAttribute(
       'href',
       '/training#intent',
