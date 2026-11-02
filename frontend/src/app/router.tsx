@@ -9,12 +9,14 @@ import { ReportsPage } from '../pages/ReportsPage'
 import { RunDetailPage } from '../pages/RunDetailPage'
 import { SettingsPage } from '../pages/SettingsPage'
 import { NotFoundPage } from '../pages/NotFoundPage'
+import { LoginPage } from '../pages/LoginPage'
 
 export function AppRouter() {
   return (
     <RouteErrorBoundary>
       <Routes>
         <Route path="/" element={<HomePage />} />
+        <Route path="/login" element={<LoginPage />} />
         <Route path="/training" element={<TrainingPage />} />
         <Route path="/environments" element={<EnvironmentsPage />} />
         <Route path="/monitoring" element={<MonitoringPage />} />
