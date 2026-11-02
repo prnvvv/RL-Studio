@@ -1,39 +1,58 @@
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import { describe, expect, it } from 'vitest'
-import { ThemeProvider } from '../contexts/ThemeContext'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { HomePage } from './HomePage'
 
 function renderHome() {
-  render(
-    <ThemeProvider>
-      <MemoryRouter initialEntries={['/']}>
-        <HomePage />
-      </MemoryRouter>
-    </ThemeProvider>,
+  return render(
+    <MemoryRouter initialEntries={['/']}>
+      <HomePage />
+    </MemoryRouter>,
   )
 }
 
-describe('HomePage', () => {
-  it('keeps the welcome actions and honest summary metrics', () => {
-    renderHome()
-
-    expect(screen.getByRole('heading', { name: 'Train. Monitor. Recover.' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Start Training' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'View Environments' })).toBeInTheDocument()
-    // No run data is loaded, so no metric claims a value.
-    expect(screen.getAllByText('—')).toHaveLength(3)
+describe('HomePage (landing)', () => {
+  beforeEach(() => {
+    // jsdom has no WebGL or matchMedia; the scene must degrade silently.
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn().mockImplementation((query: string) => ({
+        matches: false,
+        media: query,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      })),
+    )
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null)
   })
 
-  it('links explicitly to the intent composer on the training page', () => {
+  it('renders the headline as the single h1', () => {
     renderHome()
-
-    const deepLink = screen.getByRole('link', { name: 'Describe intended behaviour' })
-    expect(deepLink).toHaveAttribute('href', '/training#intent')
+    const heading = screen.getByRole('heading', { level: 1 })
+    expect(heading).toHaveTextContent('A safer sandbox for stronger agents.')
   })
 
-  it('labels the warehouse figure as an illustration, not a running simulation', () => {
+  it('offers the Open Studio and Watch Demo calls to action', () => {
     renderHome()
-    expect(screen.getByText('Illustration preview — not a running simulation.')).toBeInTheDocument()
+    const openLinks = screen.getAllByRole('link', { name: /Open Studio/ })
+    expect(openLinks.length).toBeGreaterThanOrEqual(2)
+    openLinks.forEach((link) => expect(link).toHaveAttribute('href', '/training'))
+    expect(screen.getByRole('link', { name: /Watch Demo/ })).toBeInTheDocument()
+  })
+
+  it('shows the three capability labels and an accessible scroll hint', () => {
+    renderHome()
+    expect(screen.getAllByText('Fault Detection').length).toBeGreaterThan(0)
+    expect(screen.getByText('Experience Provenance')).toBeInTheDocument()
+    expect(screen.getByText('Adaptive Recovery')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Scroll to overview' })).toBeInTheDocument()
+  })
+
+  it('keeps the particle scene decorative and survives missing WebGL', () => {
+    const { container } = renderHome()
+    const scene = container.querySelector('.ls-scene')
+    expect(scene).toHaveAttribute('aria-hidden', 'true')
+    // No WebGL in jsdom: the canvas is dropped rather than left blank.
+    expect(scene?.querySelector('canvas')).toBeNull()
   })
 })
