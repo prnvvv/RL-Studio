@@ -49,3 +49,13 @@ export function labeledMockData<T>(data: T): MockData<T> {
 export function labeledMockResult<T>(data: T): ServiceResult<MockData<T>> {
   return { state: 'ok', data: labeledMockData(data) }
 }
+
+/**
+ * Remove the shared `Sample data` wrapper from a service payload.
+ *
+ * Presentation helpers and a service payload may both carry the contract
+ * `MockData<T>` shape; this returns the underlying value either way.
+ */
+export function unwrapMockData<T extends object>(payload: T | MockData<T>): T {
+  return 'label' in payload ? (payload as MockData<T>).data : payload
+}

@@ -118,6 +118,30 @@ describe('DiagnosisRecoveryPage with a focused incident (sample-data mode)', () 
     expect(within(incident).getAllByText('Not available').length).toBeGreaterThan(0)
   })
 
+  it('plays the run trajectory with markers only at recorded evidence events', async () => {
+    renderFocused()
+
+    // The incident record names the run; the panel loads that run's replay.
+    const trajectory = await screen.findByRole('region', { name: 'Recorded trajectory' })
+    const grid = await within(trajectory).findByTestId('warehouse-grid')
+    expect(within(trajectory).getAllByText('Sample data')).not.toHaveLength(0)
+    // The label binds samples and live claims apart inside the panel.
+    expect(grid.getAttribute('aria-label') ?? '').toMatch(/recorded replay; not a live simulation/i)
+
+    // Playback starts at the recording's first recorded timestep.
+    await within(trajectory).findByRole('slider')
+    expect(within(trajectory).getByRole('slider')).toHaveAttribute(
+      'aria-valuetext',
+      'Timestep 796 of 825',
+    )
+
+    // Only the incident's recorded evidence event is annotated — nothing is
+    // inferred from metric context.
+    const markers = within(trajectory).getAllByTestId('fault-marker')
+    expect(markers).toHaveLength(1)
+    expect(markers[0]).toHaveAttribute('data-event-id', 'evt_demo_step_812')
+  })
+
   it('labels anomaly findings as detector signals, not confirmed faults', async () => {
     renderFocused()
 
@@ -149,6 +173,61 @@ describe('DiagnosisRecoveryPage with a focused incident (sample-data mode)', () 
     const recovery = screen.getByRole('region', { name: 'Recovery' })
     expect(within(recovery).getByText('No recovery plan')).toBeInTheDocument()
     expect(within(recovery).queryAllByRole('button')).toHaveLength(0)
+  })
+
+  it('keeps the live recovery workflow as an explicit section without a recorded assessment', async () => {
+    renderFocused()
+
+    // The live workflow is its own region, distinct from the page-level
+    // recovery record region; requesting an assessment is explicit.
+    const workflow = await screen.findByRole('region', { name: 'Recovery workflow' })
+    expect(
+      await within(workflow).findByText(/computes eligibility and compatibility itself/i),
+    ).toBeInTheDocument()
+    expect(
+      await within(workflow).findByText(/No assessment is supplied for this incident yet/),
+    ).toBeInTheDocument()
+    // The explicit assessment request is the only control, and the gated
+    // execution request does not exist until the assessment record opens it.
+    const buttons = within(workflow).getAllByRole('button')
+    expect(buttons).toHaveLength(1)
+    expect(buttons[0]!.textContent).toContain('Request compatibility assessment')
+    expect(within(workflow).queryByText(/Request controlled recovery/)).not.toBeInTheDocument()
+  })
+
+  it('reports an assessment-request failure honestly without fabricating an assessment', async () => {
+    renderFocused()
+
+    const workflow = await screen.findByRole('region', { name: 'Recovery workflow' })
+    const buttons = within(workflow).getAllByRole('button')
+    expect(buttons).toHaveLength(1) // the explicit assessment request is the only control
+    fireEvent.click(within(workflow).getAllByRole('button')[0]!)
+
+    // The live provider does not exist in this test environment, so the page
+    // reports the honest mapped failure instead of a fabricated record.
+    expect(
+      await within(workflow).findByText(/The assessment request could not be completed/),
+    ).toBeInTheDocument()
+    expect(within(workflow).queryByText('Eligibility: eligible')).not.toBeInTheDocument()
+  })
+
+  it('states that no evaluation record is connected when no id is supplied', async () => {
+    renderFocused()
+
+    const evaluation = await screen.findByRole('region', { name: 'Evaluation' })
+    expect(
+      await within(evaluation).findByText(/No evaluation record is connected to this view/),
+    ).toBeInTheDocument()
+    expect(within(evaluation).queryByText(/Recovery verified/)).not.toBeInTheDocument()
+  })
+
+  it('reports an evaluation fetch failure honestly when a record id is connected', async () => {
+    vi.stubEnv('VITE_USE_MOCKS', 'true')
+    renderPage(`/diagnosis-recovery?incidentId=${DEMO_INCIDENT_ID}&evaluationId=eval_demo`)
+
+    // No live evaluation endpoint exists in the test environment; the honest
+    // mapped failure is displayed rather than any computed outcome.
+    expect(await screen.findByText(/The evaluation record could not be loaded/)).toBeInTheDocument()
   })
 
   it('keeps the no-incident focus claim when the URL has no incident id', () => {

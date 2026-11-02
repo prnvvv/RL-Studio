@@ -17,7 +17,7 @@ function renderRoute(path: string) {
 describe('AppRouter', () => {
   it('renders a distinct heading for every documented destination', () => {
     const destinations = [
-      { path: '/', heading: 'Train. Monitor. Recover.' },
+      { path: '/', heading: 'A safer sandbox for stronger agents.' },
       { path: '/training', heading: 'Training Dashboard' },
       { path: '/environments', heading: 'Simulation Environment' },
       { path: '/monitoring', heading: 'Monitoring' },
@@ -37,6 +37,12 @@ describe('AppRouter', () => {
       expect(screen.getByRole('heading', { level: 1, name: heading })).toBeInTheDocument()
       unmount()
     })
+  })
+
+  it('renders the run detail route from a path-scoped run identifier', () => {
+    renderRoute('/reports/run_1')
+
+    expect(screen.getByRole('heading', { level: 1, name: 'Run run_1' })).toBeInTheDocument()
   })
 
   it('shows a not-found surface for an unknown URL without changing state', () => {
