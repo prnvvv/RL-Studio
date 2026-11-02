@@ -39,3 +39,8 @@ export function filterRuns(runs: RunSummary[], query: string): RunSummary[] {
   if (needle === '') return runs
   return runs.filter((run) => searchableText(run).includes(needle))
 }
+
+/** The unified diagnostic report route for a run (Phase 6, `/reports/:runId`). */
+export function runDetailPath(runId: string): string {
+  return `/reports/${encodeURIComponent(runId)}`
+}
