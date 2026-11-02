@@ -39,6 +39,12 @@ describe('AppRouter', () => {
     })
   })
 
+  it('renders the run detail route from a path-scoped run identifier', () => {
+    renderRoute('/reports/run_1')
+
+    expect(screen.getByRole('heading', { level: 1, name: 'Run run_1' })).toBeInTheDocument()
+  })
+
   it('shows a not-found surface for an unknown URL without changing state', () => {
     renderRoute('/does-not-exist')
 

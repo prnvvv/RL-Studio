@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { filterRuns, RunSummary } from './runHistory'
+import { filterRuns, runDetailPath, RunSummary } from './runHistory'
 
 const runs: RunSummary[] = [
   {
@@ -61,5 +61,15 @@ describe('filterRuns', () => {
     expect(filterRuns(runs, 'null')).toEqual([])
     expect(filterRuns(runs, 'undefined')).toEqual([])
     expect(filterRuns(runs, 'not available')).toEqual([])
+  })
+})
+
+describe('runDetailPath', () => {
+  it('builds the unified diagnostic report route for a run id', () => {
+    expect(runDetailPath('run_0001')).toBe('/reports/run_0001')
+  })
+
+  it('encodes characters a run id could contain but a URL path segment cannot', () => {
+    expect(runDetailPath('run/weird id?')).toBe('/reports/run%2Fweird%20id%3F')
   })
 })
