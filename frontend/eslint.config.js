@@ -21,7 +21,10 @@ export default tseslint.config(
       ...reactHooks.configs.recommended.rules,
       'react-refresh/only-export-components': [
         'warn',
-        { allowConstantExport: true, allowExportNames: ['useTheme'] },
+        {
+          allowConstantExport: true,
+          allowExportNames: ['useTheme', 'useLiveEventsContext'],
+        },
       ],
       'no-console': ['warn', { allow: ['warn', 'error'] }],
       // `_`-prefixed parameters are intentionally unused (e.g. test mocks
