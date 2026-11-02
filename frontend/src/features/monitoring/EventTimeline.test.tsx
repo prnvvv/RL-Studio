@@ -74,6 +74,26 @@ describe('EventTimeline', () => {
     expect(screen.getByText('Showing 3 of 42 recorded events.')).toBeInTheDocument()
   })
 
+  it('reports a missing recorded timestamp instead of inventing a time', () => {
+    render(
+      <EventTimeline
+        events={[
+          {
+            id: 'evt_untimed',
+            timestamp: null,
+            category: 'unknown',
+            title: 'Event recorded without a timestamp',
+          },
+        ]}
+      />,
+    )
+
+    expect(screen.getByText('Not recorded')).toBeInTheDocument()
+    expect(screen.queryByText('Invalid time')).not.toBeInTheDocument()
+    // No <time> element is rendered without a real timestamp.
+    expect(document.querySelector('time')).toBeNull()
+  })
+
   it('renders nothing for an empty event list so the page can own the empty state', () => {
     const { container } = render(<EventTimeline events={[]} />)
     expect(container).toBeEmptyDOMElement()

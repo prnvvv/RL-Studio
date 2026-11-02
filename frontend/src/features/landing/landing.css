@@ -1,0 +1,637 @@
+/* Landing page. Strictly monochrome, scoped under .ls-root so it never leaks
+   into the application shell. Fonts are loaded in index.html. */
+
+.ls-root {
+  --ls-bg: #060606;
+  --ls-text: #ededeb;
+  --ls-dim: #7b7b7b;
+  --ls-faint: #5a5a5a;
+  --ls-line: rgba(255, 255, 255, 0.08);
+  --ls-line-faint: rgba(255, 255, 255, 0.055);
+  --ls-gutter: max(20px, 5.5vw);
+  --ls-serif: 'Instrument Serif', 'Iowan Old Style', Georgia, serif;
+  --ls-sans: Inter, 'Geist', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --ls-mono: 'JetBrains Mono', 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  min-height: 100vh;
+  background: var(--ls-bg);
+  color: var(--ls-text);
+  font-family: var(--ls-sans);
+}
+
+.ls-root a,
+.ls-root button {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ls-root a:focus-visible,
+.ls-root button:focus-visible {
+  outline: 1px solid rgba(255, 255, 255, 0.85);
+  outline-offset: 3px;
+}
+
+/* ---------- Entrance ---------- */
+
+@keyframes ls-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes ls-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.ls-enter {
+  animation: ls-rise 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation-delay: var(--d, 0ms);
+}
+
+.ls-nav.ls-enter {
+  animation-name: ls-fade;
+}
+
+/* ---------- First screen ---------- */
+
+.ls-first-screen {
+  position: relative;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  height: 100vh;
+  height: 100svh;
+  min-height: 620px;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse 70% 80% at 68% 48%, rgba(255, 255, 255, 0.035), transparent 70%),
+    radial-gradient(ellipse 120% 110% at 50% 50%, transparent 55%, rgba(0, 0, 0, 0.55) 100%),
+    var(--ls-bg);
+}
+
+/* Faint dust drifting in the lower-left. */
+@keyframes ls-dust {
+  from {
+    background-position:
+      0 0,
+      40px 20px,
+      10px 60px;
+  }
+  to {
+    background-position:
+      60px -50px,
+      -30px -70px,
+      80px -30px;
+  }
+}
+
+.ls-first-screen::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 42%;
+  height: 48%;
+  pointer-events: none;
+  opacity: 0.55;
+  background-image:
+    radial-gradient(circle, rgba(255, 255, 255, 0.5) 0 0.8px, transparent 1.4px),
+    radial-gradient(circle, rgba(255, 255, 255, 0.35) 0 0.7px, transparent 1.3px),
+    radial-gradient(circle, rgba(255, 255, 255, 0.28) 0 0.6px, transparent 1.2px);
+  background-size:
+    97px 113px,
+    151px 83px,
+    71px 139px;
+  -webkit-mask-image: radial-gradient(ellipse at 0% 100%, #000 10%, transparent 72%);
+  mask-image: radial-gradient(ellipse at 0% 100%, #000 10%, transparent 72%);
+  animation: ls-dust 38s linear infinite alternate;
+}
+
+.ls-main {
+  position: relative;
+  min-height: 0;
+  padding-left: var(--ls-gutter);
+}
+
+/* ---------- Navbar ---------- */
+
+.ls-nav {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  height: 64px;
+  padding: 0 var(--ls-gutter);
+  border-bottom: 1px solid var(--ls-line);
+}
+
+.ls-nav__brand {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+}
+
+.ls-nav__logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  text-decoration: none;
+}
+
+.ls-nav__divider {
+  width: 1px;
+  height: 18px;
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.ls-nav__tagline {
+  font-family: var(--ls-mono);
+  font-size: 10px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--ls-faint);
+  white-space: nowrap;
+}
+
+.ls-nav__links {
+  display: flex;
+  align-items: center;
+  gap: 30px;
+}
+
+.ls-nav__link {
+  color: #9a9a9a;
+  font-size: 13.5px;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.ls-nav__link:hover,
+.ls-nav__link:focus-visible {
+  color: #fff;
+}
+
+/* ---------- Pills ---------- */
+
+.ls-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  height: 46px;
+  padding: 0 24px;
+  border-radius: 999px;
+  font-family: var(--ls-sans);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  text-decoration: none;
+  white-space: nowrap;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease;
+}
+
+.ls-pill--sm {
+  height: 36px;
+  padding: 0 18px;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.ls-pill--solid {
+  background: #e9e9e9;
+  color: #0a0a0a;
+}
+
+.ls-pill--solid:hover {
+  background: #fff;
+}
+
+.ls-pill--ghost {
+  background: transparent;
+  color: #e4e4e4;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+}
+
+.ls-pill--ghost:hover {
+  border-color: rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.ls-pill__arrow {
+  transition: transform 0.2s ease;
+}
+
+.ls-pill:hover .ls-pill__arrow {
+  transform: translateX(3px);
+}
+
+/* ---------- Hero ---------- */
+
+.ls-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 45fr) minmax(0, 55fr);
+  align-items: center;
+  height: 100%;
+  min-height: 0;
+}
+
+.ls-hero__copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 26px;
+  padding-right: 24px;
+}
+
+.ls-eyebrow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0 0.6em;
+  margin: 0;
+  font-family: var(--ls-mono);
+  font-size: 11px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--ls-dim);
+}
+
+.ls-eyebrow__dot {
+  width: 5px;
+  height: 5px;
+  margin-right: 0.3em;
+  border-radius: 50%;
+  background: var(--ls-dim);
+}
+
+.ls-headline {
+  margin: 0;
+  font-family: var(--ls-serif);
+  font-weight: 400;
+  font-size: clamp(44px, 5vw, 72px);
+  line-height: 1.02;
+  letter-spacing: -0.02em;
+  color: #f1f1ef;
+}
+
+.ls-headline__line {
+  display: block;
+}
+
+.ls-headline em {
+  font-style: italic;
+  padding-right: 0.06em;
+  color: #9d9d9d;
+  background: linear-gradient(180deg, #c4c4c4 10%, #757575 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.ls-cta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  margin-top: 6px;
+}
+
+/* ---------- Particle scene ----------
+   The canvas fades out through a vignette in the particle shader, not a CSS
+   mask: masks on GPU-composited WebGL canvases under 3D transforms are a
+   known source of blank rendering on some drivers. */
+
+.ls-hero__scene {
+  container-type: size;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: 0;
+  min-width: 0;
+}
+
+.ls-scene {
+  position: relative;
+  width: min(100cqw, calc(100cqh * var(--ls-aspect, 1.2)));
+  animation: ls-fade 1.4s ease-out 0.3s both;
+}
+
+.ls-scene__stage {
+  position: absolute;
+  inset: 0;
+  transition: transform 0.9s cubic-bezier(0.2, 0.7, 0.2, 1);
+  will-change: transform;
+}
+
+.ls-scene__host {
+  width: 100%;
+  height: 100%;
+}
+
+.ls-scene__canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.ls-scene__stats {
+  position: absolute;
+  left: 0;
+  bottom: -22px;
+  font-family: var(--ls-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: #8a8a8a;
+  pointer-events: none;
+  max-width: 100%;
+}
+
+.ls-marker {
+  position: absolute;
+  color: #dcdcdc;
+}
+
+.ls-marker--goal {
+  transform: translate(-22%, -100%);
+  filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.45));
+  animation: ls-glow 3.2s ease-in-out infinite;
+}
+
+.ls-marker--hazard {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  transform: translate(-50%, -50%);
+  cursor: crosshair;
+  animation: ls-flicker 3.6s ease-in-out infinite;
+}
+
+@keyframes ls-glow {
+  0%,
+  100% {
+    opacity: 0.85;
+    filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.35));
+  }
+  50% {
+    opacity: 1;
+    filter: drop-shadow(0 0 14px rgba(255, 255, 255, 0.7));
+  }
+}
+
+@keyframes ls-flicker {
+  0%,
+  100% {
+    opacity: 0.9;
+  }
+  41% {
+    opacity: 0.55;
+  }
+  44% {
+    opacity: 1;
+  }
+  47% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* ---------- Bottom strip ---------- */
+
+.ls-bottom {
+  position: relative;
+  padding: 0 var(--ls-gutter);
+}
+
+.ls-strip {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--ls-line-faint);
+  border-bottom: 1px solid var(--ls-line-faint);
+}
+
+.ls-strip__item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 22px 12px;
+}
+
+.ls-strip__item + .ls-strip__item {
+  border-left: 1px solid var(--ls-line-faint);
+}
+
+.ls-strip__icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 50%;
+  color: #bdbdbd;
+}
+
+.ls-strip__label {
+  font-family: var(--ls-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ls-dim);
+}
+
+.ls-bottom__row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 64px;
+}
+
+.ls-scroll {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  background: transparent;
+  color: #bdbdbd;
+  cursor: pointer;
+  transition:
+    border-color 0.2s ease,
+    color 0.2s ease;
+}
+
+.ls-scroll:hover {
+  border-color: rgba(255, 255, 255, 0.5);
+  color: #fff;
+}
+
+.ls-sparkle {
+  position: absolute;
+  right: 0;
+  bottom: 22px;
+  color: #6a6a6a;
+}
+
+/* ---------- Overview (below the fold) ---------- */
+
+.ls-overview {
+  padding: 120px var(--ls-gutter) 140px;
+  border-top: 1px solid var(--ls-line);
+}
+
+.ls-overview__title {
+  margin: 0 0 48px;
+  font-family: var(--ls-serif);
+  font-weight: 400;
+  font-size: clamp(32px, 3.6vw, 52px);
+  letter-spacing: -0.02em;
+}
+
+.ls-overview__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 20px;
+}
+
+.ls-overview__card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 28px;
+  border: 1px solid var(--ls-line);
+  border-radius: 16px;
+}
+
+.ls-overview__card h3 {
+  margin: 0;
+  font-family: var(--ls-mono);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ls-dim);
+}
+
+.ls-overview__card p {
+  margin: 0;
+  flex: 1;
+  color: #b4b4b4;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.ls-overview__link {
+  color: #e9e9e9;
+  font-size: 13.5px;
+  text-decoration: underline;
+  text-decoration-color: rgba(255, 255, 255, 0.3);
+  text-underline-offset: 4px;
+}
+
+.ls-overview__link:hover {
+  text-decoration-color: #fff;
+}
+
+/* ---------- Responsive ---------- */
+
+@media (max-width: 1100px) {
+  .ls-nav__divider,
+  .ls-nav__tagline {
+    display: none;
+  }
+}
+
+@media (max-width: 1023px) {
+  .ls-first-screen {
+    height: auto;
+    min-height: 100svh;
+    grid-template-rows: auto auto auto;
+  }
+
+  .ls-main {
+    padding: 0 var(--ls-gutter);
+  }
+
+  .ls-nav__link {
+    display: none;
+  }
+
+  .ls-hero {
+    grid-template-columns: 1fr;
+    height: auto;
+    padding: 48px 0 8px;
+  }
+
+  .ls-hero__copy {
+    padding-right: 0;
+  }
+
+  .ls-hero__scene {
+    container-type: inline-size;
+    height: auto;
+    margin-top: 28px;
+  }
+
+  .ls-scene {
+    width: min(100cqw, calc(46vh * var(--ls-aspect, 1.2)));
+  }
+
+  .ls-strip__item {
+    flex-direction: column;
+    gap: 10px;
+    padding: 16px 6px;
+    text-align: center;
+  }
+
+  .ls-strip__label {
+    font-size: 9px;
+    letter-spacing: 0.16em;
+  }
+}
+
+@media (max-width: 520px) {
+  .ls-cta .ls-pill {
+    flex: 1 1 auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ls-first-screen::before,
+  .ls-marker--goal,
+  .ls-marker--hazard {
+    animation: none;
+  }
+
+  .ls-scene__stage {
+    transition: none;
+  }
+}

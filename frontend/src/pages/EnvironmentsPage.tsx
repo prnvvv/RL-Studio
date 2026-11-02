@@ -3,6 +3,9 @@ import { Panel } from '../components/ui/Panel'
 import { DefinitionList } from '../components/ui/DefinitionList'
 import { UnavailableState } from '../components/ui/UnavailableState'
 import { WarehouseIllustration } from '../components/illustrations/WarehouseIllustration'
+import { WarehousePlaybackViewer } from '../components/simulation/WarehousePlaybackViewer'
+import { mocksEnabled } from '../mocks'
+import { DEMO_RUN_ID } from '../mocks/verification'
 
 // No environment record has been loaded. Every detail row stays null so the UI
 // reports "Not available" instead of inventing a plausible warehouse.
@@ -17,6 +20,12 @@ const environmentDetails = [
 ]
 
 export function EnvironmentsPage() {
+  // Development-only: with the explicit mock opt-in, the panel plays the
+  // labeled demo replay instead of the static illustration. Without mocks the
+  // page renders exactly the honest no-record state below — no fetching, no
+  // invented environment state. Phase 4 will bind real run selection here.
+  const showSampleReplay = mocksEnabled()
+
   return (
     <ApplicationShell>
       <div className="page-stack">
@@ -87,35 +96,45 @@ export function EnvironmentsPage() {
         <div className="split-layout">
           <Panel
             title="Warehouse Simulation"
-            description="Illustration preview. Not a running simulation."
+            description={
+              showSampleReplay
+                ? 'Sample-data playback. Not a live simulation.'
+                : 'Illustration preview. Not a running simulation.'
+            }
           >
-            <figure style={{ margin: 0 }}>
-              <WarehouseIllustration />
-              <figcaption
-                style={{
-                  marginTop: 'var(--space-3)',
-                  fontSize: 'var(--text-xs)',
-                  color: 'var(--text-muted)',
-                  fontFamily: 'var(--font-sans)',
-                }}
-              >
-                Illustration preview — shelves, obstacles, robot, goal marker, and route are
-                representative, not recorded environment state.
-              </figcaption>
-            </figure>
-            <div
-              style={{
-                marginTop: 'var(--space-3)',
-                borderTop: '1px solid var(--border-secondary)',
-                paddingTop: 'var(--space-3)',
-              }}
-            >
-              <UnavailableState
-                title="Live simulation state unavailable"
-                description="No environment record is connected, so the grid, agent position and trajectory cannot be shown. The illustration above is not simulation output."
-                owner="Person 2 — RL engine (environment state contract)"
-              />
-            </div>
+            {showSampleReplay ? (
+              <WarehousePlaybackViewer runId={DEMO_RUN_ID} />
+            ) : (
+              <>
+                <figure style={{ margin: 0 }}>
+                  <WarehouseIllustration />
+                  <figcaption
+                    style={{
+                      marginTop: 'var(--space-3)',
+                      fontSize: 'var(--text-xs)',
+                      color: 'var(--text-muted)',
+                      fontFamily: 'var(--font-sans)',
+                    }}
+                  >
+                    Illustration preview — shelves, obstacles, robot, goal marker, and route are
+                    representative, not recorded environment state.
+                  </figcaption>
+                </figure>
+                <div
+                  style={{
+                    marginTop: 'var(--space-3)',
+                    borderTop: '1px solid var(--border-secondary)',
+                    paddingTop: 'var(--space-3)',
+                  }}
+                >
+                  <UnavailableState
+                    title="Live simulation state unavailable"
+                    description="No environment record is connected, so the grid, agent position and trajectory cannot be shown. The illustration above is not simulation output."
+                    owner="Person 2 — RL engine (environment state contract)"
+                  />
+                </div>
+              </>
+            )}
           </Panel>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>

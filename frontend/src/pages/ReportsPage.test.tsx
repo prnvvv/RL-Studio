@@ -4,10 +4,10 @@ import { MemoryRouter } from 'react-router-dom'
 import { ThemeProvider } from '../contexts/ThemeContext'
 import { ReportsPage } from './ReportsPage'
 
-function renderPage() {
+function renderPage(initialEntry = '/reports') {
   render(
     <ThemeProvider>
-      <MemoryRouter initialEntries={['/reports']}>
+      <MemoryRouter initialEntries={[initialEntry]}>
         <ReportsPage />
       </MemoryRouter>
     </ThemeProvider>,
@@ -90,5 +90,18 @@ describe('ReportsPage', () => {
     const summary = screen.getByRole('region', { name: 'Evaluation Summary' })
     expect(summary).toHaveTextContent('No evaluation records')
     expect(within(summary).queryByRole('img')).not.toBeInTheDocument()
+  })
+
+  it('displays a connected evaluation record honestly when ids are supplied', async () => {
+    renderPage('/reports?incidentId=inc_demo&evaluationId=eval_demo')
+
+    // No live evaluation endpoint exists in the test environment, so the
+    // honest mapped failure is shown instead of a fabricated comparison.
+    const summary = await screen.findByRole('region', { name: 'Evaluation Summary' })
+    expect(
+      await within(summary).findByText(/The evaluation record could not be loaded/),
+    ).toBeInTheDocument()
+    // The empty-state claim no longer applies while a record is connected.
+    expect(within(summary).queryByText('No evaluation records')).not.toBeInTheDocument()
   })
 })
