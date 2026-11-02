@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { ThemeProvider } from '../contexts/ThemeContext'
@@ -17,7 +17,7 @@ import { AppRouter } from './router'
 const THEME_STORAGE_KEY = 'self-healing-rl-studio-theme'
 
 const DESTINATIONS: { path: string; heading: string }[] = [
-  { path: '/', heading: 'Train. Monitor. Recover.' },
+  { path: '/', heading: 'A safer sandbox for stronger agents.' },
   { path: '/training', heading: 'Training Dashboard' },
   { path: '/environments', heading: 'Simulation Environment' },
   { path: '/monitoring', heading: 'Monitoring' },
@@ -41,7 +41,24 @@ function renderAt(path: string, theme: 'dark' | 'light') {
 }
 
 describe('theme regression matrix', () => {
+  beforeEach(() => {
+    // The landing route renders a particle scene; jsdom has no WebGL or
+    // matchMedia, and the scene must degrade silently.
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn().mockImplementation((query: string) => ({
+        matches: false,
+        media: query,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      })),
+    )
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null)
+  })
+
   afterEach(() => {
+    vi.restoreAllMocks()
+    vi.unstubAllGlobals()
     window.localStorage.clear()
     document.documentElement.removeAttribute('data-theme')
   })
