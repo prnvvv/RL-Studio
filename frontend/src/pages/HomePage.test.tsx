@@ -1,58 +1,63 @@
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
+import { ThemeProvider } from '../contexts/ThemeContext'
 import { HomePage } from './HomePage'
 
 function renderHome() {
   return render(
-    <MemoryRouter initialEntries={['/']}>
-      <HomePage />
-    </MemoryRouter>,
+    <ThemeProvider>
+      <MemoryRouter initialEntries={['/']}>
+        <HomePage />
+      </MemoryRouter>
+    </ThemeProvider>,
   )
 }
 
-describe('HomePage (landing)', () => {
-  beforeEach(() => {
-    // jsdom has no WebGL or matchMedia; the scene must degrade silently.
-    vi.stubGlobal(
-      'matchMedia',
-      vi.fn().mockImplementation((query: string) => ({
-        matches: false,
-        media: query,
-        addEventListener: vi.fn(),
-        removeEventListener: vi.fn(),
-      })),
-    )
-    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null)
-  })
-
+describe('HomePage', () => {
   it('renders the headline as the single h1', () => {
     renderHome()
     const heading = screen.getByRole('heading', { level: 1 })
-    expect(heading).toHaveTextContent('A safer sandbox for stronger agents.')
+    expect(heading).toHaveTextContent('Train. Monitor. Recover.')
   })
 
-  it('offers the Open Studio and Watch Demo calls to action', () => {
+  it('offers the primary calls to action', () => {
     renderHome()
-    const openLinks = screen.getAllByRole('link', { name: /Open Studio/ })
-    expect(openLinks.length).toBeGreaterThanOrEqual(2)
-    openLinks.forEach((link) => expect(link).toHaveAttribute('href', '/training'))
-    expect(screen.getByRole('link', { name: /Watch Demo/ })).toBeInTheDocument()
+
+    expect(screen.getByRole('link', { name: 'Start Training' })).toHaveAttribute(
+      'href',
+      '/training',
+    )
+    expect(screen.getByRole('link', { name: 'View Environments' })).toHaveAttribute(
+      'href',
+      '/environments',
+    )
+    expect(screen.getByRole('link', { name: 'Login' })).toHaveAttribute('href', '/login')
+    expect(screen.getByRole('link', { name: 'Describe intended behaviour' })).toHaveAttribute(
+      'href',
+      '/training#intent',
+    )
   })
 
-  it('shows the three capability labels and an accessible scroll hint', () => {
+  it('shows the three capability pillars with their destinations', () => {
     renderHome()
-    expect(screen.getAllByText('Fault Detection').length).toBeGreaterThan(0)
-    expect(screen.getByText('Experience Provenance')).toBeInTheDocument()
-    expect(screen.getByText('Adaptive Recovery')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Scroll to overview' })).toBeInTheDocument()
+
+    expect(screen.getByText('Fault detection')).toBeInTheDocument()
+    expect(screen.getByText('Experience provenance')).toBeInTheDocument()
+    expect(screen.getByText('Adaptive recovery')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Open monitoring' })).toHaveAttribute(
+      'href',
+      '/monitoring',
+    )
+    expect(screen.getByRole('link', { name: 'Open diagnosis' })).toHaveAttribute(
+      'href',
+      '/diagnosis-recovery',
+    )
+    expect(screen.getByRole('link', { name: 'Open reports' })).toHaveAttribute('href', '/reports')
   })
 
-  it('keeps the particle scene decorative and survives missing WebGL', () => {
-    const { container } = renderHome()
-    const scene = container.querySelector('.ls-scene')
-    expect(scene).toHaveAttribute('aria-hidden', 'true')
-    // No WebGL in jsdom: the canvas is dropped rather than left blank.
-    expect(scene?.querySelector('canvas')).toBeNull()
+  it('labels the warehouse figure as an illustration, not a running simulation', () => {
+    renderHome()
+    expect(screen.getByText('Illustration preview — not a running simulation.')).toBeInTheDocument()
   })
 })
