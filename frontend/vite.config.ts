@@ -8,5 +8,9 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     setupFiles: './src/test/setup.ts',
+    env: {
+      // Keep API assertions relative regardless of a local .env override.
+      VITE_API_BASE_URL: '',
+    },
   },
 })
