@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { ThemeProvider } from '../contexts/ThemeContext'
@@ -36,19 +36,38 @@ function clickPrimaryNav(label: string) {
   fireEvent.click(within(primaryNav()).getByRole('link', { name: label }))
 }
 
+const LANDING_HEADING = 'A safer sandbox for stronger agents.'
+
 describe('cross-page navigation workflow', () => {
+  beforeEach(() => {
+    // The landing route renders a particle scene; jsdom has no WebGL or
+    // matchMedia, and the scene must degrade silently.
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn().mockImplementation((query: string) => ({
+        matches: false,
+        media: query,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      })),
+    )
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null)
+  })
+
   afterEach(() => {
+    vi.restoreAllMocks()
+    vi.unstubAllGlobals()
     window.localStorage.clear()
     document.documentElement.removeAttribute('data-theme')
   })
 
   it('reaches every primary and secondary destination from one session without losing the shell', () => {
     renderApp()
-    expect(
-      screen.getByRole('heading', { level: 1, name: 'Train. Monitor. Recover.' }),
-    ).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 1, name: LANDING_HEADING })).toBeInTheDocument()
 
-    clickPrimaryNav('Training')
+    // The landing page is a standalone surface without the application shell;
+    // its Open Studio call to action is the way into the shell.
+    fireEvent.click(within(primaryNav()).getByRole('link', { name: /Open Studio/ }))
     expect(
       screen.getByRole('heading', { level: 1, name: 'Training Dashboard' }),
     ).toBeInTheDocument()
@@ -76,18 +95,17 @@ describe('cross-page navigation workflow', () => {
     fireEvent.click(screen.getByRole('link', { name: 'Settings' }))
     expect(screen.getByRole('heading', { level: 1, name: 'Settings' })).toBeInTheDocument()
 
-    clickPrimaryNav('Home')
-    expect(
-      screen.getByRole('heading', { level: 1, name: 'Train. Monitor. Recover.' }),
-    ).toBeInTheDocument()
-
     // The shell itself (product name, persistent header) never unmounted
     // across any of the above — it is still the same instance.
     expect(screen.getByText('Self-Healing RL Studio')).toBeInTheDocument()
+
+    clickPrimaryNav('Home')
+    expect(screen.getByRole('heading', { level: 1, name: LANDING_HEADING })).toBeInTheDocument()
   })
 
   it('keeps a theme choice across navigating away and back', () => {
     renderApp()
+    fireEvent.click(within(primaryNav()).getByRole('link', { name: /Open Studio/ }))
     expect(document.documentElement.getAttribute('data-theme')).toBe('dark')
 
     fireEvent.click(screen.getByRole('button', { name: 'Switch to light theme' }))
@@ -97,11 +115,13 @@ describe('cross-page navigation workflow', () => {
     expect(document.documentElement.getAttribute('data-theme')).toBe('light')
 
     clickPrimaryNav('Home')
+    expect(screen.getByRole('heading', { level: 1, name: LANDING_HEADING })).toBeInTheDocument()
     expect(document.documentElement.getAttribute('data-theme')).toBe('light')
   })
 
   it('updates the active-destination indicator as navigation proceeds, never on more than one link at a time', () => {
     renderApp()
+    fireEvent.click(within(primaryNav()).getByRole('link', { name: /Open Studio/ }))
 
     clickPrimaryNav('Reports')
     const current = within(primaryNav())
