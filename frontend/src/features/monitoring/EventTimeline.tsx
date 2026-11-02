@@ -10,8 +10,12 @@ export type EventCategory =
 
 export interface TimelineEvent {
   id: string
-  /** ISO-8601 timestamp as recorded by the backend. */
-  timestamp: string
+  /**
+   * ISO-8601 timestamp as recorded by the backend, or `null` when the record
+   * carries no timestamp. A missing time renders as "Not recorded" instead of
+   * a placeholder clock value.
+   */
+  timestamp: string | null
   category: EventCategory
   title: string
   detail?: string
@@ -87,8 +91,8 @@ export function EventTimeline({ events, totalCount }: EventTimelineProps) {
         style={{ listStyle: 'none', margin: 0, padding: 0 }}
       >
         {events.map((event, index) => {
-          const time = formatUtcTime(event.timestamp)
-          const date = formatUtcDate(event.timestamp)
+          const time = event.timestamp === null ? null : formatUtcTime(event.timestamp)
+          const date = event.timestamp === null ? null : formatUtcDate(event.timestamp)
 
           return (
             <li
@@ -102,17 +106,29 @@ export function EventTimeline({ events, totalCount }: EventTimelineProps) {
               }}
             >
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
-                <time
-                  dateTime={event.timestamp}
-                  style={{
-                    fontFamily: 'var(--font-mono)',
-                    fontSize: 'var(--text-xs)',
-                    color: 'var(--text-secondary)',
-                    fontVariantNumeric: 'tabular-nums',
-                  }}
-                >
-                  {time ?? 'Invalid time'}
-                </time>
+                {event.timestamp === null ? (
+                  <span
+                    style={{
+                      fontFamily: 'var(--font-mono)',
+                      fontSize: '10px',
+                      color: 'var(--text-muted)',
+                    }}
+                  >
+                    Not recorded
+                  </span>
+                ) : (
+                  <time
+                    dateTime={event.timestamp}
+                    style={{
+                      fontFamily: 'var(--font-mono)',
+                      fontSize: 'var(--text-xs)',
+                      color: 'var(--text-secondary)',
+                      fontVariantNumeric: 'tabular-nums',
+                    }}
+                  >
+                    {time ?? 'Invalid time'}
+                  </time>
+                )}
                 {date ? (
                   <span
                     style={{
