@@ -6,6 +6,7 @@ import { EnvironmentsPage } from '../pages/EnvironmentsPage'
 import { MonitoringPage } from '../pages/MonitoringPage'
 import { DiagnosisRecoveryPage } from '../pages/DiagnosisRecoveryPage'
 import { ReportsPage } from '../pages/ReportsPage'
+import { RunDetailPage } from '../pages/RunDetailPage'
 import { SettingsPage } from '../pages/SettingsPage'
 import { NotFoundPage } from '../pages/NotFoundPage'
 
@@ -19,6 +20,7 @@ export function AppRouter() {
         <Route path="/monitoring" element={<MonitoringPage />} />
         <Route path="/diagnosis-recovery" element={<DiagnosisRecoveryPage />} />
         <Route path="/reports" element={<ReportsPage />} />
+        <Route path="/reports/:runId" element={<RunDetailPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
