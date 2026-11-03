@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import {
   createStudioService,
   sessionStreamUrl,
+  type ChaosPatch,
   type SessionCommand,
   type StudioService,
 } from '../../services/studio'
@@ -47,6 +48,9 @@ export function useStudioSession(service: StudioService = defaultService) {
   const [busy, setBusy] = useState<string | null>(null)
   const [notice, setNotice] = useState<Notice | null>(null)
   const disposeRef = useRef<(() => void) | null>(null)
+  // Synchronous guard: React state updates are async, so a fast double click could
+  // otherwise send the same command twice before `busy` re-renders.
+  const busyRef = useRef<string | null>(null)
 
   const attach = useCallback(
     (sessionId: string) => {
@@ -70,6 +74,14 @@ export function useStudioSession(service: StudioService = defaultService) {
     [service],
   )
 
+  /** Reload the catalog without the loading screen (used after uploads). Returns the fresh catalog. */
+  const refreshCatalog = useCallback(async (): Promise<Catalog | null> => {
+    const result = await service.getCatalog()
+    if (result.state !== 'ok') return null
+    setCatalog({ state: 'ready', catalog: result.data })
+    return result.data
+  }, [service])
+
   // Catalog, then re-attach to a session that is still training so a page
   // refresh never orphans a running experiment.
   useEffect(() => {
@@ -78,7 +90,7 @@ export function useStudioSession(service: StudioService = defaultService) {
     void (async () => {
       const sessions = await service.listSessions(controller.signal)
       if (controller.signal.aborted || sessions.state !== 'ok') return
-      const active = sessions.data.find((s) => ACTIVE_STATUSES.includes(s.status))
+      const active = sessions.data.find((s) => !s.battle && ACTIVE_STATUSES.includes(s.status))
       if (active) {
         setNotice({
           tone: 'info',
@@ -100,7 +112,7 @@ export function useStudioSession(service: StudioService = defaultService) {
 
   const initialize = useCallback(
     async (config: SessionConfig, name?: string) => {
-      if (busy !== null) return false
+      if (busyRef.current !== null) return false
       const current = store.getState().status
       if (current !== null && ACTIVE_STATUSES.includes(current)) {
         setNotice({
@@ -109,9 +121,11 @@ export function useStudioSession(service: StudioService = defaultService) {
         })
         return false
       }
+      busyRef.current = 'initialize'
       setBusy('initialize')
       setNotice(null)
       const result = await service.createSession({ ...config, ...(name ? { name } : {}) })
+      busyRef.current = null
       setBusy(null)
       if (result.state === 'error') {
         setNotice({ tone: 'error', message: describeFailure('Initialization', result.error) })
@@ -123,24 +137,94 @@ export function useStudioSession(service: StudioService = defaultService) {
       attach(result.data.session_id)
       return true
     },
-    [attach, busy, service, store],
+    [attach, service, store],
   )
 
   const command = useCallback(
-    async (name: SessionCommand) => {
+    async (name: SessionCommand): Promise<boolean> => {
       const sessionId = store.getState().sessionId
-      if (sessionId === null || busy !== null) return
+      if (sessionId === null || busyRef.current !== null) return false
+      busyRef.current = name
       setBusy(name)
       setNotice(null)
       const result = await service.command(sessionId, name)
+      busyRef.current = null
       setBusy(null)
       if (result.state === 'error') {
         setNotice({ tone: 'error', message: describeFailure(`The ${name} request`, result.error) })
-        return
+        return false
       }
       store.applyCommandResult(result.data)
+      return true
     },
-    [busy, service, store],
+    [service, store],
+  )
+
+  const setManualControl = useCallback(
+    async (active: boolean): Promise<boolean> => {
+      const sessionId = store.getState().sessionId
+      if (sessionId === null) return false
+      const result = await service.setControl(sessionId, active)
+      if (result.state === 'error') {
+        setNotice({
+          tone: 'error',
+          message: describeFailure('Changing manual control', result.error),
+        })
+        return false
+      }
+      return true
+    },
+    [service, store],
+  )
+
+  const setBrainView = useCallback(
+    async (enabled: boolean): Promise<boolean> => {
+      const sessionId = store.getState().sessionId
+      if (sessionId === null) return false
+      const result = await service.setBrain(sessionId, enabled)
+      if (result.state === 'error') {
+        setNotice({
+          tone: 'error',
+          message: describeFailure('Changing the brain view', result.error),
+        })
+        return false
+      }
+      return true
+    },
+    [service, store],
+  )
+
+  const setChaos = useCallback(
+    async (patch: ChaosPatch): Promise<boolean> => {
+      const sessionId = store.getState().sessionId
+      if (sessionId === null) return false
+      const result = await service.setChaos(sessionId, patch)
+      if (result.state === 'error') {
+        setNotice({ tone: 'error', message: describeFailure('Changing chaos mode', result.error) })
+        return false
+      }
+      return true
+    },
+    [service, store],
+  )
+
+  const triggerChaos = useCallback(
+    async (kind: string): Promise<boolean> => {
+      const sessionId = store.getState().sessionId
+      if (sessionId === null) return false
+      const result = await service.triggerChaos(sessionId, kind)
+      if (result.state === 'error') {
+        setNotice({ tone: 'error', message: describeFailure('Triggering chaos', result.error) })
+        return false
+      }
+      return true
+    },
+    [service, store],
+  )
+
+  const sendAction = useCallback(
+    (action: number) => store.send({ type: 'action', action }),
+    [store],
   )
 
   const setSpeed = useCallback(
@@ -165,7 +249,13 @@ export function useStudioSession(service: StudioService = defaultService) {
     initialize,
     command,
     setSpeed,
+    setManualControl,
+    setBrainView,
+    setChaos,
+    triggerChaos,
+    sendAction,
     reloadCatalog: loadCatalog,
+    refreshCatalog,
     service,
   }
 }

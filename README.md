@@ -72,6 +72,19 @@ pip install -e ".[dev]"
 cp .env.example .env   # see .env.example for placeholder values
 ```
 
+### Run the backend
+
+```bash
+# from the repository root
+uvicorn backend.main:app --reload --port 8000
+
+# or from backend/ - both entrypoints serve the same canonical app
+cd backend
+uvicorn app.main:app --reload --port 8000
+```
+
+Health check: `curl http://127.0.0.1:8000/health`
+
 ### Run the test suite
 
 ```bash

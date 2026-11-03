@@ -1,10 +1,14 @@
-import { useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
-import { MathUtils, type Group, type MeshStandardMaterial } from 'three'
-import { adaptCartPole, cartPoleScene } from '../simulationAdapters'
+import { MathUtils, type Group, type MeshBasicMaterial, type MeshStandardMaterial } from 'three'
+import { adaptCartPole, cartPoleActionDirection, cartPoleScene } from '../simulationAdapters'
+import { makeFadedGridTexture } from './groundGrid'
 import type { RendererProps } from './types'
 
 const DAMPING = 28
+/** Seconds the action arrow takes to fade after the agent pushes. */
+const FLASH_SECONDS = 0.4
+const ARROW_OFFSET = 0.55
 
 /**
  * 3D CartPole. Poses are read from `store.frame` inside the render loop, so
@@ -15,6 +19,16 @@ export function CartPole3D({ scene, store, palette }: RendererProps) {
   const cart = useRef<Group>(null)
   const pole = useRef<Group>(null)
   const poleMaterial = useRef<MeshStandardMaterial>(null)
+  const arrow = useRef<Group>(null)
+  const arrowMaterial = useRef<MeshBasicMaterial>(null)
+  const brainArrows = useRef<Array<Group | null>>([null, null])
+  const brainMaterials = useRef<Array<MeshBasicMaterial | null>>([null, null])
+  const flash = useRef(0)
+  const direction = useRef<1 | -1>(1)
+  const seenFrame = useRef(-1)
+
+  const gridTexture = useMemo(() => makeFadedGridTexture(palette.grid), [palette.grid])
+  useEffect(() => () => gridTexture?.dispose(), [gridTexture])
 
   useFrame((_, delta) => {
     const frame = store.frame
@@ -32,6 +46,36 @@ export function CartPole3D({ scene, store, palette }: RendererProps) {
       const failed = frame?.done === true && frame.outcome?.success === false
       poleMaterial.current.color.set(failed ? palette.bad : palette.agent)
     }
+
+    // Flash a directional arrow whenever a new frame carries a push action.
+    if (store.frameVersion !== seenFrame.current) {
+      seenFrame.current = store.frameVersion
+      const push = cartPoleActionDirection(frame)
+      if (push !== 0) {
+        flash.current = 1
+        direction.current = push
+      }
+    }
+    flash.current = Math.max(0, flash.current - delta / FLASH_SECONDS)
+    if (arrow.current && cart.current) {
+      arrow.current.position.x = cart.current.position.x + direction.current * ARROW_OFFSET
+      arrow.current.rotation.z = direction.current === 1 ? -Math.PI / 2 : Math.PI / 2
+    }
+    if (arrowMaterial.current) arrowMaterial.current.opacity = flash.current
+
+    // Brain view: arrow length and opacity follow the probability of pushing each way.
+    const probs = frame?.brain?.probs
+    brainArrows.current.forEach((group, side) => {
+      const material = brainMaterials.current[side]
+      if (!group || !material) return
+      const p = probs?.[side]
+      group.visible = p !== undefined && cart.current !== null
+      if (p === undefined || !cart.current) return
+      const dir = side === 0 ? -1 : 1
+      group.position.x = cart.current.position.x + dir * (0.75 + 0.4 * p)
+      group.scale.set(1, 0.4 + 2.4 * p, 1)
+      material.opacity = 0.25 + 0.7 * p
+    })
   })
 
   const trackLength = dims.x_limit * 2 + 0.8
@@ -50,7 +94,12 @@ export function CartPole3D({ scene, store, palette }: RendererProps) {
           <meshStandardMaterial color={palette.structure} />
         </mesh>
       ))}
-      <gridHelper args={[12, 24, palette.grid, palette.grid]} position={[0, -0.09, 0]} />
+      {gridTexture && (
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.085, 0]}>
+          <planeGeometry args={[18, 18]} />
+          <meshBasicMaterial map={gridTexture} transparent depthWrite={false} />
+        </mesh>
+      )}
       <group ref={cart} position={[0, 0.1, 0]}>
         <mesh>
           <boxGeometry args={[0.5, 0.2, 0.3]} />
@@ -66,6 +115,35 @@ export function CartPole3D({ scene, store, palette }: RendererProps) {
             <meshStandardMaterial color={palette.agent} />
           </mesh>
         </group>
+      </group>
+      {[0, 1].map((side) => (
+        <group
+          key={`brain-${side}`}
+          ref={(group) => {
+            brainArrows.current[side] = group
+          }}
+          position={[0, 0.5, 0]}
+          rotation={[0, 0, side === 0 ? Math.PI / 2 : -Math.PI / 2]}
+          visible={false}
+        >
+          <mesh>
+            <coneGeometry args={[0.07, 0.3, 14]} />
+            <meshBasicMaterial
+              ref={(material) => {
+                brainMaterials.current[side] = material
+              }}
+              color={palette.accent}
+              transparent
+              opacity={0}
+            />
+          </mesh>
+        </group>
+      ))}
+      <group ref={arrow} position={[ARROW_OFFSET, 0.1, 0]}>
+        <mesh>
+          <coneGeometry args={[0.1, 0.24, 20]} />
+          <meshBasicMaterial ref={arrowMaterial} color={palette.agent} transparent opacity={0} />
+        </mesh>
       </group>
     </group>
   )

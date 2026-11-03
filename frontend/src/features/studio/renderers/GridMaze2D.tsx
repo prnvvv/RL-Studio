@@ -1,5 +1,6 @@
 import { useFrameSnapshot } from '../useFrameSnapshot'
 import { adaptGridAgent, gridScene } from '../simulationAdapters'
+import { GRID_ARROW_DEGREES, heatOpacity } from '../brainHelpers'
 import type { RendererProps } from './types'
 
 /** Top-down view of the navigation grid, driven only by backend frame state. */
@@ -48,6 +49,27 @@ export function GridMaze2D({ scene, store, palette }: RendererProps) {
           stroke={palette.grid}
           strokeWidth={0.02}
         />
+      ))}
+      {(frame?.brain?.grid ?? []).map((cell) => (
+        <g
+          key={`brain-${cell.row}-${cell.col}`}
+          data-testid="brain-cell"
+          transform={`translate(${cell.col + 0.5} ${cell.row + 0.5})`}
+        >
+          <rect
+            x={-0.46}
+            y={-0.46}
+            width={0.92}
+            height={0.92}
+            fill={palette.agent}
+            opacity={heatOpacity(cell.probs)}
+          />
+          <polygon
+            points="0,-0.3 0.17,0.12 -0.17,0.12"
+            fill={palette.accent}
+            transform={`rotate(${GRID_ARROW_DEGREES[cell.greedy] ?? 0})`}
+          />
+        </g>
       ))}
       {grid.obstacles.map(([r, c]) => (
         <rect

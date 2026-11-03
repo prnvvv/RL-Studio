@@ -54,4 +54,39 @@ describe('LineChart', () => {
     expect(screen.getByText('Training steps')).toBeInTheDocument()
     expect(screen.getByText('Episode reward')).toBeInTheDocument()
   })
+
+  it('draws an empty grid with the requested axis range before any data exists', () => {
+    render(
+      <LineChart
+        title="Reward versus timestep"
+        series={[]}
+        xLabel="Timestep"
+        yLabel="Reward"
+        xDomain={[0, 20000]}
+        yDomain={[0, 1]}
+        emptyMessage="Waiting for the first episode"
+      />,
+    )
+
+    const chart = screen.getByRole('img', { name: /Reward versus timestep/ })
+    expect(chart.tagName.toLowerCase()).toBe('svg')
+    expect(screen.queryByRole('img', { name: /no data recorded/i })).toBeNull()
+    expect(screen.getByText('20k')).toBeInTheDocument()
+    expect(screen.getAllByText('0.00')).toHaveLength(2) // both axes start at zero
+    expect(screen.getByText('Waiting for the first episode')).toBeInTheDocument()
+  })
+
+  it('widens a fixed domain instead of clipping data that exceeds it', () => {
+    render(
+      <LineChart
+        title="Reward"
+        series={[{ id: 'a', label: 'a', lineStyle: 'solid', points: [{ x: 30000, y: 2 }] }]}
+        xLabel="x"
+        yLabel="y"
+        xDomain={[0, 20000]}
+        yDomain={[0, 1]}
+      />,
+    )
+    expect(screen.getByText('30k')).toBeInTheDocument()
+  })
 })

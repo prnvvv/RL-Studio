@@ -4,11 +4,15 @@ import { OrbitControls } from '@react-three/drei'
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
 import { useScenePalette } from './renderers/palette'
 import { getRenderer } from './renderers/registry'
+import { BrainPanel } from './BrainPanel'
+import { StreamOverlay } from './StreamOverlay'
+import { webglAvailable } from './webgl'
 import { useFrameSnapshot } from './useFrameSnapshot'
+import type { ViewMode } from './ControlToolbar'
 import type { StudioStore } from './studioStore'
 import type { FramePayload, SessionStatus } from './studioTypes'
 
-export type ViewMode = '3d' | '2d'
+export type { ViewMode }
 
 interface Props {
   store: StudioStore
@@ -22,16 +26,12 @@ interface Props {
   /** Bumped by the parent to reset the camera. */
   cameraResetNonce: number
   viewMode: ViewMode
-  onViewModeChange: (mode: ViewMode) => void
-}
-
-function webglAvailable(): boolean {
-  try {
-    const canvas = document.createElement('canvas')
-    return !!(canvas.getContext('webgl2') ?? canvas.getContext('webgl'))
-  } catch {
-    return false
-  }
+  /** Key help shown while the human drives; null when the agent is in control. */
+  manualHint?: string | null
+  /** Show the live action-probability panel (the overlays draw themselves from frame data). */
+  brainActive?: boolean
+  /** The backend stream is down: what is drawn is the last frame received, not live. */
+  offline?: boolean
 }
 
 class CanvasBoundary extends Component<
@@ -69,9 +69,10 @@ function Hud({
   const rows: Array<[string, string]> = [
     ['Status', preview ? 'preview' : (status ?? '—')],
     ['Episode', frame ? String(Math.max(frame.episode, 0)) : '—'],
-    ['Step', frame ? String(frame.episode_step) : '—'],
+    ['Episode step', frame ? String(frame.episode_step) : '—'],
     ['Reward', frame ? frame.episode_reward.toFixed(2) : '—'],
     ['Action', frame ? describeAction(frame.action) : '—'],
+    ['Source', frame?.source ?? '—'],
   ]
   return (
     <div className="sim-hud" aria-label="Simulation readout">
@@ -103,7 +104,9 @@ export function SimulationViewport({
   preview,
   cameraResetNonce,
   viewMode,
-  onViewModeChange,
+  manualHint = null,
+  brainActive = false,
+  offline = false,
 }: Props) {
   const palette = useScenePalette()
   const definition = getRenderer(rendererKey)
@@ -138,20 +141,6 @@ export function SimulationViewport({
   return (
     <div ref={containerRef} className="sim-viewport" data-fullscreen={fullscreen || undefined}>
       <div className="sim-viewport__toolbar" role="toolbar" aria-label="Viewport controls">
-        <div className="seg" role="group" aria-label="Render mode">
-          {(['3d', '2d'] as const).map((mode) => (
-            <button
-              key={mode}
-              type="button"
-              aria-pressed={viewMode === mode}
-              disabled={mode === '3d' && !webgl}
-              title={mode === '3d' && !webgl ? 'WebGL is not available in this browser' : undefined}
-              onClick={() => onViewModeChange(mode)}
-            >
-              {mode.toUpperCase()}
-            </button>
-          ))}
-        </div>
         <button
           type="button"
           className="btn btn--ghost"
@@ -196,7 +185,23 @@ export function SimulationViewport({
 
       {definition !== null && (
         <>
+          <StreamOverlay store={store} />
+          {brainActive && <BrainPanel store={store} renderer={rendererKey} />}
+          {offline && (
+            <div className="sim-offline" role="alert">
+              <strong>Disconnected</strong> — the backend is not responding. Showing the last frame
+              received; training controls are disabled until it reconnects.
+            </div>
+          )}
+          {manualHint !== null && (
+            <div className="sim-manual" role="status">
+              <strong>Manual control</strong> — {manualHint}
+            </div>
+          )}
           <Hud store={store} status={status} preview={preview} />
+          <div className="sim-shortcuts" aria-hidden="true">
+            <kbd>Space</kbd> pause / resume · <kbd>C</kbd> reset camera
+          </div>
           {preview && (
             <div className="sim-viewport__badge" role="note">
               Preview — environment not initialized
