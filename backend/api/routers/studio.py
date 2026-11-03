@@ -15,7 +15,7 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 
-from backend.database.exceptions import ConflictError, NotFoundError
+from backend.database.exceptions import ConflictError, NotFoundError, StudioError
 from backend.studio import custom
 from backend.studio.catalog import build_catalog
 from backend.studio.manager import manager
@@ -38,6 +38,19 @@ class SessionRequest(BaseModel):
     agent_params: dict[str, Any] = Field(default_factory=dict)
     env_params: dict[str, Any] = Field(default_factory=dict)
     training: dict[str, Any] = Field(default_factory=dict)
+
+
+class ControlRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    active: bool
+
+
+class ActionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    #: An int for discrete spaces or a list of floats for box spaces; validated against the real space.
+    action: Any
 
 
 class SpeedRequest(BaseModel):
@@ -187,12 +200,13 @@ def get_run_episodes(run_id: str, offset: int = Query(0, ge=0), limit: int = Que
 def get_run_steps(
     run_id: str,
     episode: int | None = Query(None, ge=1),
+    source: str | None = Query(None, pattern="^(agent|human)$"),
     offset: int = Query(0, ge=0),
     limit: int = Query(500, ge=1, le=MAX_PAGE),
 ) -> dict[str, Any]:
-    """Step-level trajectory: observation, action, reward, termination, next observation."""
+    """Step-level trajectory: observation, action, source, reward, termination, next observation."""
     run = _require_run(run_id)
-    return {"run_id": run_id, "obs_shape": run["obs_shape"], "offset": offset, "steps": _reader().steps(run_id, episode=episode, offset=offset, limit=limit)}
+    return {"run_id": run_id, "obs_shape": run["obs_shape"], "offset": offset, "steps": _reader().steps(run_id, episode=episode, source=source, offset=offset, limit=limit)}
 
 
 @router.get("/runs/{run_id}/updates")
@@ -256,6 +270,18 @@ def reset_session(session_id: str) -> dict[str, Any]:
     return manager.get(session_id).reset()
 
 
+@router.post("/sessions/{session_id}/control")
+def set_human_control(session_id: str, request: ControlRequest) -> dict[str, Any]:
+    """Take or release manual control. While taken, submitted actions replace the agent's."""
+    return manager.get(session_id).set_human_control(request.active)
+
+
+@router.post("/sessions/{session_id}/action")
+def submit_action(session_id: str, request: ActionRequest) -> dict[str, Any]:
+    """Submit one manual action (HTTP path; the WebSocket ``action`` message is the low-latency one)."""
+    return manager.get(session_id).submit_human_action(request.action)
+
+
 @router.post("/sessions/{session_id}/speed")
 def set_speed(session_id: str, request: SpeedRequest) -> dict[str, Any]:
     return manager.get(session_id).set_speed(request.speed)
@@ -278,7 +304,9 @@ async def stream(websocket: WebSocket, session_id: str, after: int = 0) -> None:
 
     The client may send ``{"type": "ping", "t": <number>}``; the server echoes
     ``{"type": "pong", "t": <same number>}`` so the client can measure the real
-    round-trip latency of this connection.
+    round-trip latency of this connection. ``{"type": "action", "action": <a>}``
+    submits a manual action while manual control is active and is answered with
+    ``action_ack`` or ``action_rejected``.
     """
     try:
         session = manager.get(session_id)
@@ -286,7 +314,7 @@ async def stream(websocket: WebSocket, session_id: str, after: int = 0) -> None:
         await websocket.close(code=4404)
         return
     await websocket.accept()
-    pongs: asyncio.Queue[dict[str, Any]] = asyncio.Queue(maxsize=16)
+    outbox: asyncio.Queue[dict[str, Any]] = asyncio.Queue(maxsize=64)
 
     async def read_client() -> None:
         try:
@@ -296,10 +324,21 @@ async def stream(websocket: WebSocket, session_id: str, after: int = 0) -> None:
                     message = json.loads(raw)
                 except ValueError:
                     continue
-                stamp = message.get("t") if isinstance(message, dict) else None
-                if isinstance(message, dict) and message.get("type") == "ping" and isinstance(stamp, (int, float)) and not isinstance(stamp, bool):
+                if not isinstance(message, dict):
+                    continue
+                stamp = message.get("t")
+                reply: dict[str, Any] | None = None
+                if message.get("type") == "ping" and isinstance(stamp, (int, float)) and not isinstance(stamp, bool):
+                    reply = {"type": "pong", "t": stamp}
+                elif message.get("type") == "action":
+                    try:
+                        session.submit_human_action(message.get("action"))
+                        reply = {"type": "action_ack", "accepted": True}
+                    except StudioError as exc:
+                        reply = {"type": "action_rejected", "reason": exc.message[:120]}
+                if reply is not None:
                     with contextlib.suppress(asyncio.QueueFull):
-                        pongs.put_nowait({"type": "pong", "t": stamp})
+                        outbox.put_nowait(reply)
         except (WebSocketDisconnect, RuntimeError):
             return
 
@@ -310,8 +349,8 @@ async def stream(websocket: WebSocket, session_id: str, after: int = 0) -> None:
         last_seq = snapshot["seq"]
         last_frame = (session.hub.latest_frame() or {}).get("frame_seq", 0)
         while not reader.done():
-            while not pongs.empty():
-                await websocket.send_json(pongs.get_nowait())
+            while not outbox.empty():
+                await websocket.send_json(outbox.get_nowait())
             events, _gap = session.hub.since(last_seq)
             for event in events:
                 await websocket.send_json(event)
