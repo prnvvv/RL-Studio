@@ -4,11 +4,14 @@ import { OrbitControls } from '@react-three/drei'
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
 import { useScenePalette } from './renderers/palette'
 import { getRenderer } from './renderers/registry'
+import { StreamOverlay } from './StreamOverlay'
+import { webglAvailable } from './webgl'
 import { useFrameSnapshot } from './useFrameSnapshot'
+import type { ViewMode } from './ControlToolbar'
 import type { StudioStore } from './studioStore'
 import type { FramePayload, SessionStatus } from './studioTypes'
 
-export type ViewMode = '3d' | '2d'
+export type { ViewMode }
 
 interface Props {
   store: StudioStore
@@ -22,16 +25,6 @@ interface Props {
   /** Bumped by the parent to reset the camera. */
   cameraResetNonce: number
   viewMode: ViewMode
-  onViewModeChange: (mode: ViewMode) => void
-}
-
-function webglAvailable(): boolean {
-  try {
-    const canvas = document.createElement('canvas')
-    return !!(canvas.getContext('webgl2') ?? canvas.getContext('webgl'))
-  } catch {
-    return false
-  }
 }
 
 class CanvasBoundary extends Component<
@@ -103,7 +96,6 @@ export function SimulationViewport({
   preview,
   cameraResetNonce,
   viewMode,
-  onViewModeChange,
 }: Props) {
   const palette = useScenePalette()
   const definition = getRenderer(rendererKey)
@@ -138,20 +130,6 @@ export function SimulationViewport({
   return (
     <div ref={containerRef} className="sim-viewport" data-fullscreen={fullscreen || undefined}>
       <div className="sim-viewport__toolbar" role="toolbar" aria-label="Viewport controls">
-        <div className="seg" role="group" aria-label="Render mode">
-          {(['3d', '2d'] as const).map((mode) => (
-            <button
-              key={mode}
-              type="button"
-              aria-pressed={viewMode === mode}
-              disabled={mode === '3d' && !webgl}
-              title={mode === '3d' && !webgl ? 'WebGL is not available in this browser' : undefined}
-              onClick={() => onViewModeChange(mode)}
-            >
-              {mode.toUpperCase()}
-            </button>
-          ))}
-        </div>
         <button
           type="button"
           className="btn btn--ghost"
@@ -196,7 +174,11 @@ export function SimulationViewport({
 
       {definition !== null && (
         <>
+          <StreamOverlay store={store} />
           <Hud store={store} status={status} preview={preview} />
+          <div className="sim-shortcuts" aria-hidden="true">
+            <kbd>Space</kbd> pause / resume · <kbd>C</kbd> reset camera
+          </div>
           {preview && (
             <div className="sim-viewport__badge" role="note">
               Preview — environment not initialized

@@ -184,3 +184,15 @@ export const SPEED_OPTIONS: ReadonlyArray<{ label: string; value: number }> = [
   { label: '32×', value: 32 },
   { label: 'Max', value: 0 },
 ]
+
+/** The single control that deserves the eye right now, derived from the session state. */
+export function primaryAction(
+  status: SessionStatus | null,
+  availability: ControlAvailability,
+): 'initialize' | 'train' | 'pause' | 'resume' | null {
+  if (availability.train) return 'train'
+  if (status === 'paused' && availability.resume) return 'resume'
+  if (availability.pause) return 'pause'
+  if (availability.initialize) return 'initialize'
+  return null
+}
