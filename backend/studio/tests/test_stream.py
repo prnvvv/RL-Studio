@@ -99,3 +99,25 @@ def test_an_unexpected_server_error_closes_the_socket_with_a_reason(client: Test
         with pytest.raises(WebSocketDisconnect) as info:
             ws.receive_json()
     assert info.value.code == 1011 and "server logs" in info.value.reason
+
+
+def test_after_stop_a_new_session_can_be_initialised_and_trained(client: TestClient) -> None:
+    """The workflow behind the UI's unlocked configuration: Stop, change settings, Initialize, Train."""
+    import time
+
+    slow = {"total_timesteps": 200_000, "simulation_speed": 8, "checkpoint_every": 0, "eval_every": 0}
+    first = _create(client, training=slow)
+    assert client.post(f"{BASE}/sessions/{first}/start").status_code == 200
+    assert client.post(f"{BASE}/sessions/{first}/stop").status_code == 200
+    for _ in range(100):
+        if client.get(f"{BASE}/sessions/{first}").json()["status"] == "stopped":
+            break
+        time.sleep(0.1)
+    else:
+        raise AssertionError("first session did not stop")
+
+    second = _create(client, agent="A2C", environment="warehouse", training=slow)
+    assert client.post(f"{BASE}/sessions/{second}/start").status_code == 200
+    snap = client.get(f"{BASE}/sessions/{second}").json()
+    assert snap["config"]["agent"] == "A2C" and snap["config"]["environment"] == "warehouse"
+    client.post(f"{BASE}/sessions/{second}/stop")

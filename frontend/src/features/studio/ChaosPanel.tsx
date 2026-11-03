@@ -1,24 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { InfoTip } from './InfoTip'
+import { CHAOS_KIND_LABELS } from './studioConfig'
 import type { ChaosState } from './studioTypes'
 
 const COMMIT_DELAY_MS = 250
-
-/** Human wording for each disturbance the backend can inject. */
-export const CHAOS_KIND_LABELS: Record<string, { label: string; help: string }> = {
-  impulse: {
-    label: 'Sudden force',
-    help: 'A sudden sideways velocity kick applied to the cart (a real change to the physics state).',
-  },
-  slip: {
-    label: 'Actuator slip',
-    help: 'Now and then the action actually executed is replaced by a random one.',
-  },
-  sensor_noise: {
-    label: 'Sensor noise',
-    help: 'Gaussian noise is added to what the agent observes. The environment itself is unchanged.',
-  },
-}
 
 interface Props {
   /** Disturbances this environment supports (from the backend catalog). */

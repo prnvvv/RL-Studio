@@ -29,6 +29,7 @@ import { useBattle } from './useBattle'
 import type { UploadHooks, UploadOutcome } from './UploadDropzone'
 import {
   controlAvailability,
+  draftFromConfig,
   emptyDraft,
   findAgent,
   findEnvironment,
@@ -129,6 +130,7 @@ function WorkspaceBody({ catalog, session }: { catalog: Catalog; session: Sessio
   const webgl = useMemo(() => webglAvailable(), [])
   const autoSwitched = useRef(false)
   const previousConnection = useRef(state.connection)
+  const syncedSession = useRef<string | null>(null)
   const [draft, setDraft] = useState<Draft>(() => emptyDraft(catalog))
   const [leftTab, setLeftTab] = useState<LeftTab>('library')
   const [dockTab, setDockTab] = useState<DockTab>('metrics')
@@ -380,6 +382,15 @@ function WorkspaceBody({ catalog, session }: { catalog: Catalog; session: Sessio
     )
     toast.push('success', `Removed "${target.name}"`)
   }
+
+  // A session this page did not start (re-attached after a reload) must be reflected in the
+  // selection and settings panels, once; afterwards the user's edits are their own.
+  useEffect(() => {
+    if (compare || state.sessionId === null || state.config === null) return
+    if (syncedSession.current === state.sessionId) return
+    syncedSession.current = state.sessionId
+    setDraft(draftFromConfig(catalog, state.config))
+  }, [catalog, compare, state.sessionId, state.config])
 
   // Transient notices become toasts instead of a banner that has to be cleared.
   useEffect(() => {

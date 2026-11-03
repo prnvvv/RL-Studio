@@ -74,7 +74,9 @@ export function connectSession(store: StudioStore, options: ConnectionOptions): 
       })
       if (pingInterval <= 0) return
       const ping = () => {
-        if (ws.readyState === 1) ws.send(JSON.stringify({ type: 'ping', t: now() }))
+        if (ws.readyState !== 1) return
+        ws.send(JSON.stringify({ type: 'ping', t: now() }))
+        store.recordPing()
       }
       ping()
       stopPinging()

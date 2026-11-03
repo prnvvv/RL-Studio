@@ -9,7 +9,11 @@ interface Readout {
   /** Simulation frames per second received from the backend. */
   stream: number | null
   rttMs: number | null
+  /** Consecutive pings the server has not answered. */
+  unanswered: number
 }
+
+const NO_REPLY_AFTER = 3
 
 /**
  * Developer telemetry for the viewport corner. Every number is measured: FPS
@@ -17,7 +21,12 @@ interface Readout {
  * WebSocket ping/pong round-trips. Unmeasured values show a dash.
  */
 export function StreamOverlay({ store }: { store: StudioStore }) {
-  const [readout, setReadout] = useState<Readout>({ fps: null, stream: null, rttMs: null })
+  const [readout, setReadout] = useState<Readout>({
+    fps: null,
+    stream: null,
+    rttMs: null,
+    unanswered: 0,
+  })
 
   useEffect(() => {
     let animationFrames = 0
@@ -42,6 +51,7 @@ export function StreamOverlay({ store }: { store: StudioStore }) {
             : null,
         stream: Math.round((frames - lastFrames) / seconds),
         rttMs: store.stream.rttMs,
+        unanswered: store.stream.unanswered,
       })
       animationFrames = 0
       lastFrames = frames
@@ -54,6 +64,7 @@ export function StreamOverlay({ store }: { store: StudioStore }) {
     }
   }, [store])
 
+  const silent = readout.unanswered >= NO_REPLY_AFTER
   const show = (value: number | null, unit: string) => (value === null ? '—' : `${value}${unit}`)
   return (
     <div className="sim-telemetry" role="group" aria-label="Connection telemetry">
@@ -63,9 +74,19 @@ export function StreamOverlay({ store }: { store: StudioStore }) {
       <span>
         Stream <strong>{show(readout.stream, '/s')}</strong>
       </span>
-      <span>
+      <span
+        title={
+          silent
+            ? 'The server has not answered the last pings. If this persists, restart the backend so it runs the current version.'
+            : 'WebSocket round-trip time, measured with ping/pong'
+        }
+      >
         Latency{' '}
-        <strong>{show(readout.rttMs === null ? null : Math.round(readout.rttMs), ' ms')}</strong>
+        <strong>
+          {silent
+            ? 'no reply'
+            : show(readout.rttMs === null ? null : Math.round(readout.rttMs), ' ms')}
+        </strong>
       </span>
     </div>
   )

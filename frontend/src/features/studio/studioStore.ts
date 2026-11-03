@@ -104,6 +104,8 @@ export interface StreamStats {
   frames: number
   /** Last measured WebSocket round-trip time (ms), or null before the first pong. */
   rttMs: number | null
+  /** Pings sent since the last pong; a growing value means the server is not answering. */
+  unanswered: number
 }
 
 export class StudioStore {
@@ -116,7 +118,7 @@ export class StudioStore {
   frame: FramePayload | null = null
   /** Bumped for every frame so cheap consumers can detect change. */
   frameVersion = 0
-  readonly stream: StreamStats = { frames: 0, rttMs: null }
+  readonly stream: StreamStats = { frames: 0, rttMs: null, unanswered: 0 }
   private sender: ((message: unknown) => boolean) | null = null
 
   getState = (): StudioState => this.state
@@ -196,7 +198,12 @@ export class StudioStore {
     return this.sender !== null && this.sender(message)
   }
 
+  recordPing(): void {
+    this.stream.unanswered += 1
+  }
+
   recordRtt(rttMs: number): void {
+    this.stream.unanswered = 0
     if (Number.isFinite(rttMs) && rttMs >= 0) this.stream.rttMs = rttMs
   }
 

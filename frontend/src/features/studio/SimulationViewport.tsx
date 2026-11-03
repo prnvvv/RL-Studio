@@ -67,7 +67,7 @@ function Hud({
   const rows: Array<[string, string]> = [
     ['Status', preview ? 'preview' : (status ?? '—')],
     ['Episode', frame ? String(Math.max(frame.episode, 0)) : '—'],
-    ['Step', frame ? String(frame.episode_step) : '—'],
+    ['Episode step', frame ? String(frame.episode_step) : '—'],
     ['Reward', frame ? frame.episode_reward.toFixed(2) : '—'],
     ['Action', frame ? describeAction(frame.action) : '—'],
     ['Source', frame?.source ?? '—'],

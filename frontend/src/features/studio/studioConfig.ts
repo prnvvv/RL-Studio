@@ -128,6 +128,17 @@ export function validateDraft(catalog: Catalog, draft: Draft): FieldErrors {
   return errors
 }
 
+/** The draft that reproduces a live session, so the panels show what is actually running. */
+export function draftFromConfig(catalog: Catalog, config: SessionConfig): Draft {
+  return {
+    agent: config.agent,
+    environment: config.environment,
+    agent_params: { ...config.agent_params },
+    env_params: { ...config.env_params },
+    training: { ...defaultParams(catalog.training_params), ...config.training },
+  }
+}
+
 export function toSessionConfig(draft: Draft): SessionConfig | null {
   if (draft.agent === null || draft.environment === null) return null
   return {
@@ -198,4 +209,20 @@ export function primaryAction(
   if (availability.pause) return 'pause'
   if (availability.initialize) return 'initialize'
   return null
+}
+
+/** Human wording for each disturbance the backend can inject. */
+export const CHAOS_KIND_LABELS: Record<string, { label: string; help: string }> = {
+  impulse: {
+    label: 'Sudden force',
+    help: 'A sudden sideways velocity kick applied to the cart (a real change to the physics state).',
+  },
+  slip: {
+    label: 'Actuator slip',
+    help: 'Now and then the action actually executed is replaced by a random one.',
+  },
+  sensor_noise: {
+    label: 'Sensor noise',
+    help: 'Gaussian noise is added to what the agent observes. The environment itself is unchanged.',
+  },
 }
