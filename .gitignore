@@ -95,3 +95,4 @@ opencode.md
 **/ARCHITECTURE.md
 **/opencode.md
 *.db
+var/studio/

@@ -11,7 +11,7 @@ from backend.database.connection import Database
 
 from .dependencies import build_services
 from .errors import install_error_handlers
-from .routers import evaluation, provenance, recovery, runs, verification
+from .routers import evaluation, provenance, recovery, runs, studio, verification
 from .routers.ws_events import router as ws_router
 
 logger = logging.getLogger(__name__)
@@ -46,6 +46,10 @@ def create_app(config: DatabaseConfig | None = None) -> FastAPI:
 
     install_error_handlers(app)
 
+    @app.get("/health", include_in_schema=False)
+    async def health() -> dict[str, str]:
+        return {"status": "ok", "app": "Self-Healing RL Studio API"}
+
     # Documented Person 4 contract endpoints.
     app.include_router(provenance.p4_router)
     app.include_router(recovery.p4_router)
@@ -55,6 +59,7 @@ def create_app(config: DatabaseConfig | None = None) -> FastAPI:
     # Operational endpoints are wired but kept out of the documented schema.
     app.include_router(runs.router, include_in_schema=False)
     app.include_router(ws_router, include_in_schema=False)
+    app.include_router(studio.router, include_in_schema=False)
     return app
 
 
