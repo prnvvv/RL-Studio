@@ -38,6 +38,10 @@ class EnvDefinition:
     disturbances: bool = False
     #: Keep applying the last manual action until a new one arrives (balancing tasks).
     human_sticky: bool = False
+    #: Disturbances this environment can receive in chaos mode.
+    chaos_kinds: tuple[str, ...] = ()
+    #: Per-observation-dimension noise scale at chaos intensity 1.
+    noise_scale: tuple[float, ...] = ()
 
 
 # --------------------------------------------------------------------------- #
@@ -200,6 +204,10 @@ def _warehouse_classify(
     return {"success": False, "reason": "time_limit"}
 
 
+#: Sensor noise perturbs only the agent's own position, never the goal or the layout counts.
+WAREHOUSE_CHAOS_KINDS = ("slip", "sensor_noise")
+WAREHOUSE_NOISE_SCALE = (0.6, 0.6, 0.0, 0.0, 0.0, 0.0)
+
 ENVIRONMENTS: dict[str, EnvDefinition] = {
     "cartpole": EnvDefinition(
         key="cartpole",
@@ -215,6 +223,8 @@ ENVIRONMENTS: dict[str, EnvDefinition] = {
         classify=_cartpole_classify,
         disturbances=True,
         human_sticky=True,
+        chaos_kinds=("impulse", "sensor_noise", "slip"),
+        noise_scale=(0.25, 0.5, 0.05, 0.5),
     ),
     "warehouse": EnvDefinition(
         key="warehouse",
@@ -228,6 +238,8 @@ ENVIRONMENTS: dict[str, EnvDefinition] = {
         scene=_warehouse_scene,
         frame_state=_warehouse_state,
         classify=_warehouse_classify,
+        chaos_kinds=WAREHOUSE_CHAOS_KINDS,
+        noise_scale=WAREHOUSE_NOISE_SCALE,
     ),
 }
 

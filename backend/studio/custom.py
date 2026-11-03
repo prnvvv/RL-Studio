@@ -518,6 +518,8 @@ def _definition_for(record: dict[str, Any]) -> EnvDefinition:
         scene=_envs._warehouse_scene,
         frame_state=_envs._warehouse_state,
         classify=_envs._warehouse_classify,
+        chaos_kinds=_envs.WAREHOUSE_CHAOS_KINDS,
+        noise_scale=_envs.WAREHOUSE_NOISE_SCALE,
     )
 
 

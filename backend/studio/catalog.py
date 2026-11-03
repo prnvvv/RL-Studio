@@ -171,6 +171,7 @@ def _env_entry(definition: EnvDefinition, agents: dict[str, AgentDefinition]) ->
         "action_space": act_space,
         "default_scene": scene,
         "supports_disturbances": definition.disturbances,
+        "chaos_kinds": list(definition.chaos_kinds),
         "params": [spec.to_dict() for spec in definition.params],
         "compatible_agents": [k for k, a in agents.items() if compatible(a, act_space["type"])],
     }
