@@ -17,7 +17,7 @@ import { AppRouter } from './router'
 const THEME_STORAGE_KEY = 'self-healing-rl-studio-theme'
 
 const DESTINATIONS: { path: string; heading: string }[] = [
-  { path: '/', heading: 'A safer sandbox for stronger agents.' },
+  { path: '/', heading: 'Train. Monitor. Recover.' },
   { path: '/training', heading: 'Training Dashboard' },
   { path: '/environments', heading: 'Simulation Environment' },
   { path: '/monitoring', heading: 'Monitoring' },

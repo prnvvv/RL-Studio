@@ -17,7 +17,7 @@ function renderRoute(path: string) {
 describe('AppRouter', () => {
   it('renders a distinct heading for every documented destination', () => {
     const destinations = [
-      { path: '/', heading: 'A safer sandbox for stronger agents.' },
+      { path: '/', heading: 'Train. Monitor. Recover.' },
       { path: '/training', heading: 'Training Dashboard' },
       { path: '/environments', heading: 'Simulation Environment' },
       { path: '/monitoring', heading: 'Monitoring' },

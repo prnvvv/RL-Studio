@@ -1,6 +1,17 @@
 import '@testing-library/jest-dom/vitest'
-import { afterEach } from 'vitest'
+import { afterEach, vi } from 'vitest'
 import { cleanup } from '@testing-library/react'
+
+// Unit tests exercise pages in isolation, not Clerk. Provide a signed-out,
+// loaded session so components that read auth state do not need a real
+// ClerkProvider (which would require network and a publishable key).
+vi.mock('@clerk/react', () => ({
+  ClerkProvider: ({ children }: { children: React.ReactNode }) => children,
+  useUser: () => ({ isLoaded: true, isSignedIn: false, user: null }),
+  useAuth: () => ({ isLoaded: true, isSignedIn: false, userId: null }),
+  SignIn: () => null,
+  SignOutButton: () => null,
+}))
 
 // jsdom does not implement matchMedia. Default to "does not match" (a desktop
 // viewport never matches a narrow-width query) so components using

@@ -36,7 +36,7 @@ function clickPrimaryNav(label: string) {
   fireEvent.click(within(primaryNav()).getByRole('link', { name: label }))
 }
 
-const LANDING_HEADING = 'A safer sandbox for stronger agents.'
+const HOME_HEADING = 'Train. Monitor. Recover.'
 
 describe('cross-page navigation workflow', () => {
   beforeEach(() => {
@@ -63,11 +63,9 @@ describe('cross-page navigation workflow', () => {
 
   it('reaches every primary and secondary destination from one session without losing the shell', () => {
     renderApp()
-    expect(screen.getByRole('heading', { level: 1, name: LANDING_HEADING })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 1, name: HOME_HEADING })).toBeInTheDocument()
 
-    // The landing page is a standalone surface without the application shell;
-    // its Open Studio call to action is the way into the shell.
-    fireEvent.click(within(primaryNav()).getByRole('link', { name: /Open Studio/ }))
+    clickPrimaryNav('Training')
     expect(
       screen.getByRole('heading', { level: 1, name: 'Training Dashboard' }),
     ).toBeInTheDocument()
@@ -100,12 +98,24 @@ describe('cross-page navigation workflow', () => {
     expect(screen.getByText('Self-Healing RL Studio')).toBeInTheDocument()
 
     clickPrimaryNav('Home')
-    expect(screen.getByRole('heading', { level: 1, name: LANDING_HEADING })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 1, name: HOME_HEADING })).toBeInTheDocument()
+  })
+
+  it('Open Studio on the home page enters the interactive studio workspace', async () => {
+    // The studio asks the backend for its catalog; with it unreachable the
+    // workspace must say so instead of listing agents it cannot run.
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('unreachable')))
+    renderApp()
+    fireEvent.click(screen.getByRole('link', { name: 'Open Studio' }))
+    expect(
+      await screen.findByRole('heading', { name: /studio backend is unavailable/i }),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('navigation', { name: 'Primary' })).not.toBeInTheDocument()
   })
 
   it('keeps a theme choice across navigating away and back', () => {
     renderApp()
-    fireEvent.click(within(primaryNav()).getByRole('link', { name: /Open Studio/ }))
+    clickPrimaryNav('Training')
     expect(document.documentElement.getAttribute('data-theme')).toBe('dark')
 
     fireEvent.click(screen.getByRole('button', { name: 'Switch to light theme' }))
@@ -115,13 +125,13 @@ describe('cross-page navigation workflow', () => {
     expect(document.documentElement.getAttribute('data-theme')).toBe('light')
 
     clickPrimaryNav('Home')
-    expect(screen.getByRole('heading', { level: 1, name: LANDING_HEADING })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 1, name: HOME_HEADING })).toBeInTheDocument()
     expect(document.documentElement.getAttribute('data-theme')).toBe('light')
   })
 
   it('updates the active-destination indicator as navigation proceeds, never on more than one link at a time', () => {
     renderApp()
-    fireEvent.click(within(primaryNav()).getByRole('link', { name: /Open Studio/ }))
+    clickPrimaryNav('Training')
 
     clickPrimaryNav('Reports')
     const current = within(primaryNav())
