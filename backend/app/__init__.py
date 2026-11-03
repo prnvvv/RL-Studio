@@ -1,4 +1,5 @@
-"""App package."""
-from backend.app.main import app
+"""ASGI package.
 
-__all__ = ["app"]
+The canonical FastAPI application lives in :mod:`backend.api.app`; see
+:mod:`backend.app.main` for the ``uvicorn`` entrypoint shim.
+"""
