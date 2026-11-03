@@ -40,6 +40,7 @@ from .catalog import AGENTS, NET_ARCHES, TRAINING_PARAMS, sb3_class
 from .envs import ENVIRONMENTS, EnvDefinition
 from .hub import SessionHub
 from .params import validate_params
+from .store import RunRecorder
 
 logger = logging.getLogger(__name__)
 
@@ -81,6 +82,10 @@ def data_dir() -> Path:
     override = os.environ.get("STUDIO_DATA_DIR")
     base = Path(override) if override else Path(__file__).resolve().parents[2] / "var" / "studio"
     return base
+
+
+def store_path() -> Path:
+    return data_dir() / "studio.sqlite3"
 
 
 def _now() -> str:
@@ -163,6 +168,26 @@ class _StudioCallback(BaseCallback):
         self._last_eval = 0
 
     def _on_step(self) -> bool:
+        last_obs = getattr(self.model, "_last_obs", None)
+        locals_ = self.locals
+        return self.step(
+            env=self.training_env.envs[0],
+            timestep=int(self.num_timesteps),
+            pre_obs=None if last_obs is None else last_obs[0],
+            new_obs=locals_["new_obs"][0],
+            action=locals_["actions"][0],
+            reward=float(locals_["rewards"][0]),
+            done=bool(locals_["dones"][0]),
+            info=locals_["infos"][0],
+            model=self.model,
+        )
+
+    def step(self, *, env: Any, timestep: int, pre_obs: Any, new_obs: Any, action: Any, reward: float, done: bool, info: dict[str, Any], model: Any) -> bool:
+        """Handle one environment transition. Returns False to stop the run.
+
+        Shared by SB3 training (via ``_on_step``) and inference-only sessions, so
+        frames, episodes, persistence and pacing behave identically in both.
+        """
         s = self.s
         if s._stop.is_set():
             return False
@@ -172,11 +197,6 @@ class _StudioCallback(BaseCallback):
             if s._stop.is_set():
                 return False
 
-        env = self.training_env.envs[0]
-        action = self.locals["actions"][0]
-        reward = float(self.locals["rewards"][0])
-        done = bool(self.locals["dones"][0])
-        info = self.locals["infos"][0]
         action_value: Any = int(action) if getattr(action, "ndim", 1) == 0 else [float(a) for a in action]
 
         collision = bool(info.get("collision", False))
@@ -185,12 +205,22 @@ class _StudioCallback(BaseCallback):
         self._episode_steps += 1
         self._episode_collisions += int(collision)
         self._episode_disturbances += int(disturbed)
-        timestep = int(self.num_timesteps)
 
         terminal_obs = info.get("terminal_observation") if done else None
         outcome: dict[str, Any] | None = None
+        truncated = bool(info.get("TimeLimit.truncated", False)) if done else False
+        if s._recorder is not None:
+            s._recorder.add_step(
+                step_index=timestep,
+                episode_step=self._episode_steps,
+                obs=pre_obs,
+                action=action_value,
+                reward=reward,
+                terminated=done and not truncated,
+                truncated=truncated,
+                next_obs=terminal_obs if done and terminal_obs is not None else new_obs,
+            )
         if done:
-            truncated = bool(info.get("TimeLimit.truncated", False))
             outcome = self.definition.classify(s.config["env_params"], terminal_obs, info, not truncated)
         now = time.monotonic()
         if done or now - self._last_frame >= FRAME_INTERVAL_S:
@@ -228,12 +258,12 @@ class _StudioCallback(BaseCallback):
 
         s._maybe_progress(timestep, force=False)
         training = s.config["training"]
-        if training["checkpoint_every"] and timestep - self._last_checkpoint >= training["checkpoint_every"]:
+        if model is not None and training["checkpoint_every"] and timestep - self._last_checkpoint >= training["checkpoint_every"]:
             self._last_checkpoint = timestep
-            s._save_checkpoint(self.model, timestep, reason="interval")
-        if training["eval_every"] and timestep - self._last_eval >= training["eval_every"]:
+            s._save_checkpoint(model, timestep, reason="interval")
+        if model is not None and training["eval_every"] and timestep - self._last_eval >= training["eval_every"]:
             self._last_eval = timestep
-            s._evaluate(self.model, timestep)
+            s._evaluate(model, timestep)
 
         self._pace()
         return True
@@ -273,6 +303,8 @@ class TrainingSession:
         self._resume = threading.Event()
         self._thread: threading.Thread | None = None
         self._model: Any = None
+        self._recorder: RunRecorder | None = None
+        self._obs_shape: list[int] | None = None
         self._scene: dict[str, Any] = {}
         self._reset_metrics()
         self._build_preview()
@@ -322,6 +354,7 @@ class TrainingSession:
             env.reset(seed=self.config["training"]["seed"])
             self._scene = self.definition.scene(self.config["env_params"], env)
             self._scene["action_space"] = "discrete" if hasattr(env.action_space, "n") else "box"
+            self._obs_shape = [int(d) for d in env.observation_space.shape]
             self.hub.set_frame(
                 {
                     "timestep": 0,
@@ -361,6 +394,19 @@ class TrainingSession:
             self._resume.set()
             self.started_at = _now()
             self._started_monotonic = time.monotonic()
+            self._recorder = RunRecorder(store_path(), self.run_id)
+            self._recorder.start_run(
+                session_id=self.session_id,
+                run_index=self.run_index,
+                name=self.name,
+                agent=self.config["agent"],
+                environment=self.config["environment"],
+                mode="training",
+                config=self.config,
+                obs_shape=self._obs_shape,
+                created_at=self.created_at,
+                started_at=self.started_at,
+            )
             self._thread = threading.Thread(target=self._run, name=f"studio-{self.session_id}", daemon=True)
             self._status = Status.RUNNING
         self.hub.publish("lifecycle", {"status": "running", "previous": "initialized", "run_id": self.run_id})
@@ -421,6 +467,7 @@ class TrainingSession:
             self.run_index += 1
             self._reset_metrics()
             self._model = None
+            self._recorder = None
             self.error = None
             self.started_at = None
             self.finished_at = None
@@ -504,6 +551,10 @@ class TrainingSession:
         self._flush_episodes(force=True)
         self._maybe_progress(self._timestep, force=True)
         self.finished_at = _now()
+        if self._recorder is not None:
+            self._recorder.finish_run(status=status.value, finished_at=self.finished_at, error=self.error)
+            if not self._recorder.healthy:
+                self.log("ERROR", "TRAINING", "Trajectory data could not be fully saved", {"detail": self._recorder.last_error})
         self._set_status(status, error=self.error)
         level = "ERROR" if status == Status.FAILED else "INFO"
         self.log(level, "TRAINING", f"Training {status.value}", {"timestep": self._timestep, "episodes": self._episode_count})
@@ -549,6 +600,8 @@ class TrainingSession:
             }
             self._episodes.append(record)
             self._unsent.append(record)
+        if self._recorder is not None:
+            self._recorder.end_episode(end_step=timestep, reward=reward, length=length, success=bool(outcome["success"]), reason=outcome["reason"], collisions=collisions, disturbances=disturbances)
         if collisions:
             self.log("INFO", "ENVIRONMENT", f"{collisions} collision(s) in episode {record['episode']}", {"collisions": collisions}, record["episode"])
         if disturbances and self.definition.disturbances:
@@ -627,6 +680,8 @@ class TrainingSession:
         record = {"timestep": int(self._timestep), "update": len(self._updates) + 1, **stats}
         with self._lock:
             self._updates.append(record)
+        if self._recorder is not None:
+            self._recorder.add_update(record["timestep"], stats)
         self.hub.publish("update", {"run_id": self.run_id, **record})
 
     def _evaluate(self, model: Any, timestep: int) -> None:
@@ -664,6 +719,8 @@ class TrainingSession:
             "success_rate": successes / count,
         }
         self._evals.append(record)
+        if self._recorder is not None:
+            self._recorder.add_evaluation(timestep, record)
         self.hub.publish("evaluation", {"run_id": self.run_id, **record})
         self.log("INFO", "TRAINING", f"Evaluation at {timestep}: mean reward {mean:.2f} ± {std:.2f}, success {record['success_rate']:.0%}", record)
 
@@ -698,6 +755,8 @@ class TrainingSession:
             (directory / f"{checkpoint_id}.meta.json").write_text(json.dumps(record, sort_keys=True))
             with self._lock:
                 self._checkpoints.append(record)
+            if self._recorder is not None:
+                self._recorder.add_checkpoint(record, str(final.relative_to(data_dir())))
             self.hub.publish("checkpoint", record)
             self.log("INFO", "CHECKPOINT", f"Checkpoint saved at timestep {timestep} ({reason})", {"checkpoint_id": checkpoint_id, "sha256": digest[:12]})
         except OSError:
@@ -741,6 +800,10 @@ class TrainingSession:
             "error": self.error,
             "progress": self._progress_payload(self._timestep),
             "checkpoints": list(self._checkpoints),
+            "persistence": {
+                "healthy": self._recorder.healthy if self._recorder else True,
+                "error": self._recorder.last_error if self._recorder else None,
+            },
         }
 
     def snapshot(self) -> dict[str, Any]:
