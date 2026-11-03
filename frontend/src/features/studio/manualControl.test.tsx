@@ -138,6 +138,7 @@ describe('manual control toolbar button', () => {
     onSpeed: vi.fn(),
     onResetCamera: vi.fn(),
     onViewModeChange: vi.fn(),
+    compare: { active: false, available: true, onToggle: vi.fn() },
   }
 
   it('toggles between taking and releasing control', () => {

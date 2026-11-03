@@ -22,6 +22,8 @@ interface Props {
   onViewModeChange: (mode: ViewMode) => void
   manual: { available: boolean; active: boolean; hint: string | null }
   onToggleManual: () => void
+  /** Compare mode: two agents on the same environment and seed, side by side. */
+  compare: { active: boolean; available: boolean; onToggle: () => void }
 }
 
 function Spinner() {
@@ -48,6 +50,7 @@ export function ControlToolbar({
   onViewModeChange,
   manual,
   onToggleManual,
+  compare,
 }: Props) {
   const idle = busy === null
   const label = pendingCommand === 'pause' ? 'pausing…' : (status ?? 'no session')
@@ -172,6 +175,20 @@ export function ControlToolbar({
           title="Reset camera (C)"
         >
           Reset camera
+        </button>
+        <button
+          type="button"
+          className={`btn btn--ghost${compare.active ? ' is-active' : ''}`}
+          aria-pressed={compare.active}
+          disabled={!compare.available}
+          onClick={compare.onToggle}
+          title={
+            compare.available
+              ? 'Train two agents side by side on the same environment and seed'
+              : 'Stop the running session to change Compare mode'
+          }
+        >
+          Compare
         </button>
         <div className="seg" role="group" aria-label="Render mode">
           {(['3d', '2d'] as const).map((mode) => (

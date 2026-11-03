@@ -217,3 +217,6 @@ export function ConfigPanel({ catalog, draft, errors, disabled, onChange }: Prop
     </div>
   )
 }
+
+/** A titled parameter form, reused for the opponent in Compare mode. */
+export { Section as ParamSection }

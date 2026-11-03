@@ -9,6 +9,9 @@ import {
 } from 'react'
 import { Link } from 'react-router-dom'
 import { ThemeToggle } from '../../components/ThemeToggle'
+import { CompareMetrics } from './CompareMetrics'
+import { ComparePanes } from './ComparePanes'
+import { CompareSetup } from './CompareSetup'
 import { ConfigPanel } from './ConfigPanel'
 import { ControlToolbar, type ViewMode } from './ControlToolbar'
 import { ExperimentsPanel } from './ExperimentsPanel'
@@ -21,6 +24,7 @@ import { ToastProvider } from './toast'
 import { useToast } from './toastState'
 import { controlHint } from './humanControl'
 import { useManualControl } from './useManualControl'
+import { useBattle } from './useBattle'
 import type { UploadHooks, UploadOutcome } from './UploadDropzone'
 import {
   controlAvailability,
@@ -28,13 +32,14 @@ import {
   findAgent,
   findEnvironment,
   incompatibilityReason,
+  isCompatible,
   selectAgent,
   selectEnvironment,
   toSessionConfig,
   validateDraft,
   type Draft,
 } from './studioConfig'
-import { ACTIVE_STATUSES, type Catalog, type ParamValue } from './studioTypes'
+import { ACTIVE_STATUSES, type Catalog, type ParamValue, type ParamValues } from './studioTypes'
 import type { SessionCommand } from '../../services/studio'
 import { useStudioSession } from './useStudioSession'
 import './studio.css'
@@ -107,8 +112,19 @@ function shortcutsSuppressed(target: EventTarget | null): boolean {
 }
 
 function WorkspaceBody({ catalog, session }: { catalog: Catalog; session: Session }) {
-  const { state, store, busy, notice } = session
   const toast = useToast()
+  const battle = useBattle(session.service)
+  const adoptBattle = battle.adopt
+  const [compare, setCompare] = useState(false)
+  const [agentB, setAgentB] = useState<{ agent: string | null; params: ParamValues }>({
+    agent: null,
+    params: {},
+  })
+  // Compare mode swaps the shared chrome (toolbar, status, logs) onto the battle's combined state.
+  const state = compare ? battle.combined : session.state
+  const store = compare ? battle.storeA : session.store
+  const busy = compare ? battle.busy : session.busy
+  const notice = compare ? battle.notice : session.notice
   const webgl = useMemo(() => webglAvailable(), [])
   const autoSwitched = useRef(false)
   const previousConnection = useRef(state.connection)
@@ -123,16 +139,34 @@ function WorkspaceBody({ catalog, session }: { catalog: Catalog; session: Sessio
   const active = state.status !== null && ACTIVE_STATUSES.includes(state.status)
   const errors = useMemo(() => validateDraft(catalog, draft), [catalog, draft])
   const mismatch = incompatibilityReason(catalog, draft.agent, draft.environment)
+  const errorsB = useMemo(() => {
+    const all = validateDraft(catalog, {
+      ...draft,
+      agent: agentB.agent,
+      agent_params: agentB.params,
+    })
+    return Object.fromEntries(
+      Object.entries(all).filter(([key]) => key.startsWith('agent_params.')),
+    )
+  }, [catalog, draft, agentB])
+  const opponentReady =
+    !compare ||
+    (agentB.agent !== null &&
+      isCompatible(catalog, agentB.agent, draft.environment) &&
+      Object.keys(errorsB).length === 0)
   const ready =
     draft.agent !== null &&
     draft.environment !== null &&
     mismatch === null &&
-    Object.keys(errors).length === 0
+    Object.keys(errors).length === 0 &&
+    opponentReady
   const initializeHint =
     !draft.agent || !draft.environment
       ? 'Select an agent and an environment first'
-      : (mismatch ??
-        (Object.keys(errors).length > 0 ? 'Fix the highlighted configuration fields' : null))
+      : compare && !opponentReady
+        ? 'Choose a compatible opponent (Agent B) in the Configure tab'
+        : (mismatch ??
+          (Object.keys(errors).length > 0 ? 'Fix the highlighted configuration fields' : null))
   const availability = controlAvailability(state.status, state.pendingCommand, ready)
 
   // Which environment the viewport shows: the session's, else the current selection (preview).
@@ -141,7 +175,10 @@ function WorkspaceBody({ catalog, session }: { catalog: Catalog; session: Sessio
   const viewEnv = state.sessionId !== null ? sessionEnv : previewEnv
   const viewScene = state.sessionId !== null ? state.scene : (previewEnv?.default_scene ?? null)
   const draftDiffers =
-    state.config !== null && !active && !sameConfig(toSessionConfig(draft), state.config)
+    !compare &&
+    state.config !== null &&
+    !active &&
+    !sameConfig(toSessionConfig(draft), state.config)
 
   const speed = state.progress?.speed ?? Number(draft.training.simulation_speed ?? 1)
 
@@ -154,14 +191,63 @@ function WorkspaceBody({ catalog, session }: { catalog: Catalog; session: Sessio
   const initialize = async () => {
     const config = toSessionConfig(draft)
     if (config === null || !ready) return
-    const ok = await session.initialize(config)
+    let ok: boolean
+    if (compare && agentB.agent !== null) {
+      ok = await battle.create({
+        environment: config.environment,
+        env_params: config.env_params,
+        training: config.training,
+        a: { agent: config.agent, agent_params: config.agent_params },
+        b: { agent: agentB.agent, agent_params: agentB.params },
+      })
+    } else {
+      ok = await session.initialize(config)
+    }
     if (ok) {
       setCameraNonce((n) => n + 1)
-      toast.push('success', 'Session initialized')
+      toast.push(
+        'success',
+        compare ? 'Battle initialized: both sides share one seed' : 'Session initialized',
+      )
     }
   }
 
-  const manualActive = state.controls.human
+  const toggleCompare = () => {
+    if (compare) {
+      battle.leave()
+      setCompare(false)
+    } else {
+      setCompare(true)
+      setLeftTab('configure')
+    }
+  }
+
+  const chooseOpponent = (key: string) => {
+    const template = catalog.agents.find((agent) => agent.key === key)
+    setAgentB({
+      agent: key,
+      params: Object.fromEntries((template?.params ?? []).map((spec) => [spec.key, spec.default])),
+    })
+  }
+
+  // A battle that is still running survives a page reload: re-attach to both sides.
+  useEffect(() => {
+    const controller = new AbortController()
+    void (async () => {
+      const sessions = await session.service.listSessions(controller.signal)
+      if (controller.signal.aborted || sessions.state !== 'ok') return
+      const live = sessions.data.find((s) => s.battle && ACTIVE_STATUSES.includes(s.status))
+      if (!live?.battle) return
+      const result = await session.service.getBattle(live.battle.battle_id, controller.signal)
+      if (controller.signal.aborted || result.state !== 'ok') return
+      adoptBattle(result.data)
+      setCompare(true)
+      toast.push('info', 'Re-attached to a battle that is still running')
+    })()
+    return () => controller.abort()
+  }, [session.service, adoptBattle, toast])
+
+  const manualActive = !compare && state.controls.human
   const manualHint = controlHint(viewEnv?.renderer ?? null)
   const sendManualAction = useCallback(
     (action: number) => {
@@ -186,10 +272,10 @@ function WorkspaceBody({ catalog, session }: { catalog: Catalog; session: Sessio
 
   const runCommand = useCallback(
     async (command: SessionCommand) => {
-      const ok = await session.command(command)
+      const ok = compare ? await battle.command(command) : await session.command(command)
       if (ok) toast.push('success', COMMAND_TOASTS[command])
     },
-    [session, toast],
+    [battle, compare, session, toast],
   )
 
   // Choosing both an agent and an environment moves the user on to configuration, once.
@@ -306,7 +392,8 @@ function WorkspaceBody({ catalog, session }: { catalog: Catalog; session: Sessio
 
   const onSpeed = (value: number) => {
     changeParam('training', 'simulation_speed', value)
-    if (state.sessionId !== null) void session.setSpeed(value)
+    if (compare) void battle.setSpeed(value)
+    else if (state.sessionId !== null) void session.setSpeed(value)
   }
 
   // Pointer-driven resizing for the vertical and horizontal splitters.
@@ -414,13 +501,32 @@ function WorkspaceBody({ catalog, session }: { catalog: Catalog; session: Sessio
                 onRemove={removeCustom}
               />
             ) : (
-              <ConfigPanel
-                catalog={catalog}
-                draft={draft}
-                errors={errors}
-                disabled={active}
-                onChange={changeParam}
-              />
+              <>
+                {compare && (
+                  <CompareSetup
+                    catalog={catalog}
+                    environment={draft.environment}
+                    agentB={agentB.agent}
+                    paramsB={agentB.params}
+                    errors={errorsB}
+                    disabled={active}
+                    onSelectAgentB={chooseOpponent}
+                    onChangeParamB={(key, value) =>
+                      setAgentB((current) => ({
+                        ...current,
+                        params: { ...current.params, [key]: value },
+                      }))
+                    }
+                  />
+                )}
+                <ConfigPanel
+                  catalog={catalog}
+                  draft={draft}
+                  errors={errors}
+                  disabled={active}
+                  onChange={changeParam}
+                />
+              </>
             )}
           </div>
         </aside>
@@ -452,11 +558,12 @@ function WorkspaceBody({ catalog, session }: { catalog: Catalog; session: Sessio
             onResetCamera={() => setCameraNonce((n) => n + 1)}
             onViewModeChange={setViewMode}
             manual={{
-              available: availability.manual && manualHint !== null,
+              available: availability.manual && manualHint !== null && !compare,
               active: manualActive,
               hint: manualHint,
             }}
             onToggleManual={() => void toggleManual()}
+            compare={{ active: compare, available: !active, onToggle: toggleCompare }}
           />
           {state.error && (
             <p
@@ -474,17 +581,30 @@ function WorkspaceBody({ catalog, session }: { catalog: Catalog; session: Sessio
             </p>
           )}
 
-          <SimulationViewport
-            store={store}
-            rendererKey={viewEnv?.renderer ?? null}
-            scene={viewScene}
-            environmentName={viewEnv?.name ?? null}
-            status={state.status}
-            preview={state.sessionId === null}
-            cameraResetNonce={cameraNonce}
-            viewMode={viewMode}
-            manualHint={manualActive ? manualHint : null}
-          />
+          {compare && battle.battleId !== null ? (
+            <ComparePanes
+              storeA={battle.storeA}
+              storeB={battle.storeB}
+              stateA={battle.stateA}
+              stateB={battle.stateB}
+              rendererKey={viewEnv?.renderer ?? null}
+              environmentName={viewEnv?.name ?? null}
+              viewMode={viewMode}
+              cameraResetNonce={cameraNonce}
+            />
+          ) : (
+            <SimulationViewport
+              store={store}
+              rendererKey={viewEnv?.renderer ?? null}
+              scene={viewScene}
+              environmentName={viewEnv?.name ?? null}
+              status={state.status}
+              preview={state.sessionId === null}
+              cameraResetNonce={cameraNonce}
+              viewMode={viewMode}
+              manualHint={manualActive ? manualHint : null}
+            />
+          )}
 
           <div className="dock" style={{ ['--dock-height' as string]: `${layout.dock}px` }}>
             <div
@@ -518,7 +638,10 @@ function WorkspaceBody({ catalog, session }: { catalog: Catalog; session: Sessio
               ))}
             </div>
             <div className="tab-body" role="tabpanel">
-              {dockTab === 'metrics' && (
+              {dockTab === 'metrics' && compare && battle.battleId !== null && (
+                <CompareMetrics stateA={battle.stateA} stateB={battle.stateB} />
+              )}
+              {dockTab === 'metrics' && !(compare && battle.battleId !== null) && (
                 <MetricsPanel
                   state={state}
                   agent={findAgent(catalog, state.config?.agent ?? draft.agent)}

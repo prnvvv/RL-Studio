@@ -450,3 +450,56 @@
   text-transform: uppercase;
   letter-spacing: 0.1em;
 }
+
+/* ---------- Compare mode ---------- */
+.compare-panes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  flex: 1;
+  min-height: 260px;
+  gap: 1px;
+  background: var(--border-primary);
+}
+.compare-pane {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: var(--bg-primary);
+}
+.compare-pane .sim-viewport {
+  flex: 1;
+  min-height: 0;
+}
+.compare-pane__label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 4px var(--space-3);
+  border-bottom: 1px solid var(--border-secondary);
+  background: var(--bg-panel);
+  font-size: var(--text-sm);
+}
+.compare-pane__label strong {
+  letter-spacing: 0.08em;
+}
+.chip--lead {
+  color: var(--text-primary);
+  border-color: var(--text-primary);
+}
+.compare-table th[scope='row'] {
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+.compare-table tr[data-leader='a'] td:nth-child(2),
+.compare-table tr[data-leader='b'] td:nth-child(3) {
+  font-weight: 700;
+}
+.compare-setup {
+  margin-bottom: var(--space-3);
+}
+@media (max-width: 960px) {
+  .compare-panes {
+    grid-template-columns: 1fr;
+  }
+}

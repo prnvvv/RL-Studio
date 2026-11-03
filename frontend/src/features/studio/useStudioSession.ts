@@ -89,7 +89,7 @@ export function useStudioSession(service: StudioService = defaultService) {
     void (async () => {
       const sessions = await service.listSessions(controller.signal)
       if (controller.signal.aborted || sessions.state !== 'ok') return
-      const active = sessions.data.find((s) => ACTIVE_STATUSES.includes(s.status))
+      const active = sessions.data.find((s) => !s.battle && ACTIVE_STATUSES.includes(s.status))
       if (active) {
         setNotice({
           tone: 'info',
