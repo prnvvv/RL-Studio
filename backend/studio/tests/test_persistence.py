@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import itertools
 import json
 import math
 from typing import Any
@@ -12,7 +13,7 @@ from fastapi.testclient import TestClient
 from backend.studio.manager import manager
 from backend.studio.store import RunRecorder, TrajectoryReader
 
-from .test_studio import BASE, _create, _wait, client  # noqa: F401  (client is a fixture)
+from .test_studio import BASE, _create, _wait
 
 TRAINING = {"total_timesteps": 2000, "simulation_speed": 0, "checkpoint_every": 1000, "eval_every": 1000, "eval_episodes": 2}
 
@@ -46,10 +47,10 @@ def test_every_step_is_persisted_with_consistent_transitions(client: TestClient)
     assert len(steps) == run["step_count"]
     assert [s["step_index"] for s in steps] == list(range(steps[0]["step_index"], steps[0]["step_index"] + len(steps)))
     assert all(len(s["observation"]) == 4 and len(s["next_observation"]) == 4 for s in steps)
-    assert all(a <= b for a, b in zip((s["timestamp"] for s in steps), (s["timestamp"] for s in steps[1:]), strict=False))
+    assert all(a <= b for a, b in itertools.pairwise(s["timestamp"] for s in steps))
 
     # Inside an episode, the next observation of one step is the observation of the next.
-    for current, following in zip(steps, steps[1:], strict=False):
+    for current, following in itertools.pairwise(steps):
         if current["episode"] == following["episode"]:
             assert current["next_observation"] == pytest.approx(following["observation"], abs=1e-6)
             assert not current["terminated"] and not current["truncated"]

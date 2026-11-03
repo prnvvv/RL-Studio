@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
-from .test_studio import BASE, _create, client  # noqa: F401  (client is a fixture)
+from .test_studio import BASE, _create
 
 
 def test_ping_is_echoed_as_pong_with_the_same_timestamp(client: TestClient) -> None:

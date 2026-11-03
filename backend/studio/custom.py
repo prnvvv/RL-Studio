@@ -36,7 +36,12 @@ import gymnasium as gym
 import numpy as np
 from pydantic import ValidationError as PydanticValidationError
 
-from backend.database.exceptions import ConflictError, NotFoundError, StudioError, ValidationError
+from backend.database.exceptions import (
+    ConflictError,
+    NotFoundError,
+    StudioError,
+    ValidationError,
+)
 from backend.environments.config import WarehouseConfig
 from backend.environments.warehouse_env import Warehouse2DEnv
 
@@ -220,7 +225,7 @@ def _load_state(path: Path, ext: str) -> tuple[dict[str, Any], set[str] | None]:
             state = torch.load(path, map_location="cpu", weights_only=True)
     except StudioError:
         raise
-    except Exception:  # noqa: BLE001 - process boundary: unreadable or hostile file, reported generically
+    except Exception:  # process boundary: unreadable or hostile file, reported generically
         logger.info("Rejected uploaded weights", exc_info=True)
         raise _fail("The weights could not be read safely. Only plain tensors are accepted; pickled objects are refused.") from None
     return _validate_tensors(state), data_keys
@@ -240,7 +245,7 @@ def build_policy(spec: dict[str, Any], observation_space: gym.Space, action_spac
 
     torch = _torch()
     activation = torch.nn.ReLU if spec["activation"] == "ReLU" else torch.nn.Tanh
-    schedule = lambda _progress: 1e-3  # noqa: E731 - only used to size the optimizer
+    schedule = lambda _progress: 1e-3  # only used to size the optimizer
     if spec["family"] == "q":
         return DQNPolicy(observation_space, action_space, schedule, net_arch=list(spec["net_arch"]), activation_fn=activation)
     return ActorCriticPolicy(observation_space, action_space, schedule, net_arch=dict(spec["net_arch"]), activation_fn=activation)
@@ -429,7 +434,10 @@ def validate_layout(raw: Any) -> dict[str, Any]:
     try:
         WarehouseConfig(**layout, max_episode_steps=100, goal_reward=1.0, collision_penalty=0.0)
     except (PydanticValidationError, ValueError) as exc:
-        message = "; ".join(str(e.get("msg", e)).removeprefix("Value error, ") for e in getattr(exc, "errors", lambda: [{"msg": str(exc)}])())
+        details = exc.errors() if hasattr(exc, "errors") else [{"msg": str(exc)}]
+        message = "; ".join(
+            str(e.get("msg", e)).removeprefix("Value error, ") for e in details
+        )
         raise _fail(message[:300], "layout") from None
     return layout
 
@@ -464,7 +472,7 @@ def list_environments() -> list[dict[str, Any]]:
 
 
 def get_environment_record(key_or_id: str) -> dict[str, Any]:
-    env_id = key_or_id[len(ENV_PREFIX):] if key_or_id.startswith(ENV_PREFIX) else key_or_id
+    env_id = key_or_id.removeprefix(ENV_PREFIX)
     if not _ENV_ID.match(env_id):
         raise NotFoundError("Environment not found", details={"env_id": env_id[:40]})
     try:

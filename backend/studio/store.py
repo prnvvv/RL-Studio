@@ -355,7 +355,7 @@ class TrajectoryReader:
     def table(self, run_id: str, table: str, offset: int, limit: int) -> list[dict[str, Any]]:
         order = {"updates": "update_index", "evaluations": "eval_index"}[table]
         with self._db() as db:
-            rows = db.execute(f"SELECT * FROM {table} WHERE run_id=? ORDER BY {order} LIMIT ? OFFSET ?", (run_id, min(limit, MAX_PAGE), offset)).fetchall()  # noqa: S608 - table is allow-listed above
+            rows = db.execute(f"SELECT * FROM {table} WHERE run_id=? ORDER BY {order} LIMIT ? OFFSET ?", (run_id, min(limit, MAX_PAGE), offset)).fetchall()
         out = []
         for r in rows:
             data = dict(r)

@@ -18,7 +18,7 @@ from backend.studio import custom
 from backend.studio.envs import ENVIRONMENTS
 
 from .test_persistence import _all_steps
-from .test_studio import BASE, _create, _wait, client  # noqa: F401  (client is a fixture)
+from .test_studio import BASE, _create, _wait
 
 FAST = {"total_timesteps": 1000, "simulation_speed": 0}
 
