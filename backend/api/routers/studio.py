@@ -3,14 +3,21 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
+import re
+from collections.abc import Iterator
 from typing import Any
 
 from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 
+from backend.database.exceptions import NotFoundError
 from backend.studio.catalog import build_catalog
 from backend.studio.manager import manager
+from backend.studio.session import store_path
+from backend.studio.store import MAX_PAGE, TrajectoryReader
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +68,84 @@ def list_history() -> dict[str, Any]:
 @router.get("/history/{run_id}")
 def get_history_record(run_id: str) -> dict[str, Any]:
     return manager.history_record(run_id)
+
+
+_NL = chr(10)
+_SESSION_ID = re.compile(r"^ses_[0-9a-f]{8}$")
+_RUN_ID = re.compile(r"^ses_[0-9a-f]{8}_r[0-9]{1,4}$")
+
+
+def _reader() -> TrajectoryReader:
+    return TrajectoryReader(store_path())
+
+
+def _require_run(run_id: str) -> dict[str, Any]:
+    run = _reader().get_run(run_id) if _RUN_ID.match(run_id) else None
+    if run is None:
+        raise NotFoundError("Run not found", details={"run_id": run_id[:40]})
+    return run
+
+
+@router.get("/sessions/{session_id}/runs")
+def list_session_runs(session_id: str) -> dict[str, Any]:
+    """Every persisted run of a session (survives server restarts)."""
+    if not _SESSION_ID.match(session_id):
+        raise NotFoundError("Session not found", details={"session_id": session_id[:40]})
+    return {"session_id": session_id, "runs": _reader().list_runs(session_id)}
+
+
+@router.get("/runs/{run_id}")
+def get_run(run_id: str) -> dict[str, Any]:
+    return _require_run(run_id)
+
+
+@router.get("/runs/{run_id}/episodes")
+def get_run_episodes(run_id: str, offset: int = Query(0, ge=0), limit: int = Query(500, ge=1, le=MAX_PAGE)) -> dict[str, Any]:
+    run = _require_run(run_id)
+    return {"run_id": run_id, "total": run["episode_count"], "offset": offset, "episodes": _reader().episodes(run_id, offset, limit)}
+
+
+@router.get("/runs/{run_id}/steps")
+def get_run_steps(
+    run_id: str,
+    episode: int | None = Query(None, ge=1),
+    offset: int = Query(0, ge=0),
+    limit: int = Query(500, ge=1, le=MAX_PAGE),
+) -> dict[str, Any]:
+    """Step-level trajectory: observation, action, reward, termination, next observation."""
+    run = _require_run(run_id)
+    return {"run_id": run_id, "obs_shape": run["obs_shape"], "offset": offset, "steps": _reader().steps(run_id, episode=episode, offset=offset, limit=limit)}
+
+
+@router.get("/runs/{run_id}/updates")
+def get_run_updates(run_id: str, offset: int = Query(0, ge=0), limit: int = Query(500, ge=1, le=MAX_PAGE)) -> dict[str, Any]:
+    _require_run(run_id)
+    return {"run_id": run_id, "updates": _reader().table(run_id, "updates", offset, limit)}
+
+
+@router.get("/runs/{run_id}/evaluations")
+def get_run_evaluations(run_id: str, offset: int = Query(0, ge=0), limit: int = Query(500, ge=1, le=MAX_PAGE)) -> dict[str, Any]:
+    _require_run(run_id)
+    return {"run_id": run_id, "evaluations": _reader().table(run_id, "evaluations", offset, limit)}
+
+
+@router.get("/runs/{run_id}/checkpoints")
+def get_run_checkpoints(run_id: str) -> dict[str, Any]:
+    _require_run(run_id)
+    return {"run_id": run_id, "checkpoints": _reader().checkpoints(run_id)}
+
+
+@router.get("/runs/{run_id}/export")
+def export_run(run_id: str) -> StreamingResponse:
+    """Newline-delimited JSON: a ``run`` header line, then one ``step`` line per transition."""
+    run = _require_run(run_id)
+
+    def lines() -> Iterator[str]:
+        yield json.dumps({"type": "run", **run}) + _NL
+        for step in _reader().iter_steps(run_id):
+            yield json.dumps({"type": "step", **step}) + _NL
+
+    return StreamingResponse(lines(), media_type="application/x-ndjson", headers={"Content-Disposition": f'attachment; filename="{run_id}.jsonl"'})
 
 
 @router.get("/sessions/{session_id}")
