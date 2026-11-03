@@ -1,3 +1,4 @@
+import { UploadCloudIcon } from './libraryVisuals'
 import { useRef, useState, type DragEvent } from 'react'
 import type { UploadPhase } from '../../services/studio'
 
@@ -147,7 +148,10 @@ export function UploadDropzone({
         aria-describedby={`${label.replace(/\W+/g, '-')}-hint`}
         onClick={() => inputRef.current?.click()}
       >
-        + {label}
+        <span className="dropzone__icon" aria-hidden="true">
+          <UploadCloudIcon />
+        </span>
+        <span className="dropzone__title">{label}</span>
         <span id={`${label.replace(/\W+/g, '-')}-hint`} className="dropzone__hint">
           {hint}
         </span>
