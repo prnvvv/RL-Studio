@@ -551,3 +551,34 @@
   height: 100%;
   background: var(--text-primary);
 }
+
+/* ---------- Chaos panel ---------- */
+.chaos-panel .field + .field {
+  margin-top: var(--space-3);
+}
+.chaos-panel__value {
+  margin-left: auto;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+.chaos-panel__kinds {
+  margin: var(--space-3) 0 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-secondary);
+  border-radius: var(--radius-sm);
+}
+.chaos-panel__kinds legend {
+  padding: 0 4px;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+.chaos-panel__kind {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 3px 0;
+  font-size: var(--text-sm);
+}
+.chaos-panel__kind label {
+  flex: 1;
+}

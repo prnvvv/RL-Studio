@@ -154,10 +154,19 @@ interface Props {
     key: string,
     value: ParamValue,
   ) => void
+  /** Runtime environment controls (chaos mode), shown right after the environment settings. */
+  environmentExtras?: ReactNode
 }
 
 /** Parameter forms generated from the backend's declarative specs. */
-export function ConfigPanel({ catalog, draft, errors, disabled, onChange }: Props) {
+export function ConfigPanel({
+  catalog,
+  draft,
+  errors,
+  disabled,
+  onChange,
+  environmentExtras,
+}: Props) {
   const agent = findAgent(catalog, draft.agent)
   const env = findEnvironment(catalog, draft.environment)
   const inferenceOnly = agent?.kind === 'custom'
@@ -204,6 +213,12 @@ export function ConfigPanel({ catalog, draft, errors, disabled, onChange }: Prop
         empty="Select an environment to configure it."
         onChange={(k, v) => onChange('env_params', k, v)}
       />
+      {environmentExtras && (
+        <details className="cfg-section" open>
+          <summary>Chaos mode</summary>
+          <div style={{ padding: 'var(--space-3)' }}>{environmentExtras}</div>
+        </details>
+      )}
       <Section
         title={inferenceOnly ? 'Run' : 'Training'}
         scope="training"

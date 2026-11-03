@@ -9,6 +9,7 @@ import {
 } from 'react'
 import { Link } from 'react-router-dom'
 import { ThemeToggle } from '../../components/ThemeToggle'
+import { ChaosPanel } from './ChaosPanel'
 import { CompareMetrics } from './CompareMetrics'
 import { ComparePanes } from './ComparePanes'
 import { CompareSetup } from './CompareSetup'
@@ -264,6 +265,29 @@ function WorkspaceBody({ catalog, session }: { catalog: Catalog; session: Sessio
     if (ok) {
       toast.push('info', next ? 'Heatmap on: showing what the agent prefers' : 'Heatmap off')
     }
+  }
+  const liveSession =
+    !compare &&
+    state.sessionId !== null &&
+    state.status !== 'stopped' &&
+    state.status !== 'completed' &&
+    state.status !== 'failed'
+  const changeChaos = async (patch: {
+    enabled?: boolean
+    intensity?: number
+    kinds?: string[]
+  }) => {
+    const ok = await session.setChaos(patch)
+    if (ok && patch.enabled !== undefined) {
+      toast.push(
+        patch.enabled ? 'warning' : 'info',
+        patch.enabled ? 'Chaos mode on: disturbances will be injected' : 'Chaos mode off',
+      )
+    }
+  }
+  const triggerChaos = async (kind: string) => {
+    const ok = await session.triggerChaos(kind)
+    if (ok) toast.push('warning', `Triggered: ${kind.replace('_', ' ')}`)
   }
   const toggleManual = async () => {
     const next = !manualActive
@@ -533,6 +557,16 @@ function WorkspaceBody({ catalog, session }: { catalog: Catalog; session: Sessio
                   errors={errors}
                   disabled={active}
                   onChange={changeParam}
+                  environmentExtras={
+                    <ChaosPanel
+                      kinds={findEnvironment(catalog, draft.environment)?.chaos_kinds ?? []}
+                      chaos={state.controls.chaos}
+                      available={liveSession}
+                      canTrigger={liveSession && state.status === 'running'}
+                      onChange={(patch) => void changeChaos(patch)}
+                      onTrigger={(kind) => void triggerChaos(kind)}
+                    />
+                  }
                 />
               </>
             )}

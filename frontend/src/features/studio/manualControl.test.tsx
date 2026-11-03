@@ -106,9 +106,9 @@ describe('store manual-control state', () => {
       seq: 0,
       frame: null,
     })
-    expect(store.getState().controls).toEqual({ human: false, human_steps: 0, brain: false })
+    expect(store.getState().controls).toMatchObject({ human: false, human_steps: 0, brain: false })
     store.applyEvent(event(1, 'control', { human: true, human_steps: 3 }))
-    expect(store.getState().controls).toEqual({ human: true, human_steps: 3, brain: false })
+    expect(store.getState().controls).toMatchObject({ human: true, human_steps: 3, brain: false })
     store.applyEvent(event(2, 'reset', {}))
     expect(store.getState().controls.human).toBe(false)
   })
