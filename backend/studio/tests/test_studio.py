@@ -19,6 +19,7 @@ BASE = "/api/v1/studio"
 @pytest.fixture()
 def client(tmp_path, monkeypatch) -> Iterator[TestClient]:
     monkeypatch.setenv("STUDIO_DATA_DIR", str(tmp_path / "studio"))
+    monkeypatch.setenv("RL_STUDIO_DATA_ROOT", str(tmp_path / "var"))
     with TestClient(create_app()) as test_client:
         yield test_client
     for session in list(manager._sessions.values()):
