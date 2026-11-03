@@ -401,7 +401,7 @@ def incompatibility(record: dict[str, Any], obs: dict[str, Any], action: dict[st
 # Custom environments (declarative warehouse layouts)
 # --------------------------------------------------------------------------- #
 
-_CUSTOM_ENV_PARAMS: tuple[ParamSpec, ...] = tuple(p for p in _envs.WAREHOUSE_PARAMS if p.key not in ("difficulty", "layout_seed"))
+_CUSTOM_ENV_PARAMS: tuple[ParamSpec, ...] = tuple(p for p in _envs.WAREHOUSE_PARAMS if p.key not in ("grid_size", "num_obstacles", "obstacle_movement", "layout_seed"))
 
 
 def _cell(value: Any, field: str) -> tuple[int, int]:

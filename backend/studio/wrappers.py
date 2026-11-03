@@ -104,3 +104,81 @@ class ChaosEnv(gym.Wrapper):
             events.append({"kind": "sensor_noise", "level": round(float(level), 3), "forced": "sensor_noise" in forced})
         info["chaos"] = events
         return obs, reward, terminated, truncated, info
+
+
+class MovingObstacleEnv(gym.Wrapper):
+    """Makes the warehouse obstacles drift: each step some of them move to a free neighbouring cell.
+
+    The wrapped environment is never edited; only its (copied) configuration's obstacle list is
+    replaced between steps. Obstacles never enter the start cell, the goal cell, another obstacle
+    or the agent's own cell, so the agent can always be sure it is not "inside" an obstacle.
+    The moves are random but fully seeded, so a run is reproducible.
+    """
+
+    #: Chance, per obstacle and per step, that it moves.
+    MOVE_PROBABILITY = 0.35
+    _STEPS = ((-1, 0), (1, 0), (0, -1), (0, 1))
+
+    def __init__(self, env: gym.Env, seed: int) -> None:
+        super().__init__(env)
+        base = env.unwrapped
+        self._initial = [tuple(o) for o in base.config.obstacles]
+        self._rng = np.random.default_rng(seed)
+        base._studio_moving = True  # lets the frame builder know obstacle positions change
+
+    def _set_obstacles(self, obstacles: list[tuple[int, int]]) -> None:
+        base = self.env.unwrapped
+        base.config = base.config.model_copy(update={"obstacles": [list(o) for o in obstacles]})
+
+    def reset(self, *, seed: int | None = None, options: dict[str, Any] | None = None):  # type: ignore[override]
+        if seed is not None:
+            self._rng = np.random.default_rng(seed)
+        self._set_obstacles(list(self._initial))
+        return self.env.reset(seed=seed, options=options)
+
+    def step(self, action: Any):  # type: ignore[override]
+        obs, reward, terminated, truncated, info = self.env.step(action)
+        moved = 0
+        if not (terminated or truncated):
+            base = self.env.unwrapped
+            cfg = base.config
+            blocked = {tuple(cfg.start), tuple(cfg.goal), tuple(base._pos)}
+            current = [tuple(o) for o in cfg.obstacles]
+            occupied = set(current)
+            for index in self._rng.permutation(len(current)):
+                if self._rng.random() >= self.MOVE_PROBABILITY:
+                    continue
+                row, col = current[index]
+                options = []
+                for dr, dc in self._STEPS:
+                    cell = (row + dr, col + dc)
+                    if 0 <= cell[0] < cfg.rows and 0 <= cell[1] < cfg.cols and cell not in occupied and cell not in blocked:
+                        options.append(cell)
+                if options:
+                    cell = options[int(self._rng.integers(len(options)))]
+                    occupied.discard((row, col))
+                    occupied.add(cell)
+                    current[index] = cell
+                    moved += 1
+            if moved:
+                self._set_obstacles(current)
+        info["obstacles_moved"] = moved
+        return obs, reward, terminated, truncated, info
+
+
+class TerminalReason(gym.Wrapper):
+    """Records *why* an episode ended in ``info["terminal_reason"]`` using the real simulator state.
+
+    ``reason_fn(base_env, obs, terminated, truncated)`` returns a short snake_case reason. Reading
+    it from the simulator is exact; guessing from the last observation is not.
+    """
+
+    def __init__(self, env: gym.Env, reason_fn: Callable[[Any, np.ndarray, bool, bool], str]) -> None:
+        super().__init__(env)
+        self._reason_fn = reason_fn
+
+    def step(self, action: Any):  # type: ignore[override]
+        obs, reward, terminated, truncated, info = self.env.step(action)
+        if terminated or truncated:
+            info["terminal_reason"] = self._reason_fn(self.env.unwrapped, obs, bool(terminated), bool(truncated))
+        return obs, reward, terminated, truncated, info
