@@ -197,6 +197,11 @@ export interface UpdateRecord {
   clip_fraction?: number
   loss?: number
   exploration_rate?: number
+  /** SAC and TD3 (off-policy actor-critic). */
+  actor_loss?: number
+  critic_loss?: number
+  ent_coef?: number
+  ent_coef_loss?: number
 }
 
 export interface EvaluationRecord {

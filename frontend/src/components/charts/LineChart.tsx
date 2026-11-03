@@ -33,6 +33,10 @@ export interface LineChartProps {
   yDomain?: [number, number]
   /** Shown inside an empty chart that has a domain. */
   emptyMessage?: string
+  /** Width of the drawing in SVG units (default 760). A narrower value keeps text legible in a small panel. */
+  width?: number
+  /** Size the chart from its width (keeping the drawing's proportions) instead of a fixed pixel height. */
+  responsive?: boolean
 }
 
 const PADDING = { top: 16, right: 16, bottom: 34, left: 52 }
@@ -51,8 +55,15 @@ function niceTicks(min: number, max: number, count: number): number[] {
   return Array.from({ length: count }, (_, i) => min + step * i)
 }
 
-function formatTick(value: number): string {
+/**
+ * Label a tick. Precision follows the spacing between ticks, so a narrow range (a loss of
+ * -0.0112 to -0.0098) is not rounded into several identical labels.
+ */
+function formatTick(value: number, step = 1): string {
   const abs = Math.abs(value)
+  if (step > 0 && step < 0.01 && abs < 1) {
+    return value.toFixed(Math.min(6, Math.ceil(-Math.log10(step)) + 1))
+  }
   if (abs >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`
   if (abs >= 1_000) return `${(value / 1_000).toFixed(abs >= 10_000 ? 0 : 1)}k`
   if (abs >= 10) return value.toFixed(0)
@@ -69,9 +80,10 @@ export function LineChart({
   xDomain,
   yDomain,
   emptyMessage,
+  width = 760,
+  responsive = false,
 }: LineChartProps) {
   const allPoints = series.flatMap((s) => s.points)
-  const width = 760
 
   if (allPoints.length === 0 && !xDomain) {
     return (
@@ -117,16 +129,17 @@ export function LineChart({
 
   const xTicks = niceTicks(minX, maxX, 6)
   const yTicks = niceTicks(minY, maxY, 5)
+  const yStep = yTicks.length > 1 ? Math.abs(yTicks[1] - yTicks[0]) : 1
 
   return (
     <figure style={{ margin: 0, fontFamily: 'var(--font-sans)' }}>
       <svg
         viewBox={`0 0 ${width} ${height}`}
         width="100%"
-        height={height}
+        height={responsive ? undefined : height}
         role="img"
         aria-label={`${title}. ${series.map((s) => `${s.label}: ${s.points.length} points`).join('. ')}`}
-        style={{ display: 'block', overflow: 'visible' }}
+        style={{ display: 'block', overflow: 'visible', ...(responsive ? { height: 'auto' } : {}) }}
       >
         {yTicks.map((tick) => (
           <g key={`y-${tick}`}>
@@ -146,7 +159,7 @@ export function LineChart({
               fill="var(--text-muted)"
               fontSize={11}
             >
-              {formatTick(tick)}
+              {formatTick(tick, yStep)}
             </text>
           </g>
         ))}
