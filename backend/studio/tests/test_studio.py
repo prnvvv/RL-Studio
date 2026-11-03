@@ -137,6 +137,7 @@ def test_warehouse_session_reports_scene_and_collisions(client: TestClient) -> N
     sid = _create(client, agent="A2C", environment="warehouse", training=training)
     snap = client.get(f"{BASE}/sessions/{sid}").json()
     assert snap["scene"]["rows"] == 6 and snap["scene"]["obstacles"]
+    assert any(e["payload"]["message"] == "Session initialized" for e in snap["logs"])
     client.post(f"{BASE}/sessions/{sid}/start")
     done = _wait(client, sid, {"completed", "failed"})
     assert done["status"] == "completed", done["error"]
