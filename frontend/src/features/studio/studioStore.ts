@@ -93,6 +93,14 @@ function isStatus(value: unknown): value is SessionStatus {
   return typeof value === 'string'
 }
 
+/** Live connection telemetry. Mutable by design: sampled by the overlay, never rendered per message. */
+export interface StreamStats {
+  /** Simulation frames received since the store was created. */
+  frames: number
+  /** Last measured WebSocket round-trip time (ms), or null before the first pong. */
+  rttMs: number | null
+}
+
 export class StudioStore {
   private state: StudioState = emptyState
   private listeners = new Set<Listener>()
@@ -103,6 +111,7 @@ export class StudioStore {
   frame: FramePayload | null = null
   /** Bumped for every frame so cheap consumers can detect change. */
   frameVersion = 0
+  readonly stream: StreamStats = { frames: 0, rttMs: null }
 
   getState = (): StudioState => this.state
 
@@ -164,7 +173,12 @@ export class StudioStore {
     })
   }
 
+  recordRtt(rttMs: number): void {
+    if (Number.isFinite(rttMs) && rttMs >= 0) this.stream.rttMs = rttMs
+  }
+
   applyFrame(frame: FramePayload): void {
+    this.stream.frames += 1
     this.frame = frame
     this.frameVersion += 1
     this.frameListeners.forEach((listener) => listener())
