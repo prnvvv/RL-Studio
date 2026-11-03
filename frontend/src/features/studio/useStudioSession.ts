@@ -176,6 +176,23 @@ export function useStudioSession(service: StudioService = defaultService) {
     [service, store],
   )
 
+  const setBrainView = useCallback(
+    async (enabled: boolean): Promise<boolean> => {
+      const sessionId = store.getState().sessionId
+      if (sessionId === null) return false
+      const result = await service.setBrain(sessionId, enabled)
+      if (result.state === 'error') {
+        setNotice({
+          tone: 'error',
+          message: describeFailure('Changing the brain view', result.error),
+        })
+        return false
+      }
+      return true
+    },
+    [service, store],
+  )
+
   const sendAction = useCallback(
     (action: number) => store.send({ type: 'action', action }),
     [store],
@@ -204,6 +221,7 @@ export function useStudioSession(service: StudioService = defaultService) {
     command,
     setSpeed,
     setManualControl,
+    setBrainView,
     sendAction,
     reloadCatalog: loadCatalog,
     refreshCatalog,

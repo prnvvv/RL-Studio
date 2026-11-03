@@ -214,6 +214,32 @@ export interface CheckpointRecord {
 export interface ControlState {
   human: boolean
   human_steps: number
+  /** True while the backend streams the policy's action preferences with each frame. */
+  brain: boolean
+}
+
+/** The policy's preference at one grid cell. */
+export interface BrainCell {
+  row: number
+  col: number
+  probs: number[]
+  greedy: number
+}
+
+/**
+ * What the agent "thinks" at the current observation, computed by the backend from
+ * the live policy. `probs` are action probabilities (for DQN a softmax of `q`).
+ */
+export interface BrainPayload {
+  kind: 'probs' | 'q' | 'gaussian'
+  probs?: number[]
+  q?: number[]
+  probs_from?: string
+  mean?: number[]
+  std?: number[]
+  greedy?: number
+  executed: number | number[] | null
+  grid?: BrainCell[]
 }
 
 export interface FramePayload {
@@ -223,6 +249,8 @@ export interface FramePayload {
   action: number | number[] | null
   /** Who chose `action`: the agent, or a human who took manual control. */
   source?: 'agent' | 'human'
+  /** Present only while the brain view is enabled. */
+  brain?: BrainPayload
   reward: number
   episode_reward: number
   collision: boolean

@@ -67,7 +67,7 @@ export const emptyState: StudioState = {
   logs: [],
   lastSeq: 0,
   connection: 'idle',
-  controls: { human: false, human_steps: 0 },
+  controls: { human: false, human_steps: 0, brain: false },
   resetCount: 0,
 }
 
@@ -174,7 +174,7 @@ export class StudioStore {
       checkpoints: snapshot.checkpoints ?? [],
       logs: (snapshot.logs ?? []).map(toLogEntry),
       lastSeq: snapshot.seq,
-      controls: snapshot.controls ?? { human: false, human_steps: 0 },
+      controls: { human: false, human_steps: 0, brain: false, ...snapshot.controls },
     })
   }
 
@@ -256,6 +256,7 @@ export class StudioStore {
           controls: {
             human: payload.human === true,
             human_steps: typeof payload.human_steps === 'number' ? payload.human_steps : 0,
+            brain: payload.brain === true,
           },
         })
         return
@@ -274,7 +275,7 @@ export class StudioStore {
           evaluations: [],
           checkpoints: [],
           error: null,
-          controls: { human: false, human_steps: 0 },
+          controls: { human: false, human_steps: 0, brain: false },
           resetCount: base.resetCount + 1,
         })
         return
