@@ -38,6 +38,7 @@ from stable_baselines3.common.vec_env import DummyVecEnv
 from backend.database.exceptions import ConflictError, NotFoundError, ValidationError
 
 from . import custom
+from .brain import GRID_REFRESH_FRAMES, compute_brain, compute_grid_brain
 from .catalog import AGENTS, NET_ARCHES, TRAINING_PARAMS, sb3_class
 from .controls import RuntimeControls, validate_action
 from .envs import EnvDefinition, describe_space
@@ -186,6 +187,8 @@ class _StudioCallback(BaseCallback):
         self._next_t = time.monotonic()
         self._last_checkpoint = 0
         self._last_eval = 0
+        self._brain_frames = 0
+        self._grid_cache: list[dict[str, Any]] | None = None
 
     def _on_step(self) -> bool:
         last_obs = getattr(self.model, "_last_obs", None)
@@ -236,7 +239,7 @@ class _StudioCallback(BaseCallback):
             logger.warning("Could not align learning buffers with a human action", exc_info=True)
         return action[()] if action.ndim == 0 else action
 
-    def step(self, *, env: Any, timestep: int, pre_obs: Any, new_obs: Any, action: Any, reward: float, done: bool, info: dict[str, Any], model: Any) -> bool:
+    def step(self, *, env: Any, timestep: int, pre_obs: Any, new_obs: Any, action: Any, reward: float, done: bool, info: dict[str, Any], model: Any, policy: Any = None) -> bool:
         """Handle one environment transition. Returns False to stop the run.
 
         Shared by SB3 training (via ``_on_step``) and inference-only sessions, so
@@ -295,6 +298,10 @@ class _StudioCallback(BaseCallback):
             }
             if outcome is not None:
                 payload["outcome"] = outcome
+            if s.controls.brain_enabled:
+                brain = self._brain_payload(policy if policy is not None else getattr(model, "policy", None), pre_obs, action_value)
+                if brain is not None:
+                    payload["brain"] = brain
             s._last_state = payload["state"]
             s.hub.set_frame(payload)
 
@@ -323,6 +330,25 @@ class _StudioCallback(BaseCallback):
 
         self._pace()
         return True
+
+    def _brain_payload(self, policy: Any, obs: Any, executed: Any) -> dict[str, Any] | None:
+        """The policy's current preferences, or None (and the view is switched off) if it cannot be read."""
+        s = self.s
+        try:
+            brain = compute_brain(policy, obs, executed)
+            if brain is not None:
+                if self._brain_frames % GRID_REFRESH_FRAMES == 0:
+                    self._grid_cache = compute_grid_brain(policy, s._scene)
+                self._brain_frames += 1
+                if self._grid_cache:
+                    brain["grid"] = self._grid_cache
+            return brain
+        except (RuntimeError, ValueError, TypeError, AttributeError, KeyError):
+            logger.warning("Policy introspection failed for %s", s.session_id, exc_info=True)
+            s.controls.set_brain(False)
+            s.hub.publish("control", {"run_id": s.run_id, **s.controls.snapshot()})
+            s.log("WARNING", "AGENT", "The agent brain view was switched off: this policy cannot be inspected", {})
+            return None
 
     def _pace(self) -> None:
         speed = self.s.speed
@@ -469,6 +495,19 @@ class TrainingSession:
                     self.log("WARNING", "AGENT", "Learning from human steps is off-policy for on-policy algorithms", {"agent": self.config["agent"]})
             else:
                 self.log("INFO", "AGENT", "Manual control released: the agent is acting again", {"human_steps": self.controls.human_steps})
+        return self.command_result()
+
+    def set_brain_view(self, enabled: bool) -> dict[str, Any]:
+        """Stream the policy's action preferences with every frame while enabled."""
+        with self._lock:
+            if self._status in (Status.STOPPING, Status.STOPPED, Status.COMPLETED, Status.FAILED):
+                raise ConflictError(
+                    f"Cannot change the brain view of a session that is {self._status.value}",
+                    details={"status": self._status.value},
+                )
+        if self.controls.set_brain(enabled):
+            self.hub.publish("control", {"run_id": self.run_id, **self.controls.snapshot()})
+            self.log("INFO", "AGENT", "Agent brain view " + ("enabled" if enabled else "disabled"), {})
         return self.command_result()
 
     def submit_human_action(self, action: Any) -> dict[str, Any]:
@@ -648,6 +687,7 @@ class TrainingSession:
                     done=bool(dones[0]),
                     info=infos[0],
                     model=None,
+                    policy=policy,
                 )
                 obs = new_obs
                 if not keep_going:

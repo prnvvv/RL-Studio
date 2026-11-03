@@ -54,6 +54,7 @@ class RuntimeControls:
         self._pending: int | list[float] | None = None
         self._last: int | list[float] | None = None
         self.human_steps = 0
+        self._brain = False
 
     # ------------------------------------------------------------- human control
 
@@ -95,5 +96,17 @@ class RuntimeControls:
                 self._cond.wait(HUMAN_WAIT_SLICE_S)
         return None
 
+    # ------------------------------------------------------------- brain view
+
+    @property
+    def brain_enabled(self) -> bool:
+        return self._brain
+
+    def set_brain(self, enabled: bool) -> bool:
+        with self._cond:
+            changed = self._brain != enabled
+            self._brain = enabled
+            return changed
+
     def snapshot(self) -> dict[str, Any]:
-        return {"human": self._human, "human_steps": self.human_steps}
+        return {"human": self._human, "human_steps": self.human_steps, "brain": self._brain}
