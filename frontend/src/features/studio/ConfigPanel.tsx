@@ -1,4 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
+import { InfoTip } from './InfoTip'
+import { paramExplanation, paramFacts } from './paramHelp'
 import {
   findAgent,
   findEnvironment,
@@ -7,6 +9,9 @@ import {
   type FieldErrors,
 } from './studioConfig'
 import type { Catalog, ParamSpec, ParamValue, ParamValues } from './studioTypes'
+
+/** Settings that only apply when the agent learns; hidden for uploaded (inference-only) models. */
+const LEARNING_ONLY = new Set(['checkpoint_every', 'eval_every', 'eval_episodes', 'device'])
 
 interface FieldProps {
   spec: ParamSpec
@@ -73,8 +78,13 @@ function ParamField({ spec, value, error, disabled, onChange }: FieldProps) {
     )
   }
   return (
-    <div className="field" title={spec.help || undefined}>
-      <label htmlFor={id}>{spec.label}</label>
+    <div className="field">
+      <span className="field__label">
+        <label htmlFor={id}>{spec.label}</label>
+        <InfoTip label={`About ${spec.label}`} meta={paramFacts(spec)}>
+          {paramExplanation(spec)}
+        </InfoTip>
+      </span>
       {control}
       {error && (
         <span id={`${id}-err`} className="field__error" role="alert">
@@ -150,14 +160,22 @@ interface Props {
 export function ConfigPanel({ catalog, draft, errors, disabled, onChange }: Props) {
   const agent = findAgent(catalog, draft.agent)
   const env = findEnvironment(catalog, draft.environment)
+  const inferenceOnly = agent?.kind === 'custom'
   // Simulation speed is a live playback control (toolbar), not an initialization setting.
-  const training = catalog.training_params.filter((spec) => spec.key !== 'simulation_speed')
+  const training = catalog.training_params.filter(
+    (spec) => spec.key !== 'simulation_speed' && !(inferenceOnly && LEARNING_ONLY.has(spec.key)),
+  )
   return (
     <div>
       {disabled && (
         <p className="note">
           Configuration is locked while a session is active. Reset or stop, then initialize again to
           apply changes.
+        </p>
+      )}
+      {!agent && !env && (
+        <p className="note">
+          Pick an agent and an environment on the first tab, then tune them here.
         </p>
       )}
       <Section
@@ -168,7 +186,11 @@ export function ConfigPanel({ catalog, draft, errors, disabled, onChange }: Prop
         errors={errors}
         disabled={disabled}
         open
-        empty="Select an agent to configure it."
+        empty={
+          inferenceOnly
+            ? 'An uploaded model runs inference only: it plays the environment with its stored weights and does not learn, so it has no hyperparameters.'
+            : 'Select an agent to configure it.'
+        }
         onChange={(k, v) => onChange('agent_params', k, v)}
       />
       <Section
@@ -183,7 +205,7 @@ export function ConfigPanel({ catalog, draft, errors, disabled, onChange }: Prop
         onChange={(k, v) => onChange('env_params', k, v)}
       />
       <Section
-        title="Training"
+        title={inferenceOnly ? 'Run' : 'Training'}
         scope="training"
         specs={training}
         values={draft.training}
