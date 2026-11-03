@@ -747,6 +747,7 @@ class TrainingSession:
             data["episodes"] = list(self._episodes)
             data["updates"] = list(self._updates)
             data["evaluations"] = list(self._evals)
+            data["logs"] = self.hub.recent("log", 500)
             data["seq"] = self.hub.last_seq()
         frame = self.hub.latest_frame()
         data["frame"] = frame["payload"] if frame else None
