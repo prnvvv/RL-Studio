@@ -1,0 +1,275 @@
+/* Three-zone workspace: configuration | simulation | research metrics.
+ * Monochrome only: charts are told apart by line weight, dash pattern and opacity.
+ */
+
+.studio-left {
+  max-width: 50%;
+}
+
+/* ---------- Metrics zone ---------- */
+.studio-metrics {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  min-width: 280px;
+  max-width: 50%;
+  background: var(--bg-panel);
+  border-left: 1px solid var(--border-primary);
+}
+.studio-splitter--metrics {
+  margin-left: -3px;
+  margin-right: 0;
+}
+.studio-metrics__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  height: 44px;
+  padding: 0 var(--space-4);
+  border-bottom: 1px solid var(--border-primary);
+}
+.studio-metrics__head h2 {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.studio-metrics__close,
+.studio-metrics-toggle {
+  display: none;
+}
+.studio-metrics__body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: var(--space-3) var(--space-4) var(--space-6);
+  scrollbar-width: thin;
+}
+.studio-metrics-toggle {
+  align-items: center;
+  padding: 4px 10px;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid var(--border-primary);
+  border-radius: 999px;
+  font: inherit;
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+.studio-metrics-toggle:hover,
+.studio-metrics-toggle[aria-expanded='true'] {
+  color: var(--text-primary);
+  border-color: var(--text-primary);
+}
+
+/* ---------- Sections and chart cards ---------- */
+.metric-section {
+  margin-bottom: var(--space-3);
+  background: var(--bg-panel);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+}
+.metric-section > summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 10px var(--space-3);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+.metric-section > summary::-webkit-details-marker {
+  display: none;
+}
+.metric-section > summary::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-right: 1.5px solid var(--text-muted);
+  border-bottom: 1.5px solid var(--text-muted);
+  transform: rotate(-45deg);
+  transition: transform 150ms ease;
+}
+.metric-section[open] > summary::before {
+  transform: rotate(45deg);
+}
+.metric-section > summary:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+  border-radius: var(--radius-md);
+}
+.metric-section__body {
+  padding: 0 var(--space-3) var(--space-3);
+}
+.chart-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.chart-card__head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px var(--space-2);
+  margin-bottom: 6px;
+}
+.chart-card__head h4 {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+.chart-card__value {
+  color: var(--text-secondary);
+  font: 500 var(--text-xs) var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+.range {
+  display: inline-flex;
+  margin-left: auto;
+  overflow: hidden;
+  border: 1px solid var(--border-primary);
+  border-radius: 999px;
+}
+.range button {
+  padding: 2px 8px;
+  color: var(--text-muted);
+  background: transparent;
+  border: 0;
+  font: 500 10px var(--font-mono);
+  cursor: pointer;
+}
+.range button + button {
+  border-left: 1px solid var(--border-primary);
+}
+.range button:hover {
+  color: var(--text-primary);
+}
+.range button[aria-pressed='true'] {
+  color: var(--bg-primary);
+  background: var(--text-primary);
+}
+.range button:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+.chart-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  border: 1px dashed var(--border-primary);
+  border-radius: var(--radius-md);
+}
+
+/* Termination breakdown: segments differ by opacity, never by colour. */
+.reason-bar {
+  display: flex;
+  height: 14px;
+  overflow: hidden;
+  border: 1px solid var(--border-primary);
+  border-radius: 3px;
+}
+.reason-bar > span {
+  height: 100%;
+  background: var(--text-primary);
+  transition: width 200ms ease;
+}
+.reason-bar > span + span {
+  border-left: 1px solid var(--bg-panel);
+}
+.reason-legend {
+  display: grid;
+  gap: 4px;
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+.reason-legend li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+}
+.reason-legend i {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  background: var(--text-primary);
+  border-radius: 2px;
+}
+.reason-legend strong {
+  margin-left: auto;
+  color: var(--text-primary);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.env-progress {
+  display: grid;
+  gap: var(--space-3);
+}
+.env-progress__row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4px;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+}
+.env-progress__row strong {
+  color: var(--text-primary);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.metrics-panel .tiles {
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+}
+.metrics-panel .tile strong {
+  font-size: var(--text-md);
+}
+
+/* ---------- Narrow screens: the metrics zone becomes a drawer ---------- */
+@media (max-width: 1200px) {
+  .studio-metrics-toggle,
+  .studio-metrics__close {
+    display: inline-flex;
+  }
+  .studio-splitter--metrics {
+    display: none;
+  }
+  .studio-metrics {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 40;
+    width: min(92vw, 460px) !important;
+    max-width: none;
+    visibility: hidden;
+    transform: translateX(100%);
+    transition:
+      transform 200ms ease,
+      visibility 0s linear 200ms;
+    box-shadow: -12px 0 32px rgba(0, 0, 0, 0.45);
+  }
+  .studio-metrics[data-open] {
+    visibility: visible;
+    transform: none;
+    transition: transform 200ms ease;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .studio-metrics,
+  .studio-metrics[data-open],
+  .reason-bar > span,
+  .metric-section > summary::before {
+    transition: none;
+  }
+}

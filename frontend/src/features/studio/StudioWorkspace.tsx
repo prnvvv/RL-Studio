@@ -48,38 +48,19 @@ import { useStudioSession } from './useStudioSession'
 import './studio.css'
 import './studio.ux.css'
 import './studio.redesign.css'
+import './studio.metrics.css'
 import { LogoMark } from './libraryVisuals'
+import {
+  MIN_DOCK,
+  clampLayout,
+  loadLayout,
+  saveLayout,
+  type WorkspaceLayout,
+} from './workspaceLayout'
 
 type LeftTab = 'library' | 'configure'
-type DockTab = 'metrics' | 'logs' | 'experiments'
-
-// v2: the default split became 43% / 57%; layouts saved by v1 used 35%.
-const LAYOUT_KEY = 'rl-studio-workspace-layout-v2'
-const MIN_LEFT = 280
-const MIN_DOCK = 120
-
-function loadLayout(): { left: number; dock: number } {
-  try {
-    const raw = window.localStorage.getItem(LAYOUT_KEY)
-    if (raw) {
-      const parsed = JSON.parse(raw) as { left?: number; dock?: number }
-      if (typeof parsed.left === 'number' && typeof parsed.dock === 'number') {
-        return { left: parsed.left, dock: parsed.dock }
-      }
-    }
-  } catch {
-    // Storage unavailable or corrupt: fall back to defaults.
-  }
-  return { left: Math.round(window.innerWidth * 0.43), dock: 300 }
-}
-
-function saveLayout(layout: { left: number; dock: number }) {
-  try {
-    window.localStorage.setItem(LAYOUT_KEY, JSON.stringify(layout))
-  } catch {
-    // Persisting layout is a convenience only.
-  }
-}
+type DockTab = 'logs' | 'experiments'
+type ResizeKind = 'left' | 'metrics' | 'dock'
 
 function sameConfig(a: unknown, b: unknown): boolean {
   return JSON.stringify(a) === JSON.stringify(b)
@@ -137,11 +118,13 @@ function WorkspaceBody({ catalog, session }: { catalog: Catalog; session: Sessio
   const syncedSession = useRef<string | null>(null)
   const [draft, setDraft] = useState<Draft>(() => emptyDraft(catalog))
   const [leftTab, setLeftTab] = useState<LeftTab>('library')
-  const [dockTab, setDockTab] = useState<DockTab>('metrics')
+  const [dockTab, setDockTab] = useState<DockTab>('logs')
   const [viewMode, setViewMode] = useState<ViewMode>('3d')
   const [cameraNonce, setCameraNonce] = useState(0)
-  const [layout, setLayout] = useState(loadLayout)
-  const dragRef = useRef<{ kind: 'left' | 'dock'; start: number; origin: number } | null>(null)
+  const [layout, setLayout] = useState<WorkspaceLayout>(() => loadLayout(window.innerWidth))
+  // On narrow screens the metrics zone is a drawer that the header button opens.
+  const [metricsOpen, setMetricsOpen] = useState(false)
+  const dragRef = useRef<{ kind: ResizeKind; start: number; origin: number } | null>(null)
 
   const active = state.status !== null && ACTIVE_STATUSES.includes(state.status)
   const errors = useMemo(() => validateDraft(catalog, draft), [catalog, draft])
@@ -459,51 +442,53 @@ function WorkspaceBody({ catalog, session }: { catalog: Catalog; session: Sessio
     else if (state.sessionId !== null) void session.setSpeed(value)
   }
 
-  // Pointer-driven resizing for the vertical and horizontal splitters.
-  const onPointerDown = (kind: 'left' | 'dock') => (event: PointerEvent<HTMLElement>) => {
+  // Pointer-driven resizing for the two vertical splitters and the horizontal dock handle.
+  const originOf = (kind: ResizeKind) =>
+    kind === 'left' ? layout.left : kind === 'metrics' ? layout.metrics : layout.dock
+  const onPointerDown = (kind: ResizeKind) => (event: PointerEvent<HTMLElement>) => {
     event.currentTarget.setPointerCapture(event.pointerId)
     dragRef.current = {
       kind,
-      start: kind === 'left' ? event.clientX : event.clientY,
-      origin: kind === 'left' ? layout.left : layout.dock,
+      start: kind === 'dock' ? event.clientY : event.clientX,
+      origin: originOf(kind),
     }
   }
   const onPointerMove = (event: PointerEvent<HTMLElement>) => {
     const drag = dragRef.current
     if (!drag) return
-    if (drag.kind === 'left') {
-      const next = Math.min(
-        Math.max(drag.origin + (event.clientX - drag.start), MIN_LEFT),
-        window.innerWidth * 0.6,
-      )
-      setLayout((l) => ({ ...l, left: next }))
-    } else {
+    if (drag.kind === 'dock') {
       const next = Math.min(
         Math.max(drag.origin - (event.clientY - drag.start), MIN_DOCK),
         window.innerHeight * 0.7,
       )
       setLayout((l) => ({ ...l, dock: next }))
+      return
     }
+    // The metrics splitter is on the panel's left edge, so dragging left makes the panel wider.
+    const delta = event.clientX - drag.start
+    const next = drag.kind === 'left' ? drag.origin + delta : drag.origin - delta
+    setLayout((l) => clampLayout({ ...l, [drag.kind]: next }, window.innerWidth))
   }
   const onPointerUp = () => {
     dragRef.current = null
     saveLayout(layout)
   }
-  const onKey = (kind: 'left' | 'dock') => (event: KeyboardEvent<HTMLElement>) => {
+  const onKey = (kind: ResizeKind) => (event: KeyboardEvent<HTMLElement>) => {
     const step = event.shiftKey ? 80 : 24
-    const delta =
-      event.key === 'ArrowRight' || event.key === 'ArrowUp'
-        ? step
-        : event.key === 'ArrowLeft' || event.key === 'ArrowDown'
-          ? -step
-          : 0
+    // The metrics splitter sits on the panel's left edge, so moving it left makes the panel wider.
+    const grows = kind === 'metrics' ? ['ArrowLeft', 'ArrowUp'] : ['ArrowRight', 'ArrowUp']
+    const shrinks = kind === 'metrics' ? ['ArrowRight', 'ArrowDown'] : ['ArrowLeft', 'ArrowDown']
+    const delta = grows.includes(event.key) ? step : shrinks.includes(event.key) ? -step : 0
     if (delta === 0) return
     event.preventDefault()
     setLayout((l) => {
       const next =
-        kind === 'left'
-          ? { ...l, left: Math.max(MIN_LEFT, l.left + delta) }
-          : { ...l, dock: Math.max(MIN_DOCK, l.dock + delta) }
+        kind === 'dock'
+          ? { ...l, dock: Math.max(MIN_DOCK, l.dock + delta) }
+          : clampLayout(
+              { ...l, [kind]: (kind === 'left' ? l.left : l.metrics) + delta },
+              window.innerWidth,
+            )
       saveLayout(next)
       return next
     })
@@ -511,8 +496,7 @@ function WorkspaceBody({ catalog, session }: { catalog: Catalog; session: Sessio
 
   useEffect(() => {
     // Keep the layout within the viewport when the window shrinks.
-    const onResize = () =>
-      setLayout((l) => ({ ...l, left: Math.min(l.left, window.innerWidth * 0.6) }))
+    const onResize = () => setLayout((l) => clampLayout(l, window.innerWidth))
     window.addEventListener('resize', onResize)
     return () => window.removeEventListener('resize', onResize)
   }, [])
@@ -530,6 +514,15 @@ function WorkspaceBody({ catalog, session }: { catalog: Catalog; session: Sessio
           <ConnectionLabel connection={state.connection} />
         </div>
         <nav className="studio-header__right" aria-label="Studio navigation">
+          <button
+            type="button"
+            className="studio-metrics-toggle"
+            aria-expanded={metricsOpen}
+            aria-controls="studio-metrics"
+            onClick={() => setMetricsOpen((open) => !open)}
+          >
+            Metrics
+          </button>
           <Link to="/monitoring">Monitoring</Link>
           <Link to="/diagnosis-recovery">Diagnosis &amp; Recovery</Link>
           <Link to="/reports">Reports</Link>
@@ -719,7 +712,6 @@ function WorkspaceBody({ catalog, session }: { catalog: Catalog; session: Sessio
             <div className="tabs" role="tablist" aria-label="Monitoring sections">
               {(
                 [
-                  ['metrics', 'Metrics'],
                   ['logs', `Logs (${state.logs.length})`],
                   ['experiments', 'Experiments'],
                 ] as const
@@ -736,15 +728,6 @@ function WorkspaceBody({ catalog, session }: { catalog: Catalog; session: Sessio
               ))}
             </div>
             <div className="tab-body" role="tabpanel">
-              {dockTab === 'metrics' && compare && battle.battleId !== null && (
-                <CompareMetrics stateA={battle.stateA} stateB={battle.stateB} />
-              )}
-              {dockTab === 'metrics' && !(compare && battle.battleId !== null) && (
-                <MetricsPanel
-                  state={state}
-                  agent={findAgent(catalog, state.config?.agent ?? draft.agent)}
-                />
-              )}
               {dockTab === 'logs' && <LogConsole logs={state.logs} />}
               {dockTab === 'experiments' && (
                 <ExperimentsPanel service={session.service} state={state} />
@@ -752,6 +735,48 @@ function WorkspaceBody({ catalog, session }: { catalog: Catalog; session: Sessio
             </div>
           </div>
         </section>
+
+        <div
+          className="studio-splitter studio-splitter--metrics"
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize metrics panel"
+          tabIndex={0}
+          onPointerDown={onPointerDown('metrics')}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onKeyDown={onKey('metrics')}
+        />
+        <aside
+          id="studio-metrics"
+          className="studio-metrics"
+          data-open={metricsOpen || undefined}
+          style={{ width: layout.metrics }}
+          aria-label="Research metrics"
+        >
+          <div className="studio-metrics__head">
+            <h2>Metrics</h2>
+            <button
+              type="button"
+              className="btn btn--ghost studio-metrics__close"
+              aria-label="Close metrics panel"
+              onClick={() => setMetricsOpen(false)}
+            >
+              Close
+            </button>
+          </div>
+          <div className="studio-metrics__body">
+            {compare && battle.battleId !== null ? (
+              <CompareMetrics stateA={battle.stateA} stateB={battle.stateB} />
+            ) : (
+              <MetricsPanel
+                state={state}
+                store={session.store}
+                agent={findAgent(catalog, state.config?.agent ?? draft.agent)}
+              />
+            )}
+          </div>
+        </aside>
       </div>
     </div>
   )
