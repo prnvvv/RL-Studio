@@ -25,6 +25,14 @@ export interface LineChartProps {
   yLabel: string
   height?: number
   title: string
+  /**
+   * Fixed axis ranges. With an `xDomain`, an empty chart still draws its grid and axes so the
+   * scale is visible before any data exists; data outside a domain widens it rather than clips.
+   */
+  xDomain?: [number, number]
+  yDomain?: [number, number]
+  /** Shown inside an empty chart that has a domain. */
+  emptyMessage?: string
 }
 
 const PADDING = { top: 16, right: 16, bottom: 34, left: 52 }
@@ -58,11 +66,14 @@ export function LineChart({
   yLabel,
   height = 340,
   title,
+  xDomain,
+  yDomain,
+  emptyMessage,
 }: LineChartProps) {
   const allPoints = series.flatMap((s) => s.points)
   const width = 760
 
-  if (allPoints.length === 0) {
+  if (allPoints.length === 0 && !xDomain) {
     return (
       <div
         role="img"
@@ -86,10 +97,11 @@ export function LineChart({
 
   const xs = allPoints.map((p) => p.x)
   const ys = allPoints.map((p) => p.y)
-  const minX = Math.min(...xs)
-  const maxX = Math.max(...xs)
-  const minY = Math.min(...ys, 0)
-  const maxY = Math.max(...ys)
+  const minX = xDomain ? Math.min(xDomain[0], ...xs) : Math.min(...xs)
+  const maxX = xDomain ? Math.max(xDomain[1], ...xs) : Math.max(...xs)
+  // An empty chart with no Y range still needs a finite axis; 0 to 1 is only a placeholder scale.
+  const minY = yDomain ? Math.min(yDomain[0], ...ys) : Math.min(...ys, 0)
+  const maxY = yDomain ? Math.max(yDomain[1], ...ys) : ys.length === 0 ? 1 : Math.max(...ys)
 
   const plotWidth = width - PADDING.left - PADDING.right
   const plotHeight = height - PADDING.top - PADDING.bottom
@@ -212,6 +224,19 @@ export function LineChart({
           stroke="var(--border-primary)"
           strokeWidth={1}
         />
+
+        {allPoints.length === 0 && emptyMessage && (
+          <text
+            x={PADDING.left + plotWidth / 2}
+            y={PADDING.top + plotHeight / 2}
+            textAnchor="middle"
+            dominantBaseline="middle"
+            fill="var(--text-muted)"
+            fontSize={12}
+          >
+            {emptyMessage}
+          </text>
+        )}
 
         <text
           x={PADDING.left + plotWidth / 2}

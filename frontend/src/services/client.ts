@@ -55,7 +55,7 @@ export function buildRequestUrl(baseUrl: string, path: string): string {
 }
 
 /** Map an HTTP status onto a stable, UI-presentable error kind. */
-function kindForStatus(status: number): ServiceErrorKind {
+export function kindForStatus(status: number): ServiceErrorKind {
   if (status === 400 || status === 422) return 'invalid_request'
   if (status === 401 || status === 403) return 'unauthorized'
   if (status === 404) return 'not_found'
@@ -66,7 +66,7 @@ function kindForStatus(status: number): ServiceErrorKind {
   return 'unexpected'
 }
 
-const MESSAGES: Record<ServiceErrorKind, string> = {
+export const MESSAGES: Record<ServiceErrorKind, string> = {
   invalid_request: 'The request was rejected as invalid.',
   unauthorized: 'You are not authorized to perform this action.',
   not_found: 'The requested record was not found.',
