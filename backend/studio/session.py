@@ -821,7 +821,7 @@ class TrainingSession:
         except Exception as exc:  # process boundary; state is recorded
             logger.exception("Training session %s failed", self.session_id)
             self.error = f"Training failed with {type(exc).__name__}. See server logs for details."
-            self.log("ERROR", "TRAINING", self.error, {})
+            self.log("ERROR", "TRAINING", self.error, {"exception": type(exc).__name__, "detail": str(exc)[:300]})
             self._finish(Status.FAILED)
         finally:
             if venv is not None:

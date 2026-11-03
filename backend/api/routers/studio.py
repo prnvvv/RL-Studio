@@ -6,6 +6,7 @@ import asyncio
 import contextlib
 import json
 import logging
+import math
 import re
 from collections.abc import Iterator
 from typing import Any
@@ -394,6 +395,59 @@ def get_events(session_id: str, after: int = Query(0, ge=0), limit: int = Query(
     return {"events": events, "gap": gap, "last_seq": session.hub.last_seq()}
 
 
+def _coerce(value: Any) -> Any:
+    """``json`` fallback for values the stdlib cannot encode (numpy scalars and arrays)."""
+    item = getattr(value, "item", None)
+    if callable(item):
+        with contextlib.suppress(Exception):
+            return item() if getattr(value, "ndim", 0) == 0 else value.tolist()
+    return str(value)
+
+
+def _finite(value: Any) -> Any:
+    """Replace NaN and infinities (a diverged loss, say) with ``null``: browsers reject them."""
+    if isinstance(value, float):
+        return value if math.isfinite(value) else None
+    if isinstance(value, dict):
+        return {key: _finite(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_finite(item) for item in value]
+    return value
+
+
+def encode_message(message: dict[str, Any]) -> str:
+    """Strict JSON for the wire. A single odd value must never be able to kill the stream."""
+    try:
+        return json.dumps(message, default=_coerce, allow_nan=False, separators=(",", ":"))
+    except ValueError:  # NaN / Infinity somewhere in the payload
+        return json.dumps(_finite(json.loads(json.dumps(message, default=_coerce))), separators=(",", ":"))
+
+
+async def _send(websocket: WebSocket, message: dict[str, Any]) -> None:
+    await websocket.send_text(encode_message(message))
+
+
+def _next_messages(session: Any, last_seq: int, last_frame: int) -> tuple[list[dict[str, Any]], int, int]:
+    """What to deliver next: new events, the latest frame, or a fresh snapshot after a gap.
+
+    The event ring is bounded. A client that falls behind it would otherwise skip
+    events silently and show stale state; the gap flag from the hub means it must be
+    resynchronised from a snapshot instead.
+    """
+    events, gap = session.hub.since(last_seq)
+    if gap:
+        snapshot = session.snapshot()
+        return [{"type": "snapshot", "payload": snapshot}], snapshot["seq"], last_frame
+    messages: list[dict[str, Any]] = list(events)
+    if events:
+        last_seq = events[-1]["seq"]
+    frame = session.hub.latest_frame()
+    if frame is not None and frame["frame_seq"] != last_frame:
+        last_frame = frame["frame_seq"]
+        messages.append(frame)
+    return messages, last_seq, last_frame
+
+
 @router.websocket("/sessions/{session_id}/stream")
 async def stream(websocket: WebSocket, session_id: str, after: int = 0) -> None:
     """Live stream: ``snapshot`` first, then ordered events and coalesced frames.
@@ -444,23 +498,24 @@ async def stream(websocket: WebSocket, session_id: str, after: int = 0) -> None:
     reader = asyncio.create_task(read_client())
     try:
         snapshot = session.snapshot()
-        await websocket.send_json({"type": "snapshot", "payload": snapshot})
+        await _send(websocket, {"type": "snapshot", "payload": snapshot})
         last_seq = snapshot["seq"]
         last_frame = (session.hub.latest_frame() or {}).get("frame_seq", 0)
         while not reader.done():
             while not outbox.empty():
-                await websocket.send_json(outbox.get_nowait())
-            events, _gap = session.hub.since(last_seq)
-            for event in events:
-                await websocket.send_json(event)
-                last_seq = event["seq"]
-            frame = session.hub.latest_frame()
-            if frame is not None and frame["frame_seq"] != last_frame:
-                last_frame = frame["frame_seq"]
-                await websocket.send_json(frame)
+                await _send(websocket, outbox.get_nowait())
+            messages, last_seq, last_frame = _next_messages(session, last_seq, last_frame)
+            for message in messages:
+                await _send(websocket, message)
             await asyncio.sleep(STREAM_INTERVAL_S)
     except (WebSocketDisconnect, RuntimeError):
         # Peer closed the socket while we were sending.
         return
+    except Exception:  # last line of defence at the socket boundary
+        # Anything else would surface to the browser as an unexplained drop. Record
+        # the real cause and close with a reason instead of letting it escape.
+        logger.exception("Live stream for %s failed", session_id)
+        with contextlib.suppress(Exception):
+            await websocket.close(code=1011, reason="stream error: see server logs")
     finally:
         reader.cancel()
