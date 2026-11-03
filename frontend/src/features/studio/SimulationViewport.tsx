@@ -30,6 +30,8 @@ interface Props {
   manualHint?: string | null
   /** Show the live action-probability panel (the overlays draw themselves from frame data). */
   brainActive?: boolean
+  /** The backend stream is down: what is drawn is the last frame received, not live. */
+  offline?: boolean
 }
 
 class CanvasBoundary extends Component<
@@ -104,6 +106,7 @@ export function SimulationViewport({
   viewMode,
   manualHint = null,
   brainActive = false,
+  offline = false,
 }: Props) {
   const palette = useScenePalette()
   const definition = getRenderer(rendererKey)
@@ -184,6 +187,12 @@ export function SimulationViewport({
         <>
           <StreamOverlay store={store} />
           {brainActive && <BrainPanel store={store} renderer={rendererKey} />}
+          {offline && (
+            <div className="sim-offline" role="alert">
+              <strong>Disconnected</strong> — the backend is not responding. Showing the last frame
+              received; training controls are disabled until it reconnects.
+            </div>
+          )}
           {manualHint !== null && (
             <div className="sim-manual" role="status">
               <strong>Manual control</strong> — {manualHint}

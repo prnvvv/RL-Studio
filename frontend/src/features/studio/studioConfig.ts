@@ -170,7 +170,20 @@ export function controlAvailability(
   status: SessionStatus | null,
   pendingCommand: 'pause' | null,
   canInitialize: boolean,
+  /** The backend cannot be reached: nothing may be started, resumed or taken over. */
+  offline = false,
 ): ControlAvailability {
+  if (offline) {
+    return {
+      initialize: false,
+      train: false,
+      pause: false,
+      resume: false,
+      stop: false,
+      reset: false,
+      manual: false,
+    }
+  }
   const active = status !== null && ACTIVE_STATUSES.includes(status)
   return {
     initialize: canInitialize && !active,

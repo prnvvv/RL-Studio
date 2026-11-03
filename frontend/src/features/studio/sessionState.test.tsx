@@ -90,3 +90,14 @@ describe('latency readout', () => {
     expect(screen.getByText('Latency').parentElement).toHaveTextContent('12 ms')
   })
 })
+
+describe('backend offline', () => {
+  it('disables every command while the stream is down, even for a running session', () => {
+    const offline = controlAvailability('running', null, true, true)
+    expect(Object.values(offline).every((value) => value === false)).toBe(true)
+    // Back online, the same session offers its normal controls again.
+    const online = controlAvailability('running', null, true, false)
+    expect(online.pause).toBe(true)
+    expect(online.stop).toBe(true)
+  })
+})

@@ -582,3 +582,23 @@
 .chaos-panel__kind label {
   flex: 1;
 }
+
+/* ---------- Backend offline ---------- */
+.sim-offline {
+  position: absolute;
+  top: var(--space-3);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 3;
+  max-width: 90%;
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--text-primary);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  text-align: center;
+}
+.sim-offline strong {
+  color: var(--text-primary);
+}

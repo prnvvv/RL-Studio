@@ -86,7 +86,7 @@ function ConnectionLabel({ connection }: { connection: string }) {
     idle: 'not connected',
     connecting: 'connecting…',
     live: 'live',
-    reconnecting: 'reconnecting…',
+    reconnecting: 'disconnected, retrying…',
     closed: 'disconnected',
   }
   return <span className="studio-header__session">stream: {text[connection] ?? connection}</span>
@@ -170,7 +170,13 @@ function WorkspaceBody({ catalog, session }: { catalog: Catalog; session: Sessio
         ? 'Choose a compatible opponent (Agent B) in the Configure tab'
         : (mismatch ??
           (Object.keys(errors).length > 0 ? 'Fix the highlighted configuration fields' : null))
-  const availability = controlAvailability(state.status, state.pendingCommand, ready)
+  // While the stream is down (backend killed, network lost) nothing can be driven: the last
+  // frame on screen is stale and every command would fail.
+  const offline =
+    !compare &&
+    state.sessionId !== null &&
+    (state.connection === 'reconnecting' || state.connection === 'closed')
+  const availability = controlAvailability(state.status, state.pendingCommand, ready, offline)
 
   // Which environment the viewport shows: the session's, else the current selection (preview).
   const sessionEnv = findEnvironment(catalog, state.config?.environment ?? null)
@@ -666,6 +672,7 @@ function WorkspaceBody({ catalog, session }: { catalog: Catalog; session: Sessio
               cameraResetNonce={cameraNonce}
               viewMode={viewMode}
               manualHint={manualActive ? manualHint : null}
+              offline={offline}
               brainActive={brainActive}
             />
           )}
