@@ -124,9 +124,7 @@ def validate_config(raw: dict[str, Any]) -> dict[str, Any]:
         agent_params = validate_params((), raw.get("agent_params"), scope="agent_params")
         env_params = validate_params(definition.params, raw.get("env_params"), scope="env_params")
         training = validate_params(TRAINING_PARAMS, raw.get("training"), scope="training")
-        # Inference never learns, so periodic checkpoints and evaluations do not apply.
-        training["checkpoint_every"] = 0
-        training["eval_every"] = 0
+        # Inference never learns, so the checkpoint/eval settings are stored but unused.
         return {"agent": agent_key, "environment": env_key, "agent_params": agent_params, "env_params": env_params, "training": training}
 
     agent = AGENTS[agent_key]
