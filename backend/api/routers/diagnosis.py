@@ -22,6 +22,6 @@ async def investigate(evidence: dict[str, Any]) -> dict[str, Any]:
     if not settings.meta_ai_api_key:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Meta AI provider not configured; diagnosis unavailable",
+            detail="Grok/xAI provider not configured; diagnosis unavailable",
         )
     return {"status": "submitted", "evidence_keys": list(evidence.keys()) if evidence else []}
