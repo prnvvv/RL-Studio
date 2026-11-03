@@ -152,9 +152,15 @@ export function MetricsPanel({ state, agent }: Props) {
           label="Last termination"
           value={progress.last_termination?.replace(/_/g, ' ') ?? '—'}
         />
-        {Object.entries(progress.env_state ?? {}).map(([key, value]) => (
-          <Tile key={key} label={`Env ${key.replace(/_/g, ' ')}`} value={formatNumber(value, 3)} />
-        ))}
+        {Object.entries(progress.env_state ?? {})
+          .filter(([, value]) => typeof value === 'number')
+          .map(([key, value]) => (
+            <Tile
+              key={key}
+              label={`Env ${key.replace(/_/g, ' ')}`}
+              value={formatNumber(value, 3)}
+            />
+          ))}
         {lastEval && (
           <Tile
             label="Eval reward"

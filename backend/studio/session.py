@@ -966,7 +966,8 @@ class TrainingSession:
             "collisions": self._collisions,
             "disturbances": self._disturbances,
             "last_termination": self._last_termination,
-            "env_state": dict(self._last_state),
+            # Scalars only: point lists (terrain, obstacles) belong to frames, not to progress readouts.
+            "env_state": {k: v for k, v in self._last_state.items() if isinstance(v, (int, float)) and not isinstance(v, bool)},
             "speed": self.speed,
         }
 
