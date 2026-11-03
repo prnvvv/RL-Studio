@@ -106,7 +106,9 @@ describe('cross-page navigation workflow', () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('unreachable')))
     renderApp()
     fireEvent.click(within(primaryNav()).getByRole('link', { name: /Open Studio/ }))
-    expect(await screen.findByRole('heading', { name: /studio backend is unavailable/i })).toBeInTheDocument()
+    expect(
+      await screen.findByRole('heading', { name: /studio backend is unavailable/i }),
+    ).toBeInTheDocument()
     expect(screen.queryByRole('navigation', { name: 'Primary' })).not.toBeInTheDocument()
   })
 
