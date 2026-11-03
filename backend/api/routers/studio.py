@@ -53,6 +53,26 @@ class ActionRequest(BaseModel):
     action: Any
 
 
+class BattleSide(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    agent: str = Field(max_length=64)
+    agent_params: dict[str, Any] = Field(default_factory=dict)
+
+
+class BattleRequest(BaseModel):
+    """Two agents on one environment, one seed and one training budget."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    environment: str = Field(max_length=64)
+    name: str | None = Field(default=None, max_length=60)
+    env_params: dict[str, Any] = Field(default_factory=dict)
+    training: dict[str, Any] = Field(default_factory=dict)
+    a: BattleSide
+    b: BattleSide
+
+
 class SpeedRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -144,6 +164,47 @@ def create_session(request: SessionRequest) -> dict[str, Any]:
     payload = request.model_dump(exclude={"name"})
     session = manager.create(payload, request.name)
     return session.snapshot()
+
+
+@router.post("/battles", status_code=201)
+def create_battle(request: BattleRequest) -> dict[str, Any]:
+    payload = request.model_dump(exclude={"name"})
+    return manager.create_battle(payload, request.name)
+
+
+@router.get("/battles/{battle_id}")
+def get_battle(battle_id: str) -> dict[str, Any]:
+    return manager.battle_snapshot(battle_id)
+
+
+@router.post("/battles/{battle_id}/start")
+def start_battle(battle_id: str) -> dict[str, Any]:
+    return manager.battle_start(battle_id)
+
+
+@router.post("/battles/{battle_id}/pause")
+def pause_battle(battle_id: str) -> dict[str, Any]:
+    return manager.battle_command(battle_id, "pause")
+
+
+@router.post("/battles/{battle_id}/resume")
+def resume_battle(battle_id: str) -> dict[str, Any]:
+    return manager.battle_command(battle_id, "resume")
+
+
+@router.post("/battles/{battle_id}/stop")
+def stop_battle(battle_id: str) -> dict[str, Any]:
+    return manager.battle_command(battle_id, "stop")
+
+
+@router.post("/battles/{battle_id}/reset")
+def reset_battle(battle_id: str) -> dict[str, Any]:
+    return manager.battle_command(battle_id, "reset")
+
+
+@router.post("/battles/{battle_id}/speed")
+def set_battle_speed(battle_id: str, request: SpeedRequest) -> dict[str, Any]:
+    return manager.battle_command(battle_id, "set_speed", speed=request.speed)
 
 
 @router.get("/sessions")
