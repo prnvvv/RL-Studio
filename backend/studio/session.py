@@ -45,7 +45,7 @@ from .envs import EnvDefinition, describe_space
 from .hub import SessionHub
 from .params import validate_params
 from .store import RunRecorder
-from .wrappers import HumanControlEnv
+from .wrappers import ChaosEnv, HumanControlEnv
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +56,7 @@ EPISODE_FLUSH_INTERVAL_S = 0.15
 MAX_EPISODES_KEPT = 5000
 MAX_UPDATES_KEPT = 2000
 RECENT_WINDOW = 20
+CHAOS_LOG_INTERVAL_S = 0.5
 
 
 class Status(str, Enum):
@@ -277,7 +278,10 @@ class _StudioCallback(BaseCallback):
                 truncated=truncated,
                 next_obs=terminal_obs if done and terminal_obs is not None else new_obs,
                 source=str(info.get("action_source", "agent")),
+                chaos=",".join(sorted({e["kind"] for e in info.get("chaos", [])})),
             )
+        if info.get("chaos"):
+            s._register_chaos(info["chaos"])
         if done:
             outcome = self.definition.classify(s.config["env_params"], terminal_obs, info, not truncated)
         now = time.monotonic()
@@ -401,6 +405,8 @@ class TrainingSession:
         self._recorder: RunRecorder | None = None
         self.controls = RuntimeControls()
         self._action_space: Any = None
+        self._chaos_pending: dict[str, int] = {}
+        self._chaos_last_log = 0.0
         self._obs_shape: list[int] | None = None
         self._scene: dict[str, Any] = {}
         self._reset_metrics()
@@ -471,9 +477,84 @@ class TrainingSession:
         finally:
             env.close()
 
+    # ---------------------------------------------------------------- chaos mode
+
+    def _register_chaos(self, events: list[dict[str, Any]]) -> None:
+        """Count disturbances and log them as FAULT events, batched so a busy run cannot flood the console.
+
+        Sensor noise is continuous background; it is counted per step and announced when chaos
+        mode is switched on, not logged on every step. A forced noise burst is logged.
+        """
+        with self._lock:
+            for event in events:
+                if event["kind"] == "sensor_noise" and not event.get("forced"):
+                    self.controls.chaos_noise_steps += 1
+                    continue
+                self._chaos_pending[event["kind"]] = self._chaos_pending.get(event["kind"], 0) + 1
+                self.controls.chaos_events += 1
+        self._flush_chaos_log(force=False)
+
+    def _flush_chaos_log(self, force: bool) -> None:
+        now = time.monotonic()
+        if not self._chaos_pending or (not force and now - self._chaos_last_log < CHAOS_LOG_INTERVAL_S):
+            return
+        with self._lock:
+            pending, self._chaos_pending = self._chaos_pending, {}
+        self._chaos_last_log = now
+        summary = ", ".join(f"{count}× {kind.replace('_', ' ')}" for kind, count in sorted(pending.items()))
+        self.log("WARNING", "FAULT", f"Chaos injected: {summary}", {"counts": pending, "timestep": self._timestep})
+
+    def set_chaos(self, enabled: bool | None, intensity: float | None, kinds: list[str] | None) -> dict[str, Any]:
+        supported = self.definition.chaos_kinds
+        with self._lock:
+            if self._status in (Status.STOPPING, Status.STOPPED, Status.COMPLETED, Status.FAILED):
+                raise ConflictError(
+                    f"Cannot change chaos mode of a session that is {self._status.value}",
+                    details={"status": self._status.value},
+                )
+        if not supported:
+            raise ValidationError("This environment does not support chaos mode")
+        if kinds is not None:
+            unknown = sorted(set(kinds) - set(supported))
+            if unknown:
+                raise ValidationError(
+                    "Unsupported disturbance",
+                    details={"errors": [{"field": "kinds", "message": f"{unknown} not available; choose from {list(supported)}"}]},
+                )
+        previous_enabled, _, previous_kinds = self.controls.chaos_config()
+        chosen = tuple(kinds) if kinds is not None else (previous_kinds or (tuple(supported) if enabled else ()))
+        self.controls.configure_chaos(enabled, intensity, chosen)
+        now_enabled, now_intensity, now_kinds = self.controls.chaos_config()
+        self.hub.publish("control", {"run_id": self.run_id, **self.controls.snapshot()})
+        if now_enabled and not previous_enabled:
+            self.log("WARNING", "FAULT", f"Chaos mode enabled: intensity {now_intensity:.2f}, disturbances: {', '.join(now_kinds) or 'none selected'}", {})
+        elif previous_enabled and not now_enabled:
+            self._flush_chaos_log(force=True)
+            self.log("INFO", "FAULT", "Chaos mode disabled", {"events": self.controls.chaos_events})
+        elif now_enabled:
+            self.log("INFO", "FAULT", f"Chaos settings changed: intensity {now_intensity:.2f}, disturbances: {', '.join(now_kinds)}", {})
+        return self.command_result()
+
+    def trigger_chaos(self, kind: str) -> dict[str, Any]:
+        with self._lock:
+            if self._status not in (Status.RUNNING, Status.PAUSED):
+                raise ConflictError(
+                    f"Chaos can only be triggered in a running session (status is {self._status.value})",
+                    details={"status": self._status.value},
+                )
+        if kind not in self.definition.chaos_kinds:
+            raise ValidationError(
+                "Unsupported disturbance",
+                details={"errors": [{"field": "kind", "message": f"choose from {list(self.definition.chaos_kinds)}"}]},
+            )
+        self.controls.trigger_chaos(kind)
+        self.log("WARNING", "FAULT", f"Chaos triggered manually: {kind.replace('_', ' ')}", {"kind": kind})
+        return self.command_result()
+
     def _build_env(self, seed: int) -> Any:
         """The environment the training/inference loop steps (wrappers read ``self.controls``)."""
         env = self.definition.make(self.config["env_params"], seed)
+        env = ChaosEnv(env, self.controls, seed, self.definition.noise_scale)
         env = HumanControlEnv(env, self.controls, self.definition.human_sticky, self._stop.is_set)
         return Monitor(env)
 
@@ -748,6 +829,7 @@ class TrainingSession:
 
     def _finish(self, status: Status) -> None:
         self.controls.set_human(False)
+        self._flush_chaos_log(force=True)
         self._ended_monotonic = time.monotonic()
         self._flush_episodes(force=True)
         self._maybe_progress(self._timestep, force=True)

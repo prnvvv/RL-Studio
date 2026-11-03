@@ -52,6 +52,20 @@ class BrainRequest(BaseModel):
     enabled: StrictBool
 
 
+class ChaosRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: StrictBool | None = None
+    intensity: float | None = Field(default=None, ge=0.0, le=1.0)
+    kinds: list[str] | None = Field(default=None, max_length=8)
+
+
+class ChaosTriggerRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    kind: str = Field(max_length=32)
+
+
 class ActionRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -347,6 +361,18 @@ def set_human_control(session_id: str, request: ControlRequest) -> dict[str, Any
 def set_brain_view(session_id: str, request: BrainRequest) -> dict[str, Any]:
     """Include the policy's action probabilities / Q-values in every simulation frame."""
     return manager.get(session_id).set_brain_view(request.enabled)
+
+
+@router.post("/sessions/{session_id}/chaos")
+def set_chaos(session_id: str, request: ChaosRequest) -> dict[str, Any]:
+    """Turn chaos mode on or off and set its intensity (0 to 1) and enabled disturbances."""
+    return manager.get(session_id).set_chaos(request.enabled, request.intensity, request.kinds)
+
+
+@router.post("/sessions/{session_id}/chaos/trigger")
+def trigger_chaos(session_id: str, request: ChaosTriggerRequest) -> dict[str, Any]:
+    """Inject one disturbance on the next step, whether or not chaos mode is on."""
+    return manager.get(session_id).trigger_chaos(request.kind)
 
 
 @router.post("/sessions/{session_id}/action")
