@@ -18,7 +18,10 @@ export default tseslint.config(
       'react-refresh': reactRefresh,
     },
     rules: {
-      ...reactHooks.configs.recommended.rules,
+      // Keep the hooks rules this project already enforced; the React Compiler
+      // diagnostics added in react-hooks v7 are intentionally out of scope.
+      'react-hooks/rules-of-hooks': 'error',
+      'react-hooks/exhaustive-deps': 'warn',
       'react-refresh/only-export-components': [
         'warn',
         {

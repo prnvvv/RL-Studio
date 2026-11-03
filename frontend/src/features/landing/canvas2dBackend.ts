@@ -25,7 +25,7 @@ export function createCanvas2DBackend(
   canvas: HTMLCanvasElement,
   options: Canvas2DBackendOptions,
 ): RenderBackend | null {
-  let ctx: CanvasRenderingContext2D | null = null
+  let ctx: CanvasRenderingContext2D | null
   try {
     ctx = canvas.getContext('2d', { alpha: true })
   } catch (error) {

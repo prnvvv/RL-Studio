@@ -1,0 +1,546 @@
+/* Studio redesign: header, tabs, agent and environment cards, upload zone.
+ *
+ * Layered on top of studio.css and studio.ux.css; it only restyles, it never changes behaviour.
+ * Everything is monochrome. Colours come from the existing theme tokens; in the dark theme the
+ * tokens are tuned (inside `.studio` only) to the redesign palette.
+ */
+
+:root:not([data-theme='light']) .studio {
+  --bg-primary: #080808;
+  --bg-header: #0d0d0d;
+  --bg-panel: #0d0d0d;
+  --bg-panel-raised: #111111;
+  --bg-input: #0d0d0d;
+  --bg-hover: #181818;
+  --bg-selected: #181818;
+  --border-primary: rgba(255, 255, 255, 0.1);
+  --border-secondary: rgba(255, 255, 255, 0.07);
+  --text-primary: #f5f5f5;
+  --text-secondary: #a0a0a0;
+  --text-muted: #707070;
+  --grid-line: rgba(255, 255, 255, 0.07);
+  --border-strong: rgba(255, 255, 255, 0.75);
+}
+[data-theme='light'] .studio {
+  --grid-line: rgba(0, 0, 0, 0.07);
+  --border-strong: rgba(0, 0, 0, 0.75);
+}
+
+.studio {
+  --card-radius: 12px;
+  --lift: 180ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+/* ---------- Header ---------- */
+.studio-header {
+  height: 60px;
+  padding: 0 var(--space-5);
+  background: var(--bg-header);
+}
+.studio-header__left {
+  gap: var(--space-3);
+}
+.studio-header__right {
+  gap: var(--space-5);
+}
+.studio-header__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-md);
+  letter-spacing: 0.01em;
+}
+.studio-header__sep {
+  width: 1px;
+  height: 20px;
+  background: var(--border-primary);
+  flex-shrink: 0;
+}
+.studio-header__session {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+.studio-header__right a {
+  position: relative;
+  padding: 4px 0;
+  transition: color 150ms ease;
+}
+.studio-header a:focus-visible,
+.tabs button:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/* ---------- Left panel and tabs ---------- */
+.studio-left {
+  background: var(--bg-panel);
+}
+.studio-left .tabs {
+  gap: var(--space-5);
+  padding: 0 var(--space-5);
+}
+.studio-left .tabs button {
+  padding: 14px 2px 11px;
+  font-size: var(--text-base);
+  color: var(--text-muted);
+  border-bottom-width: 1px;
+  transition: color 150ms ease;
+}
+.studio-left .tabs button:hover {
+  color: var(--text-secondary);
+}
+.studio-left .tabs button[aria-selected='true'] {
+  color: var(--text-primary);
+  font-weight: 600;
+  border-bottom-color: var(--text-primary);
+}
+.studio-left .tab-body {
+  padding: var(--space-5);
+  container-type: inline-size;
+  scrollbar-width: thin;
+}
+
+/* ---------- Section headings ---------- */
+.section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  margin: var(--space-6) 0 var(--space-3);
+}
+.configure-cta + .section-head,
+.note + .section-head,
+.tab-body > div > .section-head:first-child {
+  margin-top: var(--space-2);
+}
+.section-head h3 {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-primary);
+}
+.section-head h3 svg {
+  color: var(--text-secondary);
+}
+.count-badge {
+  min-width: 20px;
+  padding: 1px 6px;
+  border: 1px solid var(--border-primary);
+  border-radius: 999px;
+  color: var(--text-secondary);
+  font: 500 var(--text-xs) var(--font-mono);
+  text-align: center;
+  letter-spacing: 0;
+}
+.compat {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.compat > span:first-child {
+  margin-right: 4px;
+  color: var(--text-muted);
+  font: 500 10px var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* ---------- Tags ---------- */
+.tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border: 1px solid var(--border-primary);
+  border-radius: 999px;
+  color: var(--text-secondary);
+  font: 500 10px/1.4 var(--font-mono);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.tag--off {
+  border-style: dashed;
+  color: var(--text-muted);
+  white-space: normal;
+}
+
+/* ---------- Selection check ---------- */
+.agent-wrap,
+.env-wrap {
+  position: relative;
+}
+.check-badge {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--text-primary);
+  color: var(--bg-primary);
+  box-shadow: 0 0 0 2px var(--bg-panel);
+  pointer-events: none;
+  animation: check-pop 200ms cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+@keyframes check-pop {
+  from {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+}
+
+/* ---------- Agent cards ---------- */
+.agent-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+.agent-wrap {
+  display: flex;
+}
+.agent-card {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-height: 250px;
+  padding: 16px;
+  text-align: left;
+  color: var(--text-secondary);
+  background: var(--bg-panel-raised);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--card-radius);
+  font: inherit;
+  cursor: pointer;
+  transition:
+    transform var(--lift),
+    border-color var(--lift),
+    background var(--lift),
+    box-shadow var(--lift),
+    color var(--lift);
+}
+.agent-card:hover:not(:disabled) {
+  transform: translateY(-2px);
+  border-color: var(--text-muted);
+  background: var(--bg-hover);
+}
+.agent-card:focus-visible,
+.env-card:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 3px;
+}
+.agent-card[data-selected] {
+  color: var(--text-primary);
+  background: var(--bg-selected);
+  border-color: var(--border-strong);
+  box-shadow:
+    0 0 0 1px var(--border-strong),
+    0 0 26px color-mix(in srgb, var(--text-primary) 10%, transparent);
+}
+.agent-card:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.agent-card[data-incompatible]:not([data-selected]) {
+  opacity: 0.55;
+}
+.agent-card__top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+.agent-card__icon {
+  display: inline-flex;
+  color: inherit;
+}
+.agent-card__badge {
+  padding: 2px 8px;
+  border: 1px solid var(--border-primary);
+  border-radius: 999px;
+  color: var(--text-muted);
+  font: 500 10px/1.4 var(--font-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.agent-card[data-selected] .agent-card__badge {
+  color: var(--text-secondary);
+  border-color: var(--text-muted);
+}
+.agent-card__abbr {
+  color: var(--text-primary);
+  font-size: 25px;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+}
+.agent-card__name {
+  margin-top: 4px;
+  min-height: 2.8em;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.4;
+}
+.agent-card__details {
+  margin-top: auto;
+  padding-top: var(--space-2);
+  color: var(--text-muted);
+  font: 400 10px/1.5 var(--font-mono);
+  overflow-wrap: anywhere;
+}
+.agent-graph {
+  display: block;
+  width: 100%;
+  height: 55px;
+  margin: auto 0 var(--space-3);
+  padding-top: var(--space-2);
+  color: var(--text-muted);
+  transition: color var(--lift);
+}
+.agent-card[data-selected] .agent-graph,
+.agent-card:hover:not(:disabled) .agent-graph {
+  color: var(--text-primary);
+}
+.agent-card__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: var(--space-2);
+}
+.agent-card__details + .agent-card__tags {
+  margin-top: var(--space-3);
+}
+.agent-card__reserve {
+  display: block;
+  height: 22px;
+}
+
+/* ---------- Environment cards ---------- */
+.env-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.env-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  width: 100%;
+  min-height: 108px;
+  padding: 14px 16px;
+  text-align: left;
+  color: var(--text-secondary);
+  background: var(--bg-panel-raised);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--card-radius);
+  font: inherit;
+  cursor: pointer;
+  transition:
+    border-color var(--lift),
+    background var(--lift),
+    box-shadow var(--lift);
+}
+.env-card:hover:not(:disabled) {
+  border-color: var(--text-muted);
+  background: var(--bg-hover);
+}
+.env-card[data-selected] {
+  color: var(--text-primary);
+  background: var(--bg-selected);
+  border-color: var(--border-strong);
+  box-shadow:
+    0 0 0 1px var(--border-strong),
+    0 0 26px color-mix(in srgb, var(--text-primary) 10%, transparent);
+}
+.env-card:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.env-card[data-incompatible]:not([data-selected]) {
+  opacity: 0.6;
+}
+.env-card__preview {
+  flex: none;
+  width: 135px;
+  height: 78px;
+  overflow: hidden;
+  color: var(--text-muted);
+  background: var(--bg-primary);
+  border: 1px solid var(--border-secondary);
+  border-radius: 8px;
+  transition: color var(--lift);
+}
+.env-card:hover:not(:disabled) .env-card__preview,
+.env-card[data-selected] .env-card__preview {
+  color: var(--text-primary);
+}
+.env-preview {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.env-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.env-card__title {
+  color: var(--text-primary);
+  font-size: var(--text-md);
+  font-weight: 600;
+}
+.env-card__desc {
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  line-height: 1.45;
+}
+.env-card__meta {
+  color: var(--text-muted);
+  font: 400 10px/1.5 var(--font-mono);
+}
+.env-card__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 2px;
+}
+.env-wrap .choice__remove {
+  right: var(--space-3);
+  bottom: var(--space-3);
+}
+
+/* ---------- Custom upload zone ---------- */
+.dropzone {
+  position: relative;
+  min-height: 105px;
+  margin: var(--space-3) 0 0;
+  padding: var(--space-4);
+  overflow: hidden;
+  border: 1px dashed var(--text-muted);
+  border-radius: var(--radius-lg);
+  background: var(--bg-panel);
+  color: var(--text-secondary);
+  transition:
+    border-color var(--lift),
+    background var(--lift),
+    color var(--lift);
+}
+.dropzone::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--text-primary);
+  opacity: 0.05;
+  pointer-events: none;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 100' preserveAspectRatio='none'%3E%3Cpath d='M0 60C50 20 100 100 150 60S250 20 300 60 370 90 400 55' fill='none' stroke='black' stroke-width='1.5'/%3E%3Cpath d='M0 78C50 40 100 110 150 78S250 40 300 78 370 100 400 72' fill='none' stroke='black' stroke-width='1'/%3E%3C/svg%3E")
+    center / 100% 100% no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 100' preserveAspectRatio='none'%3E%3Cpath d='M0 60C50 20 100 100 150 60S250 20 300 60 370 90 400 55' fill='none' stroke='black' stroke-width='1.5'/%3E%3Cpath d='M0 78C50 40 100 110 150 78S250 40 300 78 370 100 400 72' fill='none' stroke='black' stroke-width='1'/%3E%3C/svg%3E")
+    center / 100% 100% no-repeat;
+}
+.dropzone > * {
+  position: relative;
+}
+.dropzone:hover:not([data-disabled]),
+.dropzone[data-dragging='true'] {
+  border-color: var(--text-primary);
+  background: var(--bg-hover);
+}
+.dropzone__target {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.dropzone__icon {
+  display: inline-flex;
+  color: var(--text-secondary);
+  transition:
+    transform var(--lift),
+    color var(--lift);
+}
+.dropzone:hover:not([data-disabled]) .dropzone__icon {
+  transform: translateY(-3px);
+  color: var(--text-primary);
+}
+.dropzone__title {
+  color: var(--text-primary);
+  font-size: var(--text-md);
+  font-weight: 600;
+}
+.dropzone__hint {
+  display: block;
+  max-width: 46ch;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  line-height: 1.4;
+}
+
+/* Hidden help bubbles on right-hand fields must not widen the scroll area (no horizontal
+   scrollbar inside the panel): anchor them to the field's right edge instead. */
+.studio-left .tab-body {
+  overflow-x: hidden;
+}
+.cfg-grid > :nth-child(2n) .infotip__bubble {
+  left: auto;
+  right: -12px;
+  transform: none;
+}
+
+/* ---------- Narrower left panel ---------- */
+@container (max-width: 470px) {
+  .agent-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@container (max-width: 400px) {
+  .env-card {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .env-card__preview {
+    width: 100%;
+    height: 96px;
+  }
+}
+
+@media (max-width: 960px) {
+  .studio-header {
+    height: auto;
+    min-height: 56px;
+    flex-wrap: wrap;
+    padding: var(--space-2) var(--space-4);
+  }
+  .studio-header__right {
+    gap: var(--space-4);
+    flex-wrap: wrap;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .agent-card,
+  .env-card,
+  .dropzone,
+  .dropzone__icon,
+  .agent-graph,
+  .env-card__preview {
+    transition: none;
+  }
+  .agent-card:hover:not(:disabled),
+  .dropzone:hover:not([data-disabled]) .dropzone__icon {
+    transform: none;
+  }
+  .check-badge {
+    animation: none;
+  }
+}

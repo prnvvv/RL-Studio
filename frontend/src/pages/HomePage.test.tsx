@@ -36,7 +36,7 @@ describe('HomePage (landing)', () => {
     renderHome()
     const openLinks = screen.getAllByRole('link', { name: /Open Studio/ })
     expect(openLinks.length).toBeGreaterThanOrEqual(2)
-    openLinks.forEach((link) => expect(link).toHaveAttribute('href', '/training'))
+    openLinks.forEach((link) => expect(link).toHaveAttribute('href', '/studio'))
     expect(screen.getByRole('link', { name: /Watch Demo/ })).toBeInTheDocument()
   })
 

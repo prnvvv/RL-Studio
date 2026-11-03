@@ -226,7 +226,7 @@ export function createWebGLBackend(
 ): RenderBackend | null {
   const { log, callbacks, debug } = options
 
-  let gl: WebGLRenderingContext | null = null
+  let gl: WebGLRenderingContext | null
   try {
     gl = canvas.getContext('webgl', {
       alpha: true,
