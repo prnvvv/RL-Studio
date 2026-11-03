@@ -28,6 +28,7 @@ describe('HomePage', () => {
       'href',
       '/training',
     )
+    expect(screen.getByRole('link', { name: 'Open Studio' })).toHaveAttribute('href', '/studio')
     expect(screen.getByRole('link', { name: 'View Environments' })).toHaveAttribute(
       'href',
       '/environments',

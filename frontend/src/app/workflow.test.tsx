@@ -101,6 +101,18 @@ describe('cross-page navigation workflow', () => {
     expect(screen.getByRole('heading', { level: 1, name: HOME_HEADING })).toBeInTheDocument()
   })
 
+  it('Open Studio on the home page enters the interactive studio workspace', async () => {
+    // The studio asks the backend for its catalog; with it unreachable the
+    // workspace must say so instead of listing agents it cannot run.
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('unreachable')))
+    renderApp()
+    fireEvent.click(screen.getByRole('link', { name: 'Open Studio' }))
+    expect(
+      await screen.findByRole('heading', { name: /studio backend is unavailable/i }),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('navigation', { name: 'Primary' })).not.toBeInTheDocument()
+  })
+
   it('keeps a theme choice across navigating away and back', () => {
     renderApp()
     clickPrimaryNav('Training')
