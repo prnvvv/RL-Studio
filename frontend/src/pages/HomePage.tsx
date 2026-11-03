@@ -85,6 +85,21 @@ export function HomePage() {
                 Start Training
               </Link>
               <Link
+                to="/studio"
+                style={{
+                  padding: '8px 16px',
+                  background: 'var(--bg-panel)',
+                  color: 'var(--text-primary)',
+                  textDecoration: 'none',
+                  border: '1px solid var(--border-primary)',
+                  borderRadius: 'var(--radius-sm)',
+                  fontSize: 'var(--text-base)',
+                  fontFamily: 'var(--font-sans)',
+                }}
+              >
+                Open Studio
+              </Link>
+              <Link
                 to="/environments"
                 style={{
                   padding: '8px 16px',
