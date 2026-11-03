@@ -39,9 +39,15 @@ from backend.database.exceptions import ConflictError, NotFoundError, Validation
 
 from . import custom
 from .brain import GRID_REFRESH_FRAMES, compute_brain, compute_grid_brain
-from .catalog import AGENTS, NET_ARCHES, TRAINING_PARAMS, sb3_class
+from .catalog import (
+    AGENTS,
+    OFF_POLICY_REPLAY,
+    RECURRENT,
+    TRAINING_PARAMS,
+    build_model,
+)
 from .controls import RuntimeControls, validate_action
-from .envs import EnvDefinition, describe_space
+from .envs import EnvDefinition, describe_space, unavailable_reason
 from .hub import SessionHub
 from .params import validate_params
 from .store import RunRecorder
@@ -80,6 +86,10 @@ _UPDATE_KEYS = {
     "train/explained_variance": "explained_variance",
     "train/clip_fraction": "clip_fraction",
     "train/loss": "loss",
+    "train/actor_loss": "actor_loss",
+    "train/critic_loss": "critic_loss",
+    "train/ent_coef": "ent_coef",
+    "train/ent_coef_loss": "ent_coef_loss",
     "rollout/exploration_rate": "exploration_rate",
 }
 
@@ -114,6 +124,8 @@ def validate_config(raw: dict[str, Any]) -> dict[str, Any]:
     definition = custom.resolve_environment(env_key)
     if definition is None:
         errors.append({"field": "environment", "message": f"unknown environment {env_key!r}"})
+    elif (missing := unavailable_reason(definition)) is not None:
+        errors.append({"field": "environment", "message": f"{definition.name} cannot run here: {missing}"})
     if errors:
         raise ValidationError("Invalid configuration", details={"errors": errors})
 
@@ -144,11 +156,17 @@ def validate_config(raw: dict[str, Any]) -> dict[str, Any]:
     training = validate_params(TRAINING_PARAMS, raw.get("training"), scope="training")
 
     cross: list[dict[str, str]] = []
-    if "batch_size" in agent_params and agent_key == "PPO" and agent_params["batch_size"] > agent_params["n_steps"]:
+    if definition.check is not None:
+        try:
+            definition.check(env_params)
+        except ValueError as exc:
+            field, _, message = str(exc).partition(": ")
+            cross.append({"field": f"env_params.{field}" if message else "env_params", "message": message or str(exc)})
+    if "batch_size" in agent_params and agent_key in ("PPO", "PPO_LSTM") and agent_params["batch_size"] > agent_params["n_steps"]:
         cross.append({"field": "agent_params.batch_size", "message": "must not exceed steps per update"})
-    if agent_key == "DQN" and agent_params["learning_starts"] >= training["total_timesteps"]:
+    if agent_key in OFF_POLICY_REPLAY and agent_params["learning_starts"] >= training["total_timesteps"]:
         cross.append({"field": "agent_params.learning_starts", "message": "must be below total timesteps"})
-    if agent_key == "DQN" and agent_params["buffer_size"] < agent_params["batch_size"]:
+    if agent_key in OFF_POLICY_REPLAY and agent_params["buffer_size"] < agent_params["batch_size"]:
         cross.append({"field": "agent_params.buffer_size", "message": "must be at least the batch size"})
     if cross:
         raise ValidationError("Invalid configuration", details={"errors": cross})
@@ -567,6 +585,10 @@ class TrainingSession:
                     f"Cannot change manual control of a session that is {self._status.value}",
                     details={"status": self._status.value},
                 )
+        if active:
+            reason = self._manual_unsupported()
+            if reason:
+                raise ConflictError(reason, details={"agent": self.config["agent"], "environment": self.config["environment"]})
         changed = self.controls.set_human(active)
         if changed:
             self.hub.publish("control", {"run_id": self.run_id, **self.controls.snapshot()})
@@ -578,6 +600,14 @@ class TrainingSession:
                 self.log("INFO", "AGENT", "Manual control released: the agent is acting again", {"human_steps": self.controls.human_steps})
         return self.command_result()
 
+    def _manual_unsupported(self) -> str | None:
+        if not self.definition.manual:
+            return f"{self.definition.name} has no keyboard mapping, so it cannot be driven manually"
+        agent = AGENTS.get(self.config["agent"])
+        if agent is not None and not agent.supports_manual:
+            return f"{agent.name} cannot be taken over manually (its policy is not a feed-forward discrete controller)"
+        return None
+
     def set_brain_view(self, enabled: bool) -> dict[str, Any]:
         """Stream the policy's action preferences with every frame while enabled."""
         with self._lock:
@@ -586,6 +616,12 @@ class TrainingSession:
                     f"Cannot change the brain view of a session that is {self._status.value}",
                     details={"status": self._status.value},
                 )
+        agent = AGENTS.get(self.config["agent"])
+        if enabled and agent is not None and not agent.supports_brain:
+            raise ConflictError(
+                f"The brain view is not available for {agent.name}: it has no inspectable action distribution",
+                details={"agent": agent.key},
+            )
         if self.controls.set_brain(enabled):
             self.hub.publish("control", {"run_id": self.run_id, **self.controls.snapshot()})
             self.log("INFO", "AGENT", "Agent brain view " + ("enabled" if enabled else "disabled"), {})
@@ -798,20 +834,10 @@ class TrainingSession:
         try:
             seed = int(training["seed"])
             venv = DummyVecEnv([lambda: self._build_env(seed)])
-            params = dict(self.config["agent_params"])
-            arch = NET_ARCHES[params.pop("net_arch")]
-            model = sb3_class(agent)(
-                "MlpPolicy",
-                venv,
-                seed=seed,
-                device=training["device"],
-                policy_kwargs={"net_arch": arch},
-                verbose=0,
-                **params,
-            )
+            model, created = build_model(agent, venv, self.config["agent_params"], seed=seed, device=training["device"])
             model.set_logger(Logger(folder=None, output_formats=[_HubWriter(self)]))
             self._model = model
-            self.log("AGENT", "AGENT", f"{agent} model created", {"policy": "MlpPolicy", "net_arch": arch, "device": str(model.device)})
+            self.log("AGENT", "AGENT", f"{agent} model created", {**created, "device": str(model.device)})
             callback = _StudioCallback(self, self.definition)
             model.learn(total_timesteps=int(training["total_timesteps"]), callback=callback, log_interval=1, progress_bar=False)
             self._timestep = int(model.num_timesteps)
@@ -960,7 +986,7 @@ class TrainingSession:
                 stats[name] = float(key_values[key])
         if "train/entropy_loss" in key_values:
             stats["entropy"] = -float(key_values["train/entropy_loss"])
-        if not any(k in stats for k in ("policy_loss", "value_loss", "loss")):
+        if not any(k in stats for k in ("policy_loss", "value_loss", "loss", "actor_loss", "critic_loss")):
             return
         record = {"timestep": int(self._timestep), "update": len(self._updates) + 1, **stats}
         with self._lock:
@@ -979,10 +1005,15 @@ class TrainingSession:
             for index in range(int(training["eval_episodes"])):
                 obs, info = env.reset(seed=int(training["seed"]) + 10_000 + index)
                 total, steps, terminated, truncated = 0.0, 0, False, False
+                lstm_state, episode_start = None, np.ones((1,), dtype=bool)  # recurrent policies carry memory
                 while not (terminated or truncated):
                     if self._stop.is_set():
                         return
-                    action, _ = model.predict(obs, deterministic=True)
+                    if self.config["agent"] in RECURRENT:
+                        action, lstm_state = model.predict(obs, state=lstm_state, episode_start=episode_start, deterministic=True)
+                        episode_start = np.zeros((1,), dtype=bool)
+                    else:
+                        action, _ = model.predict(obs, deterministic=True)
                     obs, reward, terminated, truncated, info = env.step(action)
                     total += float(reward)
                     steps += 1
