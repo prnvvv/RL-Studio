@@ -209,6 +209,7 @@ class _StudioCallback(BaseCallback):
             }
             if outcome is not None:
                 payload["outcome"] = outcome
+            s._last_state = payload["state"]
             s.hub.set_frame(payload)
 
         if outcome is not None:
@@ -312,6 +313,7 @@ class TrainingSession:
         self._last_progress = 0.0
         self._last_termination: str | None = None
         self._paused_since: float | None = None
+        self._last_state: dict[str, float] = {}
 
     def _build_preview(self) -> None:
         """Create the environment once so the viewport shows the real scene."""
@@ -600,6 +602,7 @@ class TrainingSession:
             "collisions": self._collisions,
             "disturbances": self._disturbances,
             "last_termination": self._last_termination,
+            "env_state": dict(self._last_state),
             "speed": self.speed,
         }
 
