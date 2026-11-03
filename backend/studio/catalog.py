@@ -12,6 +12,7 @@ from typing import Any
 
 import gymnasium as gym
 
+from . import custom
 from .envs import ENVIRONMENTS, EnvDefinition, describe_space
 from .params import ParamSpec
 
@@ -157,8 +158,10 @@ def _env_entry(definition: EnvDefinition, agents: dict[str, AgentDefinition]) ->
         scene = definition.scene(defaults, probe)
     finally:
         probe.close()
+    is_custom = definition.key not in ENVIRONMENTS
     return {
         "key": definition.key,
+        "kind": "custom" if is_custom else "builtin",
         "name": definition.name,
         "description": definition.description,
         "dimension": definition.dimension,
@@ -173,15 +176,55 @@ def _env_entry(definition: EnvDefinition, agents: dict[str, AgentDefinition]) ->
     }
 
 
+def _custom_agent_entries(environments: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Uploaded models, with compatibility derived from each environment's real spaces."""
+    entries: list[dict[str, Any]] = []
+    for record in custom.list_models():
+        compatible = [
+            e["key"]
+            for e in environments
+            if custom.incompatibility(record, e["observation_space"], e["action_space"], e["name"]) is None
+        ]
+        for env in environments:
+            if env["key"] in compatible:
+                env["compatible_agents"].append(record["key"])
+        entries.append(
+            {
+                "key": record["key"],
+                "kind": "custom",
+                "name": record["name"],
+                "description": f"Uploaded {record['format']} policy ({record['algorithm']}). Runs inference only; it does not learn.",
+                "family": "custom",
+                "action_spaces": [record["action_type"]],
+                "params": [],
+                "reported_metrics": [],
+                "compatible_environments": compatible,
+                "custom": {k: v for k, v in record.items() if k not in ("stored_as", "key")},
+            }
+        )
+    return entries
+
+
 def build_catalog() -> dict[str, Any]:
     agents = available_agents()
-    environments = [_env_entry(d, agents) for d in ENVIRONMENTS.values()]
+    environments = [_env_entry(d, agents) for d in custom.all_environments()]
+    for entry in environments:
+        if entry["kind"] == "custom":
+            record = custom.get_environment_record(entry["key"])
+            entry["custom"] = {"env_id": record["env_id"], "uploaded_at": record["uploaded_at"], "layout": record["layout"]}
     env_by_key = {e["key"]: e for e in environments}
+    custom_agents = _custom_agent_entries(environments)
     return {
-        "schema_version": "1.0",
+        "schema_version": "1.1",
+        "limits": {
+            "model_extensions": list(custom.ALLOWED_EXTENSIONS),
+            "max_model_bytes": custom.MAX_MODEL_BYTES,
+            "max_grid": custom.MAX_GRID,
+        },
         "agents": [
             {
                 "key": a.key,
+                "kind": "builtin",
                 "name": a.name,
                 "description": a.description,
                 "family": a.family,
@@ -193,7 +236,8 @@ def build_catalog() -> dict[str, Any]:
                 ],
             }
             for a in agents.values()
-        ],
+        ]
+        + custom_agents,
         "environments": environments,
         "training_params": [p.to_dict() for p in TRAINING_PARAMS],
         "net_arches": list(NET_ARCHES),
