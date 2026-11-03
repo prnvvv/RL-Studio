@@ -338,8 +338,17 @@ class _StudioCallback(BaseCallback):
 
 
 class TrainingSession:
-    def __init__(self, session_id: str, config: dict[str, Any], name: str | None = None) -> None:
+    def __init__(
+        self,
+        session_id: str,
+        config: dict[str, Any],
+        name: str | None = None,
+        battle_id: str | None = None,
+        battle_side: str | None = None,
+    ) -> None:
         self.session_id = session_id
+        self.battle_id = battle_id
+        self.battle_side = battle_side
         self.config = config
         self.definition = custom.resolve_environment(config["environment"])  # type: ignore[assignment]
         self.model_record = custom.get_model(config["agent"]) if custom.is_custom_agent(config["agent"]) else None
@@ -802,6 +811,8 @@ class TrainingSession:
             "steps_per_second": (timestep / elapsed) if elapsed > 0 else 0.0,
             "current_reward_avg": (sum(self._recent) / len(self._recent)) if self._recent else None,
             "mean_reward": (self._reward_sum / self._episode_count) if self._episode_count else None,
+            # Reward of finished episodes per environment step (a throughput-independent score).
+            "reward_per_step": (self._reward_sum / timestep) if timestep and self._episode_count else None,
             "best_reward": self._best_reward,
             "success_rate": (sum(self._successes) / len(self._successes)) if self._successes else None,
             "collisions": self._collisions,
@@ -946,6 +957,7 @@ class TrainingSession:
             "agent": self.config["agent"],
             "environment": self.config["environment"],
             "mode": self.mode,
+            "battle": {"battle_id": self.battle_id, "side": self.battle_side} if self.battle_id else None,
             "controls": self.controls.snapshot(),
             "config": self.config,
             "created_at": self.created_at,
