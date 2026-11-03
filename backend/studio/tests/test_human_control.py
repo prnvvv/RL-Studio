@@ -161,7 +161,8 @@ def test_websocket_action_messages_are_acknowledged_or_rejected(client: TestClie
 
 def test_control_state_is_part_of_the_snapshot_and_event_stream(client: TestClient) -> None:
     sid = _create(client, training=SLOW)
-    assert _snapshot(client, sid)["controls"] == {"human": False, "human_steps": 0, "brain": False}
+    controls = _snapshot(client, sid)["controls"]
+    assert (controls["human"], controls["human_steps"], controls["brain"]) == (False, 0, False)
     client.post(f"{BASE}/sessions/{sid}/start")
     client.post(f"{BASE}/sessions/{sid}/control", json={"active": True})
     assert _snapshot(client, sid)["controls"]["human"] is True
