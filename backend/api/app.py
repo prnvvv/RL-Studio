@@ -55,7 +55,7 @@ def create_app(config: DatabaseConfig | None = None) -> FastAPI:
     # Operational endpoints are wired but kept out of the documented schema.
     app.include_router(runs.router, include_in_schema=False)
     app.include_router(ws_router, include_in_schema=False)
-    app.include_router(studio.router)
+    app.include_router(studio.router, include_in_schema=False)
     return app
 
 
