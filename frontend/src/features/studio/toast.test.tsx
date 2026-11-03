@@ -1,8 +1,15 @@
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { addToast, MAX_TOASTS, ToastProvider, useToast, type ToastItem, type ToastTone } from './toast'
+import { ToastProvider } from './toast'
+import { addToast, MAX_TOASTS, useToast, type ToastItem, type ToastTone } from './toastState'
 
-function Trigger({ tone = 'success', message = 'Training started' }: { tone?: ToastTone; message?: string }) {
+function Trigger({
+  tone = 'success',
+  message = 'Training started',
+}: {
+  tone?: ToastTone
+  message?: string
+}) {
   const toast = useToast()
   return (
     <button type="button" onClick={() => toast.push(tone, message)}>
