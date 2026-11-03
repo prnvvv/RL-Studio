@@ -18,10 +18,10 @@ import { AppRouter } from './router'
  * Monitoring's related-views links) repeat a destination's name elsewhere
  * on the page, so an unscoped query would be ambiguous.
  */
-function renderApp() {
+function renderApp(initialPath = '/') {
   render(
     <ThemeProvider>
-      <MemoryRouter initialEntries={['/']}>
+      <MemoryRouter initialEntries={[initialPath]}>
         <AppRouter />
       </MemoryRouter>
     </ThemeProvider>,
@@ -36,7 +36,7 @@ function clickPrimaryNav(label: string) {
   fireEvent.click(within(primaryNav()).getByRole('link', { name: label }))
 }
 
-const HOME_HEADING = 'Train. Monitor. Recover.'
+const LANDING_HEADING = 'A safer sandbox for stronger agents.'
 
 describe('cross-page navigation workflow', () => {
   beforeEach(() => {
@@ -62,10 +62,9 @@ describe('cross-page navigation workflow', () => {
   })
 
   it('reaches every primary and secondary destination from one session without losing the shell', () => {
-    renderApp()
-    expect(screen.getByRole('heading', { level: 1, name: HOME_HEADING })).toBeInTheDocument()
-
-    clickPrimaryNav('Training')
+    // Open Studio now enters the standalone workspace (covered below); the
+    // application shell is reached directly at /training.
+    renderApp('/training')
     expect(
       screen.getByRole('heading', { level: 1, name: 'Training Dashboard' }),
     ).toBeInTheDocument()
@@ -98,24 +97,21 @@ describe('cross-page navigation workflow', () => {
     expect(screen.getByText('Self-Healing RL Studio')).toBeInTheDocument()
 
     clickPrimaryNav('Home')
-    expect(screen.getByRole('heading', { level: 1, name: HOME_HEADING })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 1, name: LANDING_HEADING })).toBeInTheDocument()
   })
 
-  it('Open Studio on the home page enters the interactive studio workspace', async () => {
+  it('Open Studio on the landing page enters the interactive studio workspace', async () => {
     // The studio asks the backend for its catalog; with it unreachable the
     // workspace must say so instead of listing agents it cannot run.
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('unreachable')))
     renderApp()
-    fireEvent.click(screen.getByRole('link', { name: 'Open Studio' }))
-    expect(
-      await screen.findByRole('heading', { name: /studio backend is unavailable/i }),
-    ).toBeInTheDocument()
+    fireEvent.click(within(primaryNav()).getByRole('link', { name: /Open Studio/ }))
+    expect(await screen.findByRole('heading', { name: /studio backend is unavailable/i })).toBeInTheDocument()
     expect(screen.queryByRole('navigation', { name: 'Primary' })).not.toBeInTheDocument()
   })
 
   it('keeps a theme choice across navigating away and back', () => {
-    renderApp()
-    clickPrimaryNav('Training')
+    renderApp('/training')
     expect(document.documentElement.getAttribute('data-theme')).toBe('dark')
 
     fireEvent.click(screen.getByRole('button', { name: 'Switch to light theme' }))
@@ -125,13 +121,12 @@ describe('cross-page navigation workflow', () => {
     expect(document.documentElement.getAttribute('data-theme')).toBe('light')
 
     clickPrimaryNav('Home')
-    expect(screen.getByRole('heading', { level: 1, name: HOME_HEADING })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 1, name: LANDING_HEADING })).toBeInTheDocument()
     expect(document.documentElement.getAttribute('data-theme')).toBe('light')
   })
 
   it('updates the active-destination indicator as navigation proceeds, never on more than one link at a time', () => {
-    renderApp()
-    clickPrimaryNav('Training')
+    renderApp('/training')
 
     clickPrimaryNav('Reports')
     const current = within(primaryNav())
