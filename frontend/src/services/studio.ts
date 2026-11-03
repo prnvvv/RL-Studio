@@ -27,6 +27,12 @@ export interface CreateSessionRequest extends SessionConfig {
   name?: string
 }
 
+export interface ChaosPatch {
+  enabled?: boolean
+  intensity?: number
+  kinds?: string[]
+}
+
 export type SessionCommand = 'start' | 'pause' | 'resume' | 'stop' | 'reset'
 
 /** `uploading` while bytes are sent; `validating` while the backend inspects the file. */
@@ -208,6 +214,8 @@ export interface StudioService {
   setSpeed(sessionId: string, speed: number): Promise<ServiceResult<CommandResult>>
   setControl(sessionId: string, active: boolean): Promise<ServiceResult<CommandResult>>
   setBrain(sessionId: string, enabled: boolean): Promise<ServiceResult<CommandResult>>
+  setChaos(sessionId: string, patch: ChaosPatch): Promise<ServiceResult<CommandResult>>
+  triggerChaos(sessionId: string, kind: string): Promise<ServiceResult<CommandResult>>
   listSessions(signal?: AbortSignal): Promise<ServiceResult<SessionSummary[]>>
   listHistory(signal?: AbortSignal): Promise<ServiceResult<ExperimentSummary[]>>
   getHistoryRecord(runId: string, signal?: AbortSignal): Promise<ServiceResult<SessionSnapshot>>
@@ -293,6 +301,22 @@ export function createStudioService(): StudioService {
           jsonBody: { speed },
         }),
         isBattleCommandResult,
+      )
+    },
+    async setChaos(sessionId, patch) {
+      return guard(
+        await api.post<unknown>(`${BASE}/sessions/${encodeURIComponent(sessionId)}/chaos`, {
+          jsonBody: patch,
+        }),
+        isCommandResult,
+      )
+    },
+    async triggerChaos(sessionId, kind) {
+      return guard(
+        await api.post<unknown>(`${BASE}/sessions/${encodeURIComponent(sessionId)}/chaos/trigger`, {
+          jsonBody: { kind },
+        }),
+        isCommandResult,
       )
     },
     async setBrain(sessionId, enabled) {

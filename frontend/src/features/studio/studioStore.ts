@@ -6,8 +6,10 @@
  * React state on purpose (`frame` is read by the renderer every animation
  * frame) so a 30 Hz stream does not re-render the workspace.
  */
-import type {
-  CheckpointRecord,
+import {
+  DEFAULT_CHAOS,
+  type ChaosState,
+  type CheckpointRecord,
   CommandResult,
   ControlState,
   EpisodeRecord,
@@ -67,7 +69,7 @@ export const emptyState: StudioState = {
   logs: [],
   lastSeq: 0,
   connection: 'idle',
-  controls: { human: false, human_steps: 0, brain: false },
+  controls: { human: false, human_steps: 0, brain: false, chaos: DEFAULT_CHAOS },
   resetCount: 0,
 }
 
@@ -174,7 +176,13 @@ export class StudioStore {
       checkpoints: snapshot.checkpoints ?? [],
       logs: (snapshot.logs ?? []).map(toLogEntry),
       lastSeq: snapshot.seq,
-      controls: { human: false, human_steps: 0, brain: false, ...snapshot.controls },
+      controls: {
+        human: false,
+        human_steps: 0,
+        brain: false,
+        ...snapshot.controls,
+        chaos: { ...DEFAULT_CHAOS, ...snapshot.controls?.chaos },
+      },
     })
   }
 
@@ -257,6 +265,7 @@ export class StudioStore {
             human: payload.human === true,
             human_steps: typeof payload.human_steps === 'number' ? payload.human_steps : 0,
             brain: payload.brain === true,
+            chaos: { ...DEFAULT_CHAOS, ...(payload.chaos as Partial<ChaosState> | undefined) },
           },
         })
         return
@@ -275,7 +284,7 @@ export class StudioStore {
           evaluations: [],
           checkpoints: [],
           error: null,
-          controls: { human: false, human_steps: 0, brain: false },
+          controls: { human: false, human_steps: 0, brain: false, chaos: DEFAULT_CHAOS },
           resetCount: base.resetCount + 1,
         })
         return

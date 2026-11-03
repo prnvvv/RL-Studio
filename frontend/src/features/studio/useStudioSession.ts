@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import {
   createStudioService,
   sessionStreamUrl,
+  type ChaosPatch,
   type SessionCommand,
   type StudioService,
 } from '../../services/studio'
@@ -193,6 +194,34 @@ export function useStudioSession(service: StudioService = defaultService) {
     [service, store],
   )
 
+  const setChaos = useCallback(
+    async (patch: ChaosPatch): Promise<boolean> => {
+      const sessionId = store.getState().sessionId
+      if (sessionId === null) return false
+      const result = await service.setChaos(sessionId, patch)
+      if (result.state === 'error') {
+        setNotice({ tone: 'error', message: describeFailure('Changing chaos mode', result.error) })
+        return false
+      }
+      return true
+    },
+    [service, store],
+  )
+
+  const triggerChaos = useCallback(
+    async (kind: string): Promise<boolean> => {
+      const sessionId = store.getState().sessionId
+      if (sessionId === null) return false
+      const result = await service.triggerChaos(sessionId, kind)
+      if (result.state === 'error') {
+        setNotice({ tone: 'error', message: describeFailure('Triggering chaos', result.error) })
+        return false
+      }
+      return true
+    },
+    [service, store],
+  )
+
   const sendAction = useCallback(
     (action: number) => store.send({ type: 'action', action }),
     [store],
@@ -222,6 +251,8 @@ export function useStudioSession(service: StudioService = defaultService) {
     setSpeed,
     setManualControl,
     setBrainView,
+    setChaos,
+    triggerChaos,
     sendAction,
     reloadCatalog: loadCatalog,
     refreshCatalog,

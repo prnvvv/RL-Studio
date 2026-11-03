@@ -112,6 +112,8 @@ export interface EnvironmentTemplate {
   action_space: SpaceDescription
   default_scene: Record<string, unknown>
   supports_disturbances: boolean
+  /** Disturbances chaos mode can inject here. */
+  chaos_kinds?: string[]
   params: ParamSpec[]
   compatible_agents: string[]
 }
@@ -210,12 +212,32 @@ export interface CheckpointRecord {
   environment: string
 }
 
+/** Chaos-mode state (disturbances injected into the running environment). */
+export interface ChaosState {
+  enabled: boolean
+  /** 0 (none) to 1 (maximum). */
+  intensity: number
+  kinds: string[]
+  /** Disturbances injected so far (sensor noise is counted separately). */
+  events: number
+  noise_steps: number
+}
+
+export const DEFAULT_CHAOS: ChaosState = {
+  enabled: false,
+  intensity: 0.3,
+  kinds: [],
+  events: 0,
+  noise_steps: 0,
+}
+
 /** Manual-control state published by the backend (`controls` in snapshots, `control` events). */
 export interface ControlState {
   human: boolean
   human_steps: number
   /** True while the backend streams the policy's action preferences with each frame. */
   brain: boolean
+  chaos: ChaosState
 }
 
 /** The policy's preference at one grid cell. */
