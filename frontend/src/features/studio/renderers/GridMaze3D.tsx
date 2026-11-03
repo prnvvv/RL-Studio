@@ -11,6 +11,7 @@ import {
   type MeshStandardMaterial,
 } from 'three'
 import { adaptGridAgent, cellToWorld, gridScene } from '../simulationAdapters'
+import { BrainField3D } from './BrainField3D'
 import type { RendererProps } from './types'
 
 const WALL_HEIGHT = 0.8
@@ -119,6 +120,7 @@ export function GridMaze3D({ scene, store, palette }: RendererProps) {
           emissiveIntensity={0.5}
         />
       </mesh>
+      <BrainField3D grid={grid} store={store} palette={palette} />
       <primitive object={trail} />
       <group ref={agent} position={[startX, AGENT_RADIUS, startZ]}>
         <mesh>

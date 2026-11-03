@@ -21,6 +21,8 @@ export function CartPole3D({ scene, store, palette }: RendererProps) {
   const poleMaterial = useRef<MeshStandardMaterial>(null)
   const arrow = useRef<Group>(null)
   const arrowMaterial = useRef<MeshBasicMaterial>(null)
+  const brainArrows = useRef<Array<Group | null>>([null, null])
+  const brainMaterials = useRef<Array<MeshBasicMaterial | null>>([null, null])
   const flash = useRef(0)
   const direction = useRef<1 | -1>(1)
   const seenFrame = useRef(-1)
@@ -60,6 +62,20 @@ export function CartPole3D({ scene, store, palette }: RendererProps) {
       arrow.current.rotation.z = direction.current === 1 ? -Math.PI / 2 : Math.PI / 2
     }
     if (arrowMaterial.current) arrowMaterial.current.opacity = flash.current
+
+    // Brain view: arrow length and opacity follow the probability of pushing each way.
+    const probs = frame?.brain?.probs
+    brainArrows.current.forEach((group, side) => {
+      const material = brainMaterials.current[side]
+      if (!group || !material) return
+      const p = probs?.[side]
+      group.visible = p !== undefined && cart.current !== null
+      if (p === undefined || !cart.current) return
+      const dir = side === 0 ? -1 : 1
+      group.position.x = cart.current.position.x + dir * (0.75 + 0.4 * p)
+      group.scale.set(1, 0.4 + 2.4 * p, 1)
+      material.opacity = 0.25 + 0.7 * p
+    })
   })
 
   const trackLength = dims.x_limit * 2 + 0.8
@@ -100,6 +116,29 @@ export function CartPole3D({ scene, store, palette }: RendererProps) {
           </mesh>
         </group>
       </group>
+      {[0, 1].map((side) => (
+        <group
+          key={`brain-${side}`}
+          ref={(group) => {
+            brainArrows.current[side] = group
+          }}
+          position={[0, 0.5, 0]}
+          rotation={[0, 0, side === 0 ? Math.PI / 2 : -Math.PI / 2]}
+          visible={false}
+        >
+          <mesh>
+            <coneGeometry args={[0.07, 0.3, 14]} />
+            <meshBasicMaterial
+              ref={(material) => {
+                brainMaterials.current[side] = material
+              }}
+              color={palette.accent}
+              transparent
+              opacity={0}
+            />
+          </mesh>
+        </group>
+      ))}
       <group ref={arrow} position={[ARROW_OFFSET, 0.1, 0]}>
         <mesh>
           <coneGeometry args={[0.1, 0.24, 20]} />

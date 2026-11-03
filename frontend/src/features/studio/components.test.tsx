@@ -43,6 +43,7 @@ describe('ControlToolbar', () => {
     manual: { available: true, active: false, hint: '← / A' },
     onToggleManual: vi.fn(),
     compare: { active: false, available: true, onToggle: vi.fn() },
+    brain: { active: false, available: true, onToggle: vi.fn() },
   }
   const renderBar = (status: SessionStatus | null, busy: string | null = null) =>
     render(

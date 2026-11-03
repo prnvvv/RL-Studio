@@ -4,6 +4,7 @@ import { OrbitControls } from '@react-three/drei'
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
 import { useScenePalette } from './renderers/palette'
 import { getRenderer } from './renderers/registry'
+import { BrainPanel } from './BrainPanel'
 import { StreamOverlay } from './StreamOverlay'
 import { webglAvailable } from './webgl'
 import { useFrameSnapshot } from './useFrameSnapshot'
@@ -27,6 +28,8 @@ interface Props {
   viewMode: ViewMode
   /** Key help shown while the human drives; null when the agent is in control. */
   manualHint?: string | null
+  /** Show the live action-probability panel (the overlays draw themselves from frame data). */
+  brainActive?: boolean
 }
 
 class CanvasBoundary extends Component<
@@ -100,6 +103,7 @@ export function SimulationViewport({
   cameraResetNonce,
   viewMode,
   manualHint = null,
+  brainActive = false,
 }: Props) {
   const palette = useScenePalette()
   const definition = getRenderer(rendererKey)
@@ -179,6 +183,7 @@ export function SimulationViewport({
       {definition !== null && (
         <>
           <StreamOverlay store={store} />
+          {brainActive && <BrainPanel store={store} renderer={rendererKey} />}
           {manualHint !== null && (
             <div className="sim-manual" role="status">
               <strong>Manual control</strong> — {manualHint}

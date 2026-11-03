@@ -106,9 +106,9 @@ describe('store manual-control state', () => {
       seq: 0,
       frame: null,
     })
-    expect(store.getState().controls).toEqual({ human: false, human_steps: 0 })
+    expect(store.getState().controls).toEqual({ human: false, human_steps: 0, brain: false })
     store.applyEvent(event(1, 'control', { human: true, human_steps: 3 }))
-    expect(store.getState().controls).toEqual({ human: true, human_steps: 3 })
+    expect(store.getState().controls).toEqual({ human: true, human_steps: 3, brain: false })
     store.applyEvent(event(2, 'reset', {}))
     expect(store.getState().controls.human).toBe(false)
   })
@@ -139,6 +139,7 @@ describe('manual control toolbar button', () => {
     onResetCamera: vi.fn(),
     onViewModeChange: vi.fn(),
     compare: { active: false, available: true, onToggle: vi.fn() },
+    brain: { active: false, available: true, onToggle: vi.fn() },
   }
 
   it('toggles between taking and releasing control', () => {

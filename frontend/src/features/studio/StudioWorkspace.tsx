@@ -257,6 +257,14 @@ function WorkspaceBody({ catalog, session }: { catalog: Catalog; session: Sessio
     [session, toast],
   )
   useManualControl(manualActive, viewEnv?.renderer ?? null, sendManualAction)
+  const brainActive = !compare && state.controls.brain
+  const toggleBrain = async () => {
+    const next = !brainActive
+    const ok = await session.setBrainView(next)
+    if (ok) {
+      toast.push('info', next ? 'Heatmap on: showing what the agent prefers' : 'Heatmap off')
+    }
+  }
   const toggleManual = async () => {
     const next = !manualActive
     const ok = await session.setManualControl(next)
@@ -564,6 +572,16 @@ function WorkspaceBody({ catalog, session }: { catalog: Catalog; session: Sessio
             }}
             onToggleManual={() => void toggleManual()}
             compare={{ active: compare, available: !active, onToggle: toggleCompare }}
+            brain={{
+              active: brainActive,
+              available:
+                !compare &&
+                state.sessionId !== null &&
+                state.status !== 'stopped' &&
+                state.status !== 'completed' &&
+                state.status !== 'failed',
+              onToggle: () => void toggleBrain(),
+            }}
           />
           {state.error && (
             <p
@@ -603,6 +621,7 @@ function WorkspaceBody({ catalog, session }: { catalog: Catalog; session: Sessio
               cameraResetNonce={cameraNonce}
               viewMode={viewMode}
               manualHint={manualActive ? manualHint : null}
+              brainActive={brainActive}
             />
           )}
 

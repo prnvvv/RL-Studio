@@ -24,6 +24,8 @@ interface Props {
   onToggleManual: () => void
   /** Compare mode: two agents on the same environment and seed, side by side. */
   compare: { active: boolean; available: boolean; onToggle: () => void }
+  /** Overlay the agent's action probabilities / Q-values on the simulation. */
+  brain: { active: boolean; available: boolean; onToggle: () => void }
 }
 
 function Spinner() {
@@ -51,6 +53,7 @@ export function ControlToolbar({
   manual,
   onToggleManual,
   compare,
+  brain,
 }: Props) {
   const idle = busy === null
   const label = pendingCommand === 'pause' ? 'pausing…' : (status ?? 'no session')
@@ -175,6 +178,20 @@ export function ControlToolbar({
           title="Reset camera (C)"
         >
           Reset camera
+        </button>
+        <button
+          type="button"
+          className={`btn btn--ghost${brain.active ? ' is-active' : ''}`}
+          aria-pressed={brain.active}
+          disabled={!brain.available}
+          onClick={brain.onToggle}
+          title={
+            brain.available
+              ? "Overlay the agent's action probabilities (or Q-values) on the simulation"
+              : 'Initialize a session to inspect the agent'
+          }
+        >
+          Show heatmap
         </button>
         <button
           type="button"

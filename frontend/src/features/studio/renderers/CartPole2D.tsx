@@ -42,6 +42,17 @@ export function CartPole2D({ scene, store, palette }: RendererProps) {
           transform={`translate(${pose.cartX + push * 0.5} 0) scale(${push} 1)`}
         />
       )}
+      {frame?.brain?.probs?.length === 2 &&
+        frame.brain.probs.map((p, side) => (
+          <polygon
+            key={`brain-${side}`}
+            data-testid="brain-arrow"
+            points="0,-0.1 0.2,0 0,0.1"
+            fill={palette.accent}
+            opacity={0.25 + 0.7 * p}
+            transform={`translate(${pose.cartX + (side === 0 ? -1 : 1) * (0.55 + 0.25 * p)} 0.42) scale(${(side === 0 ? -1 : 1) * (0.5 + 2 * p)} 1)`}
+          />
+        ))}
       <g transform={`translate(${pose.cartX} 0)`}>
         <rect x={-0.25} y={-0.15} width={0.5} height={0.3} rx={0.03} fill={palette.accent} />
         <g transform={`translate(0 -0.15) rotate(${(pose.poleAngle * 180) / Math.PI})`}>
