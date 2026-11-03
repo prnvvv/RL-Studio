@@ -61,6 +61,12 @@ class SessionHub:
         with self._lock:
             return self._frame
 
+    def recent(self, event_type: str, limit: int = 500) -> list[dict[str, Any]]:
+        """Most recent events of one type, oldest first (used to seed snapshots)."""
+        with self._lock:
+            matching = [e for e in self._events if e["type"] == event_type]
+        return matching[-limit:]
+
     def last_seq(self) -> int:
         with self._lock:
             return self._seq
