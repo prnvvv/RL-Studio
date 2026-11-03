@@ -16,7 +16,8 @@ const registry: Record<string, RendererDefinition> = {
     label: 'CartPole',
     Scene3D: CartPole3D,
     Scene2D: CartPole2D,
-    camera: () => ({ position: [0, 1.4, 6], target: [0, 0.7, 0] }),
+    // Close enough that the cart and pole fill the view across the whole track.
+    camera: () => ({ position: [0, 1.0, 4.4], target: [0, 0.5, 0] }),
   },
   grid_maze: {
     key: 'grid_maze',

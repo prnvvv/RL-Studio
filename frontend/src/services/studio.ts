@@ -5,6 +5,9 @@
  * `ServiceResult`; nothing here invents data when the backend is unreachable.
  */
 import type {
+  BattleCommandResult,
+  BattleRequest,
+  BattleSnapshot,
   Catalog,
   CommandResult,
   ExperimentSummary,
@@ -22,6 +25,12 @@ const BASE = '/api/v1/studio'
 
 export interface CreateSessionRequest extends SessionConfig {
   name?: string
+}
+
+export interface ChaosPatch {
+  enabled?: boolean
+  intensity?: number
+  kinds?: string[]
 }
 
 export type SessionCommand = 'start' | 'pause' | 'resume' | 'stop' | 'reset'
@@ -166,6 +175,22 @@ function isSnapshot(value: unknown): value is SessionSnapshot {
   )
 }
 
+function isBattleSnapshot(value: unknown): value is BattleSnapshot {
+  return (
+    isObject(value) &&
+    typeof value.battle_id === 'string' &&
+    isSnapshot(value.a) &&
+    isSnapshot(value.b) &&
+    isObject(value.comparison)
+  )
+}
+
+function isBattleCommandResult(value: unknown): value is BattleCommandResult {
+  return (
+    isObject(value) && typeof value.battle_id === 'string' && isObject(value.a) && isObject(value.b)
+  )
+}
+
 function isCommandResult(value: unknown): value is CommandResult {
   return isObject(value) && typeof value.session_id === 'string' && typeof value.status === 'string'
 }
@@ -187,6 +212,10 @@ export interface StudioService {
   getSession(sessionId: string, signal?: AbortSignal): Promise<ServiceResult<SessionSnapshot>>
   command(sessionId: string, command: SessionCommand): Promise<ServiceResult<CommandResult>>
   setSpeed(sessionId: string, speed: number): Promise<ServiceResult<CommandResult>>
+  setControl(sessionId: string, active: boolean): Promise<ServiceResult<CommandResult>>
+  setBrain(sessionId: string, enabled: boolean): Promise<ServiceResult<CommandResult>>
+  setChaos(sessionId: string, patch: ChaosPatch): Promise<ServiceResult<CommandResult>>
+  triggerChaos(sessionId: string, kind: string): Promise<ServiceResult<CommandResult>>
   listSessions(signal?: AbortSignal): Promise<ServiceResult<SessionSummary[]>>
   listHistory(signal?: AbortSignal): Promise<ServiceResult<ExperimentSummary[]>>
   getHistoryRecord(runId: string, signal?: AbortSignal): Promise<ServiceResult<SessionSnapshot>>
@@ -195,6 +224,13 @@ export interface StudioService {
     file: File,
     options?: UploadOptions,
   ): Promise<ServiceResult<EnvironmentUploadResult>>
+  createBattle(request: BattleRequest): Promise<ServiceResult<BattleSnapshot>>
+  getBattle(battleId: string, signal?: AbortSignal): Promise<ServiceResult<BattleSnapshot>>
+  battleCommand(
+    battleId: string,
+    command: SessionCommand,
+  ): Promise<ServiceResult<BattleCommandResult>>
+  setBattleSpeed(battleId: string, speed: number): Promise<ServiceResult<BattleCommandResult>>
   deleteModel(modelId: string): Promise<ServiceResult<unknown>>
   deleteEnvironment(envId: string): Promise<ServiceResult<unknown>>
 }
@@ -237,6 +273,64 @@ export function createStudioService(): StudioService {
       return guard(
         await api.post<unknown>(`${BASE}/sessions/${encodeURIComponent(sessionId)}/speed`, {
           jsonBody: { speed },
+        }),
+        isCommandResult,
+      )
+    },
+    async createBattle(request) {
+      return guard(
+        await api.post<unknown>(`${BASE}/battles`, { jsonBody: request }),
+        isBattleSnapshot,
+      )
+    },
+    async getBattle(battleId, signal) {
+      return guard(
+        await api.get<unknown>(`${BASE}/battles/${encodeURIComponent(battleId)}`, { signal }),
+        isBattleSnapshot,
+      )
+    },
+    async battleCommand(battleId, command) {
+      return guard(
+        await api.post<unknown>(`${BASE}/battles/${encodeURIComponent(battleId)}/${command}`),
+        isBattleCommandResult,
+      )
+    },
+    async setBattleSpeed(battleId, speed) {
+      return guard(
+        await api.post<unknown>(`${BASE}/battles/${encodeURIComponent(battleId)}/speed`, {
+          jsonBody: { speed },
+        }),
+        isBattleCommandResult,
+      )
+    },
+    async setChaos(sessionId, patch) {
+      return guard(
+        await api.post<unknown>(`${BASE}/sessions/${encodeURIComponent(sessionId)}/chaos`, {
+          jsonBody: patch,
+        }),
+        isCommandResult,
+      )
+    },
+    async triggerChaos(sessionId, kind) {
+      return guard(
+        await api.post<unknown>(`${BASE}/sessions/${encodeURIComponent(sessionId)}/chaos/trigger`, {
+          jsonBody: { kind },
+        }),
+        isCommandResult,
+      )
+    },
+    async setBrain(sessionId, enabled) {
+      return guard(
+        await api.post<unknown>(`${BASE}/sessions/${encodeURIComponent(sessionId)}/brain`, {
+          jsonBody: { enabled },
+        }),
+        isCommandResult,
+      )
+    },
+    async setControl(sessionId, active) {
+      return guard(
+        await api.post<unknown>(`${BASE}/sessions/${encodeURIComponent(sessionId)}/control`, {
+          jsonBody: { active },
         }),
         isCommandResult,
       )

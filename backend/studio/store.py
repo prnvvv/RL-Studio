@@ -35,7 +35,7 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 3
 STEP_FLUSH_ROWS = 500
 STEP_FLUSH_SECONDS = 2.0
 MAX_PAGE = 5000
@@ -88,6 +88,8 @@ CREATE TABLE IF NOT EXISTS steps (
     terminated INTEGER NOT NULL,
     truncated INTEGER NOT NULL,
     next_obs BLOB,
+    source TEXT NOT NULL DEFAULT 'agent',
+    chaos TEXT NOT NULL DEFAULT '',
     PRIMARY KEY (run_id, step_index)
 ) WITHOUT ROWID;
 CREATE INDEX IF NOT EXISTS idx_steps_episode ON steps(run_id, episode, episode_step);
@@ -132,8 +134,18 @@ def _connect(path: Path) -> sqlite3.Connection:
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA synchronous=NORMAL")
     conn.executescript(_SCHEMA)
-    conn.execute("INSERT OR IGNORE INTO meta(key, value) VALUES ('schema_version', ?)", (str(SCHEMA_VERSION),))
+    _migrate(conn)
     return conn
+
+
+def _migrate(conn: sqlite3.Connection) -> None:
+    """Bring an older database up to ``SCHEMA_VERSION`` (additive changes only)."""
+    columns = {row["name"] for row in conn.execute("PRAGMA table_info(steps)")}
+    if "source" not in columns:  # v1 -> v2: who chose each action ("agent" or "human")
+        conn.execute("ALTER TABLE steps ADD COLUMN source TEXT NOT NULL DEFAULT 'agent'")
+    if "chaos" not in columns:  # v2 -> v3: disturbances injected on each step (comma-separated kinds)
+        conn.execute("ALTER TABLE steps ADD COLUMN chaos TEXT NOT NULL DEFAULT ''")
+    conn.execute("INSERT OR REPLACE INTO meta(key, value) VALUES ('schema_version', ?)", (str(SCHEMA_VERSION),))
 
 
 def _encode_obs(obs: Any) -> bytes | None:
@@ -219,13 +231,13 @@ class RunRecorder:
 
     # ------------------------------------------------------------------ steps
 
-    def add_step(self, *, step_index: int, episode_step: int, obs: Any, action: Any, reward: float, terminated: bool, truncated: bool, next_obs: Any) -> None:
+    def add_step(self, *, step_index: int, episode_step: int, obs: Any, action: Any, reward: float, terminated: bool, truncated: bool, next_obs: Any, source: str = "agent", chaos: str = "") -> None:
         now = time.time()
         if self._episode_started_at is None:
             self._episode_started_at = now
             self._episode_start_step = step_index
         self._steps.append(
-            (self.run_id, step_index, self._episode, episode_step, now, _encode_obs(obs), json.dumps(action), float(reward), int(terminated), int(truncated), _encode_obs(next_obs))
+            (self.run_id, step_index, self._episode, episode_step, now, _encode_obs(obs), json.dumps(action), float(reward), int(terminated), int(truncated), _encode_obs(next_obs), source, chaos)
         )
         self._step_count = step_index
         if len(self._steps) >= STEP_FLUSH_ROWS or time.monotonic() - self._last_flush >= STEP_FLUSH_SECONDS:
@@ -249,7 +261,7 @@ class RunRecorder:
         def write(db: sqlite3.Connection) -> None:
             db.execute("BEGIN")
             try:
-                db.executemany("INSERT OR REPLACE INTO steps VALUES (?,?,?,?,?,?,?,?,?,?,?)", batch)
+                db.executemany("INSERT OR REPLACE INTO steps VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)", batch)
                 db.execute("UPDATE runs SET step_count=?, episode_count=? WHERE run_id=?", (self._step_count, self._episode_count, self.run_id))
                 db.execute("COMMIT")
             except sqlite3.Error:
@@ -327,14 +339,19 @@ class TrajectoryReader:
             "terminated": bool(row["terminated"]),
             "truncated": bool(row["truncated"]),
             "next_observation": _decode_obs(row["next_obs"]),
+            "source": row["source"],
+            "chaos": [kind for kind in row["chaos"].split(",") if kind],
         }
 
-    def steps(self, run_id: str, *, episode: int | None, offset: int, limit: int) -> list[dict[str, Any]]:
+    def steps(self, run_id: str, *, episode: int | None, offset: int, limit: int, source: str | None = None) -> list[dict[str, Any]]:
         query = "SELECT * FROM steps WHERE run_id=?"
         args: list[Any] = [run_id]
         if episode is not None:
             query += " AND episode=?"
             args.append(episode)
+        if source is not None:
+            query += " AND source=?"
+            args.append(source)
         query += " ORDER BY step_index LIMIT ? OFFSET ?"
         args += [min(limit, MAX_PAGE), offset]
         with self._db() as db:

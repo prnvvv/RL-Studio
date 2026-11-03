@@ -128,6 +128,17 @@ export function validateDraft(catalog: Catalog, draft: Draft): FieldErrors {
   return errors
 }
 
+/** The draft that reproduces a live session, so the panels show what is actually running. */
+export function draftFromConfig(catalog: Catalog, config: SessionConfig): Draft {
+  return {
+    agent: config.agent,
+    environment: config.environment,
+    agent_params: { ...config.agent_params },
+    env_params: { ...config.env_params },
+    training: { ...defaultParams(catalog.training_params), ...config.training },
+  }
+}
+
 export function toSessionConfig(draft: Draft): SessionConfig | null {
   if (draft.agent === null || draft.environment === null) return null
   return {
@@ -146,6 +157,8 @@ export interface ControlAvailability {
   resume: boolean
   stop: boolean
   reset: boolean
+  /** Manual control can be taken or released. */
+  manual: boolean
 }
 
 /**
@@ -157,7 +170,20 @@ export function controlAvailability(
   status: SessionStatus | null,
   pendingCommand: 'pause' | null,
   canInitialize: boolean,
+  /** The backend cannot be reached: nothing may be started, resumed or taken over. */
+  offline = false,
 ): ControlAvailability {
+  if (offline) {
+    return {
+      initialize: false,
+      train: false,
+      pause: false,
+      resume: false,
+      stop: false,
+      reset: false,
+      manual: false,
+    }
+  }
   const active = status !== null && ACTIVE_STATUSES.includes(status)
   return {
     initialize: canInitialize && !active,
@@ -165,6 +191,7 @@ export function controlAvailability(
     pause: status === 'running' && pendingCommand !== 'pause',
     resume: status === 'paused' || (status === 'running' && pendingCommand === 'pause'),
     stop: status === 'running' || status === 'paused',
+    manual: status === 'running' || status === 'paused',
     reset:
       status === 'initialized' ||
       status === 'stopped' ||
@@ -184,3 +211,31 @@ export const SPEED_OPTIONS: ReadonlyArray<{ label: string; value: number }> = [
   { label: '32×', value: 32 },
   { label: 'Max', value: 0 },
 ]
+
+/** The single control that deserves the eye right now, derived from the session state. */
+export function primaryAction(
+  status: SessionStatus | null,
+  availability: ControlAvailability,
+): 'initialize' | 'train' | 'pause' | 'resume' | null {
+  if (availability.train) return 'train'
+  if (status === 'paused' && availability.resume) return 'resume'
+  if (availability.pause) return 'pause'
+  if (availability.initialize) return 'initialize'
+  return null
+}
+
+/** Human wording for each disturbance the backend can inject. */
+export const CHAOS_KIND_LABELS: Record<string, { label: string; help: string }> = {
+  impulse: {
+    label: 'Sudden force',
+    help: 'A sudden sideways velocity kick applied to the cart (a real change to the physics state).',
+  },
+  slip: {
+    label: 'Actuator slip',
+    help: 'Now and then the action actually executed is replaced by a random one.',
+  },
+  sensor_noise: {
+    label: 'Sensor noise',
+    help: 'Gaussian noise is added to what the agent observes. The environment itself is unchanged.',
+  },
+}

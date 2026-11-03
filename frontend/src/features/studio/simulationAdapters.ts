@@ -38,6 +38,16 @@ export function adaptCartPole(frame: FramePayload | null, scene: CartPoleScene):
   }
 }
 
+/**
+ * Which way the agent last pushed the cart: -1 (left), 1 (right) or 0 when the
+ * frame carries no push (no frame yet, the initial preview, or a non-discrete action).
+ * CartPole's discrete actions are 0 = push left and 1 = push right.
+ */
+export function cartPoleActionDirection(frame: FramePayload | null): -1 | 0 | 1 {
+  if (!frame || frame.initial || typeof frame.action !== 'number') return 0
+  return frame.action === 1 ? 1 : frame.action === 0 ? -1 : 0
+}
+
 export interface GridScene {
   rows: number
   cols: number

@@ -18,9 +18,17 @@ export interface ConnectionOptions {
   createSocket?: (url: string) => WebSocket
   minDelayMs?: number
   maxDelayMs?: number
+  /** Latency probe interval; 0 disables pings. */
+  pingIntervalMs?: number
+  /** Injectable clock for tests. */
+  now?: () => number
 }
 
-type StreamMessage = { type: 'snapshot'; payload: SessionSnapshot } | FrameMessage | StudioEvent
+type StreamMessage =
+  | { type: 'snapshot'; payload: SessionSnapshot }
+  | { type: 'pong'; t: number }
+  | FrameMessage
+  | StudioEvent
 
 function parse(raw: unknown): StreamMessage | null {
   if (typeof raw !== 'string') return null
@@ -39,6 +47,13 @@ export function connectSession(store: StudioStore, options: ConnectionOptions): 
   const minDelay = options.minDelayMs ?? 500
   const maxDelay = options.maxDelayMs ?? 8000
   const create = options.createSocket ?? ((url: string) => new WebSocket(url))
+  const pingInterval = options.pingIntervalMs ?? 2000
+  const now = options.now ?? (() => performance.now())
+  let pinger: ReturnType<typeof setInterval> | null = null
+  const stopPinging = () => {
+    if (pinger !== null) clearInterval(pinger)
+    pinger = null
+  }
 
   let socket: WebSocket | null = null
   let disposed = false
@@ -51,11 +66,30 @@ export function connectSession(store: StudioStore, options: ConnectionOptions): 
     const ws = create(options.url(store.getState().lastSeq))
     socket = ws
 
+    ws.onopen = () => {
+      store.setSender((message) => {
+        if (ws.readyState !== 1) return false
+        ws.send(JSON.stringify(message))
+        return true
+      })
+      if (pingInterval <= 0) return
+      const ping = () => {
+        if (ws.readyState !== 1) return
+        ws.send(JSON.stringify({ type: 'ping', t: now() }))
+        store.recordPing()
+      }
+      ping()
+      stopPinging()
+      pinger = setInterval(ping, pingInterval)
+    }
+
     ws.onmessage = (event: MessageEvent) => {
       const message = parse(event.data)
       if (message === null) return
       attempt = 0
-      if (message.type === 'snapshot') {
+      if (message.type === 'pong') {
+        store.recordRtt(now() - (message as { t: number }).t)
+      } else if (message.type === 'snapshot') {
         store.applySnapshot((message as { payload: SessionSnapshot }).payload)
         store.setConnection('live')
       } else if (message.type === 'frame') {
@@ -66,6 +100,8 @@ export function connectSession(store: StudioStore, options: ConnectionOptions): 
     }
 
     ws.onclose = (closeEvent: CloseEvent) => {
+      stopPinging()
+      store.setSender(null)
       if (disposed) return
       // 4404: the backend does not know this session; retrying cannot help.
       if (closeEvent.code === 4404) {
@@ -86,6 +122,8 @@ export function connectSession(store: StudioStore, options: ConnectionOptions): 
 
   return () => {
     disposed = true
+    stopPinging()
+    store.setSender(null)
     if (timer !== null) clearTimeout(timer)
     if (socket !== null) {
       socket.onclose = null

@@ -112,6 +112,8 @@ export interface EnvironmentTemplate {
   action_space: SpaceDescription
   default_scene: Record<string, unknown>
   supports_disturbances: boolean
+  /** Disturbances chaos mode can inject here. */
+  chaos_kinds?: string[]
   params: ParamSpec[]
   compatible_agents: string[]
 }
@@ -158,6 +160,8 @@ export interface Progress {
   /** Latest environment state sampled by the backend (about 2 Hz). */
   env_state: Record<string, number>
   speed: number
+  /** Reward of finished episodes per environment step. */
+  reward_per_step?: number | null
 }
 
 export interface EpisodeRecord {
@@ -208,11 +212,67 @@ export interface CheckpointRecord {
   environment: string
 }
 
+/** Chaos-mode state (disturbances injected into the running environment). */
+export interface ChaosState {
+  enabled: boolean
+  /** 0 (none) to 1 (maximum). */
+  intensity: number
+  kinds: string[]
+  /** Disturbances injected so far (sensor noise is counted separately). */
+  events: number
+  noise_steps: number
+}
+
+export const DEFAULT_CHAOS: ChaosState = {
+  enabled: false,
+  intensity: 0.3,
+  kinds: [],
+  events: 0,
+  noise_steps: 0,
+}
+
+/** Manual-control state published by the backend (`controls` in snapshots, `control` events). */
+export interface ControlState {
+  human: boolean
+  human_steps: number
+  /** True while the backend streams the policy's action preferences with each frame. */
+  brain: boolean
+  chaos: ChaosState
+}
+
+/** The policy's preference at one grid cell. */
+export interface BrainCell {
+  row: number
+  col: number
+  probs: number[]
+  greedy: number
+}
+
+/**
+ * What the agent "thinks" at the current observation, computed by the backend from
+ * the live policy. `probs` are action probabilities (for DQN a softmax of `q`).
+ */
+export interface BrainPayload {
+  kind: 'probs' | 'q' | 'gaussian'
+  probs?: number[]
+  q?: number[]
+  probs_from?: string
+  mean?: number[]
+  std?: number[]
+  greedy?: number
+  executed: number | number[] | null
+  grid?: BrainCell[]
+}
+
 export interface FramePayload {
   timestep: number
   episode: number
   episode_step: number
   action: number | number[] | null
+  /** Who chose `action`: the agent, or a human who took manual control. */
+  source?: 'agent' | 'human'
+  /** Present only while the brain view is enabled. */
+  brain?: BrainPayload
   reward: number
   episode_reward: number
   collision: boolean
@@ -248,6 +308,9 @@ export interface SessionSummary {
   environment: string
   /** `inference` when an uploaded model is run without learning. */
   mode?: 'training' | 'inference'
+  controls?: ControlState
+  /** Present when this session is one side of a battle. */
+  battle?: { battle_id: string; side: 'a' | 'b' } | null
   config: SessionConfig
   created_at: string
   started_at: string | null
@@ -304,4 +367,55 @@ export interface FrameMessage {
   frame_seq: number
   session_id: string
   payload: FramePayload
+}
+
+export type BattleSide = 'a' | 'b'
+
+export interface BattleSideRequest {
+  agent: string
+  agent_params: ParamValues
+}
+
+export interface BattleRequest {
+  environment: string
+  name?: string
+  env_params: ParamValues
+  training: ParamValues
+  a: BattleSideRequest
+  b: BattleSideRequest
+}
+
+export interface BattleSideMetrics {
+  timestep: number | null
+  episodes: number | null
+  current_reward_avg: number | null
+  best_reward: number | null
+  success_rate: number | null
+  reward_per_step: number | null
+  steps_per_second: number | null
+}
+
+export interface BattleComparison {
+  metrics: Record<BattleSide, BattleSideMetrics>
+  /** The side with the higher moving-average reward right now (not a significance test). */
+  leader: BattleSide | null
+  leader_basis: string
+  same_environment: boolean
+  same_seed: boolean
+}
+
+export interface BattleSnapshot {
+  battle_id: string
+  a: SessionSnapshot
+  b: SessionSnapshot
+  comparison: BattleComparison
+}
+
+/** Per-side outcome of a battle command; a side that could not comply reports why. */
+export type BattleSideResult = CommandResult | { error: string; status: SessionStatus }
+
+export interface BattleCommandResult {
+  battle_id: string
+  a: BattleSideResult
+  b: BattleSideResult
 }

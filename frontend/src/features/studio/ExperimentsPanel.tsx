@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { LineChart } from '../../components/charts/LineChart'
-import type { StudioService } from '../../services/studio'
+import { runExportUrl, type StudioService } from '../../services/studio'
 import { downsample, formatInt, formatNumber, formatPercent } from './format'
 import type { StudioState } from './studioStore'
 import type { ExperimentSummary, SessionSnapshot } from './studioTypes'
@@ -161,7 +161,15 @@ export function ExperimentsPanel({ service, state }: Props) {
                     onClick={() => void inspect(item.run_id)}
                   >
                     Inspect
-                  </button>
+                  </button>{' '}
+                  <a
+                    className="btn btn--ghost"
+                    href={runExportUrl(item.run_id)}
+                    download={`${item.run_id}.jsonl`}
+                    title="Download every step (observation, action, reward, next observation) as JSON Lines"
+                  >
+                    Export steps
+                  </a>
                 </td>
               </tr>
             ))}

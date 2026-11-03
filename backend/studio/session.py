@@ -29,6 +29,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.logger import KVWriter, Logger
 from stable_baselines3.common.monitor import Monitor
@@ -37,11 +38,14 @@ from stable_baselines3.common.vec_env import DummyVecEnv
 from backend.database.exceptions import ConflictError, NotFoundError, ValidationError
 
 from . import custom
+from .brain import GRID_REFRESH_FRAMES, compute_brain, compute_grid_brain
 from .catalog import AGENTS, NET_ARCHES, TRAINING_PARAMS, sb3_class
+from .controls import RuntimeControls, validate_action
 from .envs import EnvDefinition, describe_space
 from .hub import SessionHub
 from .params import validate_params
 from .store import RunRecorder
+from .wrappers import ChaosEnv, HumanControlEnv
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +56,7 @@ EPISODE_FLUSH_INTERVAL_S = 0.15
 MAX_EPISODES_KEPT = 5000
 MAX_UPDATES_KEPT = 2000
 RECENT_WINDOW = 20
+CHAOS_LOG_INTERVAL_S = 0.5
 
 
 class Status(str, Enum):
@@ -183,23 +188,59 @@ class _StudioCallback(BaseCallback):
         self._next_t = time.monotonic()
         self._last_checkpoint = 0
         self._last_eval = 0
+        self._brain_frames = 0
+        self._grid_cache: list[dict[str, Any]] | None = None
 
     def _on_step(self) -> bool:
         last_obs = getattr(self.model, "_last_obs", None)
         locals_ = self.locals
+        info = locals_["infos"][0]
+        action = locals_["actions"][0]
+        if info.get("action_source") == "human":
+            action = self._adopt_human_action(locals_, info["executed_action"])
         return self.step(
             env=self.training_env.envs[0],
             timestep=int(self.num_timesteps),
             pre_obs=None if last_obs is None else last_obs[0],
             new_obs=locals_["new_obs"][0],
-            action=locals_["actions"][0],
+            action=action,
             reward=float(locals_["rewards"][0]),
             done=bool(locals_["dones"][0]),
-            info=locals_["infos"][0],
+            info=info,
             model=self.model,
         )
 
-    def step(self, *, env: Any, timestep: int, pre_obs: Any, new_obs: Any, action: Any, reward: float, done: bool, info: dict[str, Any], model: Any) -> bool:
+    def _adopt_human_action(self, locals_: dict[str, Any], executed: Any) -> Any:
+        """Make the learning buffers record the action the human actually executed.
+
+        SB3 picks the action before this callback runs, so without this the
+        replay/rollout buffer would pair the human's reward with the policy's
+        action. DQN stores the executed action directly. PPO/A2C also need the
+        log-probability and value of that action under the current policy.
+        Human steps remain off-policy for on-policy algorithms; this only keeps
+        the stored transition self-consistent.
+        """
+        action = np.asarray(executed)
+        try:
+            buffer_actions = locals_.get("buffer_actions")
+            if buffer_actions is not None:  # off-policy (DQN)
+                buffer_actions[0] = action
+            elif "log_probs" in locals_ and "obs_tensor" in locals_:  # on-policy (PPO/A2C)
+                import torch
+
+                actions = locals_["actions"]
+                actions[0] = action
+                with torch.no_grad():
+                    values, log_prob, _ = self.model.policy.evaluate_actions(
+                        locals_["obs_tensor"], torch.as_tensor(actions, device=self.model.device)
+                    )
+                locals_["log_probs"].copy_(log_prob.reshape(locals_["log_probs"].shape))
+                locals_["values"].copy_(values.reshape(locals_["values"].shape))
+        except (KeyError, IndexError, RuntimeError, ValueError):
+            logger.warning("Could not align learning buffers with a human action", exc_info=True)
+        return action[()] if action.ndim == 0 else action
+
+    def step(self, *, env: Any, timestep: int, pre_obs: Any, new_obs: Any, action: Any, reward: float, done: bool, info: dict[str, Any], model: Any, policy: Any = None) -> bool:
         """Handle one environment transition. Returns False to stop the run.
 
         Shared by SB3 training (via ``_on_step``) and inference-only sessions, so
@@ -236,7 +277,11 @@ class _StudioCallback(BaseCallback):
                 terminated=done and not truncated,
                 truncated=truncated,
                 next_obs=terminal_obs if done and terminal_obs is not None else new_obs,
+                source=str(info.get("action_source", "agent")),
+                chaos=",".join(sorted({e["kind"] for e in info.get("chaos", [])})),
             )
+        if info.get("chaos"):
+            s._register_chaos(info["chaos"])
         if done:
             outcome = self.definition.classify(s.config["env_params"], terminal_obs, info, not truncated)
         now = time.monotonic()
@@ -247,6 +292,7 @@ class _StudioCallback(BaseCallback):
                 "episode": s._episode_count + 1,
                 "episode_step": self._episode_steps,
                 "action": action_value,
+                "source": str(info.get("action_source", "agent")),
                 "reward": reward,
                 "episode_reward": self._episode_reward,
                 "collision": collision,
@@ -256,6 +302,10 @@ class _StudioCallback(BaseCallback):
             }
             if outcome is not None:
                 payload["outcome"] = outcome
+            if s.controls.brain_enabled:
+                brain = self._brain_payload(policy if policy is not None else getattr(model, "policy", None), pre_obs, action_value)
+                if brain is not None:
+                    payload["brain"] = brain
             s._last_state = payload["state"]
             s.hub.set_frame(payload)
 
@@ -285,6 +335,25 @@ class _StudioCallback(BaseCallback):
         self._pace()
         return True
 
+    def _brain_payload(self, policy: Any, obs: Any, executed: Any) -> dict[str, Any] | None:
+        """The policy's current preferences, or None (and the view is switched off) if it cannot be read."""
+        s = self.s
+        try:
+            brain = compute_brain(policy, obs, executed)
+            if brain is not None:
+                if self._brain_frames % GRID_REFRESH_FRAMES == 0:
+                    self._grid_cache = compute_grid_brain(policy, s._scene)
+                self._brain_frames += 1
+                if self._grid_cache:
+                    brain["grid"] = self._grid_cache
+            return brain
+        except (RuntimeError, ValueError, TypeError, AttributeError, KeyError):
+            logger.warning("Policy introspection failed for %s", s.session_id, exc_info=True)
+            s.controls.set_brain(False)
+            s.hub.publish("control", {"run_id": s.run_id, **s.controls.snapshot()})
+            s.log("WARNING", "AGENT", "The agent brain view was switched off: this policy cannot be inspected", {})
+            return None
+
     def _pace(self) -> None:
         speed = self.s.speed
         if speed <= 0:
@@ -299,8 +368,17 @@ class _StudioCallback(BaseCallback):
 
 
 class TrainingSession:
-    def __init__(self, session_id: str, config: dict[str, Any], name: str | None = None) -> None:
+    def __init__(
+        self,
+        session_id: str,
+        config: dict[str, Any],
+        name: str | None = None,
+        battle_id: str | None = None,
+        battle_side: str | None = None,
+    ) -> None:
         self.session_id = session_id
+        self.battle_id = battle_id
+        self.battle_side = battle_side
         self.config = config
         self.definition = custom.resolve_environment(config["environment"])  # type: ignore[assignment]
         self.model_record = custom.get_model(config["agent"]) if custom.is_custom_agent(config["agent"]) else None
@@ -325,6 +403,10 @@ class TrainingSession:
         self._thread: threading.Thread | None = None
         self._model: Any = None
         self._recorder: RunRecorder | None = None
+        self.controls = RuntimeControls()
+        self._action_space: Any = None
+        self._chaos_pending: dict[str, int] = {}
+        self._chaos_last_log = 0.0
         self._obs_shape: list[int] | None = None
         self._scene: dict[str, Any] = {}
         self._reset_metrics()
@@ -376,6 +458,7 @@ class TrainingSession:
             self._scene = self.definition.scene(self.config["env_params"], env)
             self._scene["action_space"] = "discrete" if hasattr(env.action_space, "n") else "box"
             self._obs_shape = [int(d) for d in env.observation_space.shape]
+            self._action_space = env.action_space
             self.hub.set_frame(
                 {
                     "timestep": 0,
@@ -393,6 +476,127 @@ class TrainingSession:
             )
         finally:
             env.close()
+
+    # ---------------------------------------------------------------- chaos mode
+
+    def _register_chaos(self, events: list[dict[str, Any]]) -> None:
+        """Count disturbances and log them as FAULT events, batched so a busy run cannot flood the console.
+
+        Sensor noise is continuous background; it is counted per step and announced when chaos
+        mode is switched on, not logged on every step. A forced noise burst is logged.
+        """
+        with self._lock:
+            for event in events:
+                if event["kind"] == "sensor_noise" and not event.get("forced"):
+                    self.controls.chaos_noise_steps += 1
+                    continue
+                self._chaos_pending[event["kind"]] = self._chaos_pending.get(event["kind"], 0) + 1
+                self.controls.chaos_events += 1
+        self._flush_chaos_log(force=False)
+
+    def _flush_chaos_log(self, force: bool) -> None:
+        now = time.monotonic()
+        if not self._chaos_pending or (not force and now - self._chaos_last_log < CHAOS_LOG_INTERVAL_S):
+            return
+        with self._lock:
+            pending, self._chaos_pending = self._chaos_pending, {}
+        self._chaos_last_log = now
+        summary = ", ".join(f"{count}× {kind.replace('_', ' ')}" for kind, count in sorted(pending.items()))
+        self.log("WARNING", "FAULT", f"Chaos injected: {summary}", {"counts": pending, "timestep": self._timestep})
+
+    def set_chaos(self, enabled: bool | None, intensity: float | None, kinds: list[str] | None) -> dict[str, Any]:
+        supported = self.definition.chaos_kinds
+        with self._lock:
+            if self._status in (Status.STOPPING, Status.STOPPED, Status.COMPLETED, Status.FAILED):
+                raise ConflictError(
+                    f"Cannot change chaos mode of a session that is {self._status.value}",
+                    details={"status": self._status.value},
+                )
+        if not supported:
+            raise ValidationError("This environment does not support chaos mode")
+        if kinds is not None:
+            unknown = sorted(set(kinds) - set(supported))
+            if unknown:
+                raise ValidationError(
+                    "Unsupported disturbance",
+                    details={"errors": [{"field": "kinds", "message": f"{unknown} not available; choose from {list(supported)}"}]},
+                )
+        previous_enabled, _, previous_kinds = self.controls.chaos_config()
+        chosen = tuple(kinds) if kinds is not None else (previous_kinds or (tuple(supported) if enabled else ()))
+        self.controls.configure_chaos(enabled, intensity, chosen)
+        now_enabled, now_intensity, now_kinds = self.controls.chaos_config()
+        self.hub.publish("control", {"run_id": self.run_id, **self.controls.snapshot()})
+        if now_enabled and not previous_enabled:
+            self.log("WARNING", "FAULT", f"Chaos mode enabled: intensity {now_intensity:.2f}, disturbances: {', '.join(now_kinds) or 'none selected'}", {})
+        elif previous_enabled and not now_enabled:
+            self._flush_chaos_log(force=True)
+            self.log("INFO", "FAULT", "Chaos mode disabled", {"events": self.controls.chaos_events})
+        elif now_enabled:
+            self.log("INFO", "FAULT", f"Chaos settings changed: intensity {now_intensity:.2f}, disturbances: {', '.join(now_kinds)}", {})
+        return self.command_result()
+
+    def trigger_chaos(self, kind: str) -> dict[str, Any]:
+        with self._lock:
+            if self._status not in (Status.RUNNING, Status.PAUSED):
+                raise ConflictError(
+                    f"Chaos can only be triggered in a running session (status is {self._status.value})",
+                    details={"status": self._status.value},
+                )
+        if kind not in self.definition.chaos_kinds:
+            raise ValidationError(
+                "Unsupported disturbance",
+                details={"errors": [{"field": "kind", "message": f"choose from {list(self.definition.chaos_kinds)}"}]},
+            )
+        self.controls.trigger_chaos(kind)
+        self.log("WARNING", "FAULT", f"Chaos triggered manually: {kind.replace('_', ' ')}", {"kind": kind})
+        return self.command_result()
+
+    def _build_env(self, seed: int) -> Any:
+        """The environment the training/inference loop steps (wrappers read ``self.controls``)."""
+        env = self.definition.make(self.config["env_params"], seed)
+        env = ChaosEnv(env, self.controls, seed, self.definition.noise_scale)
+        env = HumanControlEnv(env, self.controls, self.definition.human_sticky, self._stop.is_set)
+        return Monitor(env)
+
+    # ---------------------------------------------------------- manual control
+
+    def set_human_control(self, active: bool) -> dict[str, Any]:
+        with self._lock:
+            if self._status in (Status.STOPPING, Status.STOPPED, Status.COMPLETED, Status.FAILED):
+                raise ConflictError(
+                    f"Cannot change manual control of a session that is {self._status.value}",
+                    details={"status": self._status.value},
+                )
+        changed = self.controls.set_human(active)
+        if changed:
+            self.hub.publish("control", {"run_id": self.run_id, **self.controls.snapshot()})
+            if active:
+                self.log("INFO", "AGENT", "Manual control taken: your actions replace the agent's and are recorded with source=human", {})
+                if self.mode == "training" and self.config["agent"] in ("PPO", "A2C"):
+                    self.log("WARNING", "AGENT", "Learning from human steps is off-policy for on-policy algorithms", {"agent": self.config["agent"]})
+            else:
+                self.log("INFO", "AGENT", "Manual control released: the agent is acting again", {"human_steps": self.controls.human_steps})
+        return self.command_result()
+
+    def set_brain_view(self, enabled: bool) -> dict[str, Any]:
+        """Stream the policy's action preferences with every frame while enabled."""
+        with self._lock:
+            if self._status in (Status.STOPPING, Status.STOPPED, Status.COMPLETED, Status.FAILED):
+                raise ConflictError(
+                    f"Cannot change the brain view of a session that is {self._status.value}",
+                    details={"status": self._status.value},
+                )
+        if self.controls.set_brain(enabled):
+            self.hub.publish("control", {"run_id": self.run_id, **self.controls.snapshot()})
+            self.log("INFO", "AGENT", "Agent brain view " + ("enabled" if enabled else "disabled"), {})
+        return self.command_result()
+
+    def submit_human_action(self, action: Any) -> dict[str, Any]:
+        if not self.controls.human_active:
+            raise ConflictError("Manual control is not active", details={"status": self._status.value})
+        valid = validate_action(self._action_space, action)
+        self.controls.submit_action(valid)
+        return {"accepted": True}
 
     def _set_status(self, status: Status, **extra: Any) -> None:
         with self._lock:
@@ -489,6 +693,7 @@ class TrainingSession:
             self._reset_metrics()
             self._model = None
             self._recorder = None
+            self.controls = RuntimeControls()
             self.error = None
             self.started_at = None
             self.finished_at = None
@@ -537,7 +742,7 @@ class TrainingSession:
         venv = None
         try:
             seed = int(training["seed"])
-            venv = DummyVecEnv([lambda: Monitor(self.definition.make(self.config["env_params"], seed))])
+            venv = DummyVecEnv([lambda: self._build_env(seed)])
             venv.seed(seed)
             policy = custom.load_policy(self.model_record, venv.observation_space, venv.action_space)  # type: ignore[arg-type]
             self._model = policy
@@ -550,6 +755,8 @@ class TrainingSession:
             while timestep < total:
                 action, _ = policy.predict(obs, deterministic=True)
                 new_obs, rewards, dones, infos = venv.step(action)
+                if infos[0].get("action_source") == "human":
+                    action = np.asarray([infos[0]["executed_action"]])
                 timestep += 1
                 keep_going = callback.step(
                     env=venv.envs[0],
@@ -561,6 +768,7 @@ class TrainingSession:
                     done=bool(dones[0]),
                     info=infos[0],
                     model=None,
+                    policy=policy,
                 )
                 obs = new_obs
                 if not keep_going:
@@ -589,7 +797,7 @@ class TrainingSession:
         venv = None
         try:
             seed = int(training["seed"])
-            venv = DummyVecEnv([lambda: Monitor(self.definition.make(self.config["env_params"], seed))])
+            venv = DummyVecEnv([lambda: self._build_env(seed)])
             params = dict(self.config["agent_params"])
             arch = NET_ARCHES[params.pop("net_arch")]
             model = sb3_class(agent)(
@@ -613,13 +821,15 @@ class TrainingSession:
         except Exception as exc:  # process boundary; state is recorded
             logger.exception("Training session %s failed", self.session_id)
             self.error = f"Training failed with {type(exc).__name__}. See server logs for details."
-            self.log("ERROR", "TRAINING", self.error, {})
+            self.log("ERROR", "TRAINING", self.error, {"exception": type(exc).__name__, "detail": str(exc)[:300]})
             self._finish(Status.FAILED)
         finally:
             if venv is not None:
                 venv.close()
 
     def _finish(self, status: Status) -> None:
+        self.controls.set_human(False)
+        self._flush_chaos_log(force=True)
         self._ended_monotonic = time.monotonic()
         self._flush_episodes(force=True)
         self._maybe_progress(self._timestep, force=True)
@@ -723,6 +933,8 @@ class TrainingSession:
             "steps_per_second": (timestep / elapsed) if elapsed > 0 else 0.0,
             "current_reward_avg": (sum(self._recent) / len(self._recent)) if self._recent else None,
             "mean_reward": (self._reward_sum / self._episode_count) if self._episode_count else None,
+            # Reward of finished episodes per environment step (a throughput-independent score).
+            "reward_per_step": (self._reward_sum / timestep) if timestep and self._episode_count else None,
             "best_reward": self._best_reward,
             "success_rate": (sum(self._successes) / len(self._successes)) if self._successes else None,
             "collisions": self._collisions,
@@ -867,6 +1079,8 @@ class TrainingSession:
             "agent": self.config["agent"],
             "environment": self.config["environment"],
             "mode": self.mode,
+            "battle": {"battle_id": self.battle_id, "side": self.battle_side} if self.battle_id else None,
+            "controls": self.controls.snapshot(),
             "config": self.config,
             "created_at": self.created_at,
             "started_at": self.started_at,

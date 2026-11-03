@@ -46,6 +46,10 @@ def create_app(config: DatabaseConfig | None = None) -> FastAPI:
 
     install_error_handlers(app)
 
+    @app.get("/health", include_in_schema=False)
+    async def health() -> dict[str, str]:
+        return {"status": "ok", "app": "Self-Healing RL Studio API"}
+
     # Documented Person 4 contract endpoints.
     app.include_router(provenance.p4_router)
     app.include_router(recovery.p4_router)

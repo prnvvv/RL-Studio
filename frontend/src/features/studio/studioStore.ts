@@ -6,9 +6,12 @@
  * React state on purpose (`frame` is read by the renderer every animation
  * frame) so a 30 Hz stream does not re-render the workspace.
  */
-import type {
-  CheckpointRecord,
+import {
+  DEFAULT_CHAOS,
+  type ChaosState,
+  type CheckpointRecord,
   CommandResult,
+  ControlState,
   EpisodeRecord,
   EvaluationRecord,
   FramePayload,
@@ -44,6 +47,7 @@ export interface StudioState {
   logs: LogEntry[]
   lastSeq: number
   connection: ConnectionState
+  controls: ControlState
   /** Increments whenever the backend resets the run, so views can clear local view state. */
   resetCount: number
 }
@@ -65,6 +69,7 @@ export const emptyState: StudioState = {
   logs: [],
   lastSeq: 0,
   connection: 'idle',
+  controls: { human: false, human_steps: 0, brain: false, chaos: DEFAULT_CHAOS },
   resetCount: 0,
 }
 
@@ -93,6 +98,16 @@ function isStatus(value: unknown): value is SessionStatus {
   return typeof value === 'string'
 }
 
+/** Live connection telemetry. Mutable by design: sampled by the overlay, never rendered per message. */
+export interface StreamStats {
+  /** Simulation frames received since the store was created. */
+  frames: number
+  /** Last measured WebSocket round-trip time (ms), or null before the first pong. */
+  rttMs: number | null
+  /** Pings sent since the last pong; a growing value means the server is not answering. */
+  unanswered: number
+}
+
 export class StudioStore {
   private state: StudioState = emptyState
   private listeners = new Set<Listener>()
@@ -103,6 +118,8 @@ export class StudioStore {
   frame: FramePayload | null = null
   /** Bumped for every frame so cheap consumers can detect change. */
   frameVersion = 0
+  readonly stream: StreamStats = { frames: 0, rttMs: null, unanswered: 0 }
+  private sender: ((message: unknown) => boolean) | null = null
 
   getState = (): StudioState => this.state
 
@@ -161,10 +178,37 @@ export class StudioStore {
       checkpoints: snapshot.checkpoints ?? [],
       logs: (snapshot.logs ?? []).map(toLogEntry),
       lastSeq: snapshot.seq,
+      controls: {
+        human: false,
+        human_steps: 0,
+        brain: false,
+        ...snapshot.controls,
+        chaos: { ...DEFAULT_CHAOS, ...snapshot.controls?.chaos },
+      },
     })
   }
 
+  /** Called by the connection when its socket opens (and with null when it closes). */
+  setSender(sender: ((message: unknown) => boolean) | null): void {
+    this.sender = sender
+  }
+
+  /** Send a message to the backend over the live stream. False when there is no open socket. */
+  send(message: unknown): boolean {
+    return this.sender !== null && this.sender(message)
+  }
+
+  recordPing(): void {
+    this.stream.unanswered += 1
+  }
+
+  recordRtt(rttMs: number): void {
+    this.stream.unanswered = 0
+    if (Number.isFinite(rttMs) && rttMs >= 0) this.stream.rttMs = rttMs
+  }
+
   applyFrame(frame: FramePayload): void {
+    this.stream.frames += 1
     this.frame = frame
     this.frameVersion += 1
     this.frameListeners.forEach((listener) => listener())
@@ -221,6 +265,17 @@ export class StudioStore {
           checkpoints: [...base.checkpoints, payload as unknown as CheckpointRecord],
         })
         return
+      case 'control':
+        this.set({
+          ...base,
+          controls: {
+            human: payload.human === true,
+            human_steps: typeof payload.human_steps === 'number' ? payload.human_steps : 0,
+            brain: payload.brain === true,
+            chaos: { ...DEFAULT_CHAOS, ...(payload.chaos as Partial<ChaosState> | undefined) },
+          },
+        })
+        return
       case 'speed':
         this.set(
           base.progress && typeof payload.speed === 'number'
@@ -236,6 +291,7 @@ export class StudioStore {
           evaluations: [],
           checkpoints: [],
           error: null,
+          controls: { human: false, human_steps: 0, brain: false, chaos: DEFAULT_CHAOS },
           resetCount: base.resetCount + 1,
         })
         return

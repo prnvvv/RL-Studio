@@ -9,28 +9,43 @@ import {
 } from 'react'
 import { Link } from 'react-router-dom'
 import { ThemeToggle } from '../../components/ThemeToggle'
+import { ChaosPanel } from './ChaosPanel'
+import { CompareMetrics } from './CompareMetrics'
+import { ComparePanes } from './ComparePanes'
+import { CompareSetup } from './CompareSetup'
 import { ConfigPanel } from './ConfigPanel'
-import { ControlToolbar } from './ControlToolbar'
+import { ControlToolbar, type ViewMode } from './ControlToolbar'
 import { ExperimentsPanel } from './ExperimentsPanel'
-import { LibraryPanel } from './LibraryPanel'
+import { LibraryPanel, type RemoveTarget } from './LibraryPanel'
 import { LogConsole } from './LogConsole'
 import { MetricsPanel } from './MetricsPanel'
-import { SimulationViewport, type ViewMode } from './SimulationViewport'
+import { SimulationViewport } from './SimulationViewport'
+import { webglAvailable } from './webgl'
+import { ToastProvider } from './toast'
+import { useToast } from './toastState'
+import { controlHint } from './humanControl'
+import { useManualControl } from './useManualControl'
+import { useBattle } from './useBattle'
+import type { UploadHooks, UploadOutcome } from './UploadDropzone'
 import {
   controlAvailability,
+  draftFromConfig,
   emptyDraft,
   findAgent,
   findEnvironment,
   incompatibilityReason,
+  isCompatible,
   selectAgent,
   selectEnvironment,
   toSessionConfig,
   validateDraft,
   type Draft,
 } from './studioConfig'
-import { ACTIVE_STATUSES, type Catalog, type ParamValue } from './studioTypes'
+import { ACTIVE_STATUSES, type Catalog, type ParamValue, type ParamValues } from './studioTypes'
+import type { SessionCommand } from '../../services/studio'
 import { useStudioSession } from './useStudioSession'
 import './studio.css'
+import './studio.ux.css'
 
 type LeftTab = 'library' | 'configure'
 type DockTab = 'metrics' | 'logs' | 'experiments'
@@ -71,7 +86,7 @@ function ConnectionLabel({ connection }: { connection: string }) {
     idle: 'not connected',
     connecting: 'connecting…',
     live: 'live',
-    reconnecting: 'reconnecting…',
+    reconnecting: 'disconnected, retrying…',
     closed: 'disconnected',
   }
   return <span className="studio-header__session">stream: {text[connection] ?? connection}</span>
@@ -79,8 +94,43 @@ function ConnectionLabel({ connection }: { connection: string }) {
 
 type Session = ReturnType<typeof useStudioSession>
 
+const COMMAND_TOASTS: Record<SessionCommand, string> = {
+  start: 'Training started',
+  pause: 'Pause requested',
+  resume: 'Training resumed',
+  stop: 'Stop requested',
+  reset: 'Session reset',
+}
+
+/** Keys that must keep their normal meaning in these elements (typing, native button activation). */
+function shortcutsSuppressed(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false
+  if (target.isContentEditable) return true
+  if (['INPUT', 'TEXTAREA', 'SELECT', 'A', 'SUMMARY'].includes(target.tagName)) return true
+  if (['tab', 'radio', 'separator', 'slider'].includes(target.getAttribute('role') ?? ''))
+    return true
+  // A focused button keeps its own Space behaviour, except inside the training toolbar.
+  return target.tagName === 'BUTTON' && target.closest('.control-bar') === null
+}
+
 function WorkspaceBody({ catalog, session }: { catalog: Catalog; session: Session }) {
-  const { state, store, busy, notice } = session
+  const toast = useToast()
+  const battle = useBattle(session.service)
+  const adoptBattle = battle.adopt
+  const [compare, setCompare] = useState(false)
+  const [agentB, setAgentB] = useState<{ agent: string | null; params: ParamValues }>({
+    agent: null,
+    params: {},
+  })
+  // Compare mode swaps the shared chrome (toolbar, status, logs) onto the battle's combined state.
+  const state = compare ? battle.combined : session.state
+  const store = compare ? battle.storeA : session.store
+  const busy = compare ? battle.busy : session.busy
+  const notice = compare ? battle.notice : session.notice
+  const webgl = useMemo(() => webglAvailable(), [])
+  const autoSwitched = useRef(false)
+  const previousConnection = useRef(state.connection)
+  const syncedSession = useRef<string | null>(null)
   const [draft, setDraft] = useState<Draft>(() => emptyDraft(catalog))
   const [leftTab, setLeftTab] = useState<LeftTab>('library')
   const [dockTab, setDockTab] = useState<DockTab>('metrics')
@@ -92,17 +142,41 @@ function WorkspaceBody({ catalog, session }: { catalog: Catalog; session: Sessio
   const active = state.status !== null && ACTIVE_STATUSES.includes(state.status)
   const errors = useMemo(() => validateDraft(catalog, draft), [catalog, draft])
   const mismatch = incompatibilityReason(catalog, draft.agent, draft.environment)
+  const errorsB = useMemo(() => {
+    const all = validateDraft(catalog, {
+      ...draft,
+      agent: agentB.agent,
+      agent_params: agentB.params,
+    })
+    return Object.fromEntries(
+      Object.entries(all).filter(([key]) => key.startsWith('agent_params.')),
+    )
+  }, [catalog, draft, agentB])
+  const opponentReady =
+    !compare ||
+    (agentB.agent !== null &&
+      isCompatible(catalog, agentB.agent, draft.environment) &&
+      Object.keys(errorsB).length === 0)
   const ready =
     draft.agent !== null &&
     draft.environment !== null &&
     mismatch === null &&
-    Object.keys(errors).length === 0
+    Object.keys(errors).length === 0 &&
+    opponentReady
   const initializeHint =
     !draft.agent || !draft.environment
       ? 'Select an agent and an environment first'
-      : (mismatch ??
-        (Object.keys(errors).length > 0 ? 'Fix the highlighted configuration fields' : null))
-  const availability = controlAvailability(state.status, state.pendingCommand, ready)
+      : compare && !opponentReady
+        ? 'Choose a compatible opponent (Agent B) in the Configure tab'
+        : (mismatch ??
+          (Object.keys(errors).length > 0 ? 'Fix the highlighted configuration fields' : null))
+  // While the stream is down (backend killed, network lost) nothing can be driven: the last
+  // frame on screen is stale and every command would fail.
+  const offline =
+    !compare &&
+    state.sessionId !== null &&
+    (state.connection === 'reconnecting' || state.connection === 'closed')
+  const availability = controlAvailability(state.status, state.pendingCommand, ready, offline)
 
   // Which environment the viewport shows: the session's, else the current selection (preview).
   const sessionEnv = findEnvironment(catalog, state.config?.environment ?? null)
@@ -110,7 +184,10 @@ function WorkspaceBody({ catalog, session }: { catalog: Catalog; session: Sessio
   const viewEnv = state.sessionId !== null ? sessionEnv : previewEnv
   const viewScene = state.sessionId !== null ? state.scene : (previewEnv?.default_scene ?? null)
   const draftDiffers =
-    state.config !== null && !active && !sameConfig(toSessionConfig(draft), state.config)
+    !compare &&
+    state.config !== null &&
+    !active &&
+    !sameConfig(toSessionConfig(draft), state.config)
 
   const speed = state.progress?.speed ?? Number(draft.training.simulation_speed ?? 1)
 
@@ -123,13 +200,249 @@ function WorkspaceBody({ catalog, session }: { catalog: Catalog; session: Sessio
   const initialize = async () => {
     const config = toSessionConfig(draft)
     if (config === null || !ready) return
-    const ok = await session.initialize(config)
-    if (ok) setCameraNonce((n) => n + 1)
+    let ok: boolean
+    if (compare && agentB.agent !== null) {
+      ok = await battle.create({
+        environment: config.environment,
+        env_params: config.env_params,
+        training: config.training,
+        a: { agent: config.agent, agent_params: config.agent_params },
+        b: { agent: agentB.agent, agent_params: agentB.params },
+      })
+    } else {
+      ok = await session.initialize(config)
+    }
+    if (ok) {
+      setCameraNonce((n) => n + 1)
+      toast.push(
+        'success',
+        compare ? 'Battle initialized: both sides share one seed' : 'Session initialized',
+      )
+    }
   }
+
+  const toggleCompare = () => {
+    if (compare) {
+      battle.leave()
+      setCompare(false)
+    } else {
+      setCompare(true)
+      setLeftTab('configure')
+    }
+  }
+
+  const chooseOpponent = (key: string) => {
+    const template = catalog.agents.find((agent) => agent.key === key)
+    setAgentB({
+      agent: key,
+      params: Object.fromEntries((template?.params ?? []).map((spec) => [spec.key, spec.default])),
+    })
+  }
+
+  // A battle that is still running survives a page reload: re-attach to both sides.
+  useEffect(() => {
+    const controller = new AbortController()
+    void (async () => {
+      const sessions = await session.service.listSessions(controller.signal)
+      if (controller.signal.aborted || sessions.state !== 'ok') return
+      const live = sessions.data.find((s) => s.battle && ACTIVE_STATUSES.includes(s.status))
+      if (!live?.battle) return
+      const result = await session.service.getBattle(live.battle.battle_id, controller.signal)
+      if (controller.signal.aborted || result.state !== 'ok') return
+      adoptBattle(result.data)
+      setCompare(true)
+      toast.push('info', 'Re-attached to a battle that is still running')
+    })()
+    return () => controller.abort()
+  }, [session.service, adoptBattle, toast])
+
+  const manualActive = !compare && state.controls.human
+  const manualHint = controlHint(viewEnv?.renderer ?? null)
+  const sendManualAction = useCallback(
+    (action: number) => {
+      if (!session.sendAction(action))
+        toast.push('error', 'Not connected to the session: action not sent')
+    },
+    [session, toast],
+  )
+  useManualControl(manualActive, viewEnv?.renderer ?? null, sendManualAction)
+  const brainActive = !compare && state.controls.brain
+  const toggleBrain = async () => {
+    const next = !brainActive
+    const ok = await session.setBrainView(next)
+    if (ok) {
+      toast.push('info', next ? 'Heatmap on: showing what the agent prefers' : 'Heatmap off')
+    }
+  }
+  const liveSession =
+    !compare &&
+    state.sessionId !== null &&
+    state.status !== 'stopped' &&
+    state.status !== 'completed' &&
+    state.status !== 'failed'
+  const changeChaos = async (patch: {
+    enabled?: boolean
+    intensity?: number
+    kinds?: string[]
+  }) => {
+    const ok = await session.setChaos(patch)
+    if (ok && patch.enabled !== undefined) {
+      toast.push(
+        patch.enabled ? 'warning' : 'info',
+        patch.enabled ? 'Chaos mode on: disturbances will be injected' : 'Chaos mode off',
+      )
+    }
+  }
+  const triggerChaos = async (kind: string) => {
+    const ok = await session.triggerChaos(kind)
+    if (ok) toast.push('warning', `Triggered: ${kind.replace('_', ' ')}`)
+  }
+  const toggleManual = async () => {
+    const next = !manualActive
+    const ok = await session.setManualControl(next)
+    if (ok) {
+      toast.push(
+        'info',
+        next
+          ? `Manual control taken. ${manualHint ?? ''}`.trim()
+          : 'Manual control released: the agent is acting again',
+      )
+    }
+  }
+
+  const runCommand = useCallback(
+    async (command: SessionCommand) => {
+      const ok = compare ? await battle.command(command) : await session.command(command)
+      if (ok) toast.push('success', COMMAND_TOASTS[command])
+    },
+    [battle, compare, session, toast],
+  )
+
+  // Choosing both an agent and an environment moves the user on to configuration, once.
+  const choose = (kind: 'agent' | 'environment', key: string) => {
+    const next =
+      kind === 'agent' ? selectAgent(catalog, draft, key) : selectEnvironment(catalog, draft, key)
+    setDraft(next)
+    if (!autoSwitched.current && next.agent !== null && next.environment !== null) {
+      autoSwitched.current = true
+      setLeftTab('configure')
+    }
+  }
+
+  const uploadModel = async (file: File, hooks: UploadHooks): Promise<UploadOutcome> => {
+    const result = await session.service.uploadModel(file, hooks)
+    if (result.state === 'error') {
+      toast.push('error', `Model upload failed. ${result.error.message}`)
+      return { ok: false, message: result.error.message }
+    }
+    const { model, duplicate } = result.data
+    const fresh = await session.refreshCatalog()
+    if (fresh) setDraft((d) => selectAgent(fresh, d, model.key))
+    toast.push(
+      'success',
+      duplicate ? `"${model.name}" was already in your library` : 'Model uploaded successfully',
+    )
+    return {
+      ok: true,
+      message: `${model.name} · ${model.algorithm}, ${model.obs_dim} inputs → ${model.action_dim} ${model.action_type} actions${duplicate ? ' (already in library)' : ''}`,
+    }
+  }
+
+  const uploadEnvironment = async (file: File, hooks: UploadHooks): Promise<UploadOutcome> => {
+    const result = await session.service.uploadEnvironment(file, hooks)
+    if (result.state === 'error') {
+      toast.push('error', `Environment upload failed. ${result.error.message}`)
+      return { ok: false, message: result.error.message }
+    }
+    const { environment, duplicate } = result.data
+    const fresh = await session.refreshCatalog()
+    if (fresh) setDraft((d) => selectEnvironment(fresh, d, environment.key))
+    toast.push(
+      'success',
+      duplicate
+        ? `"${environment.name}" was already in your library`
+        : 'Environment uploaded successfully',
+    )
+    return {
+      ok: true,
+      message: `${environment.name} · ${environment.layout.rows}×${environment.layout.cols} grid${duplicate ? ' (already in library)' : ''}`,
+    }
+  }
+
+  const removeCustom = async (target: RemoveTarget) => {
+    const result =
+      target.kind === 'model'
+        ? await session.service.deleteModel(target.id)
+        : await session.service.deleteEnvironment(target.id)
+    if (result.state === 'error') {
+      toast.push('error', `Could not remove "${target.name}". ${result.error.message}`)
+      return
+    }
+    await session.refreshCatalog()
+    setDraft((d) =>
+      target.kind === 'model' && d.agent === target.key
+        ? { ...d, agent: null, agent_params: {} }
+        : target.kind === 'environment' && d.environment === target.key
+          ? { ...d, environment: null, env_params: {} }
+          : d,
+    )
+    toast.push('success', `Removed "${target.name}"`)
+  }
+
+  // A session this page did not start (re-attached after a reload) must be reflected in the
+  // selection and settings panels, once; afterwards the user's edits are their own.
+  useEffect(() => {
+    if (compare || state.sessionId === null || state.config === null) return
+    if (syncedSession.current === state.sessionId) return
+    syncedSession.current = state.sessionId
+    setDraft(draftFromConfig(catalog, state.config))
+  }, [catalog, compare, state.sessionId, state.config])
+
+  // Transient notices become toasts instead of a banner that has to be cleared.
+  useEffect(() => {
+    if (notice) toast.push(notice.tone, notice.message)
+  }, [notice, toast])
+
+  // Connection changes for an attached session.
+  useEffect(() => {
+    const previous = previousConnection.current
+    previousConnection.current = state.connection
+    if (state.sessionId === null) return
+    if (state.connection === 'reconnecting' && previous === 'live') {
+      toast.push('warning', 'Lost the connection to the training session. Reconnecting…')
+    } else if (state.connection === 'live' && previous === 'reconnecting') {
+      toast.push('success', 'Reconnected to the training session')
+    } else if (state.connection === 'closed' && previous !== 'closed' && previous !== 'idle') {
+      toast.push('error', 'Failed to connect to the training session')
+    }
+  }, [state.connection, state.sessionId, toast])
+
+  // Space pauses or resumes; C resets the camera.
+  useEffect(() => {
+    const onKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey || event.repeat)
+        return
+      if (shortcutsSuppressed(event.target)) return
+      if (event.code === 'Space' || event.key === ' ') {
+        if (availability.pause && busy === null) {
+          event.preventDefault()
+          void runCommand('pause')
+        } else if (availability.resume && busy === null) {
+          event.preventDefault()
+          void runCommand('resume')
+        }
+      } else if (event.key === 'c' || event.key === 'C') {
+        setCameraNonce((n) => n + 1)
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [availability.pause, availability.resume, busy, runCommand])
 
   const onSpeed = (value: number) => {
     changeParam('training', 'simulation_speed', value)
-    if (state.sessionId !== null) void session.setSpeed(value)
+    if (compare) void battle.setSpeed(value)
+    else if (state.sessionId !== null) void session.setSpeed(value)
   }
 
   // Pointer-driven resizing for the vertical and horizontal splitters.
@@ -229,17 +542,50 @@ function WorkspaceBody({ catalog, session }: { catalog: Catalog; session: Sessio
                 catalog={catalog}
                 draft={draft}
                 locked={active}
-                onSelectAgent={(key) => setDraft((d) => selectAgent(catalog, d, key))}
-                onSelectEnvironment={(key) => setDraft((d) => selectEnvironment(catalog, d, key))}
+                onSelectAgent={(key) => choose('agent', key)}
+                onSelectEnvironment={(key) => choose('environment', key)}
+                onConfigure={() => setLeftTab('configure')}
+                uploadModel={uploadModel}
+                uploadEnvironment={uploadEnvironment}
+                onRemove={removeCustom}
               />
             ) : (
-              <ConfigPanel
-                catalog={catalog}
-                draft={draft}
-                errors={errors}
-                disabled={active}
-                onChange={changeParam}
-              />
+              <>
+                {compare && (
+                  <CompareSetup
+                    catalog={catalog}
+                    environment={draft.environment}
+                    agentB={agentB.agent}
+                    paramsB={agentB.params}
+                    errors={errorsB}
+                    disabled={active}
+                    onSelectAgentB={chooseOpponent}
+                    onChangeParamB={(key, value) =>
+                      setAgentB((current) => ({
+                        ...current,
+                        params: { ...current.params, [key]: value },
+                      }))
+                    }
+                  />
+                )}
+                <ConfigPanel
+                  catalog={catalog}
+                  draft={draft}
+                  errors={errors}
+                  disabled={active}
+                  onChange={changeParam}
+                  environmentExtras={
+                    <ChaosPanel
+                      kinds={findEnvironment(catalog, draft.environment)?.chaos_kinds ?? []}
+                      chaos={state.controls.chaos}
+                      available={liveSession}
+                      canTrigger={liveSession && state.status === 'running'}
+                      onChange={(patch) => void changeChaos(patch)}
+                      onTrigger={(kind) => void triggerChaos(kind)}
+                    />
+                  }
+                />
+              </>
             )}
           </div>
         </aside>
@@ -263,20 +609,31 @@ function WorkspaceBody({ catalog, session }: { catalog: Catalog; session: Sessio
             busy={busy}
             speed={speed}
             initializeHint={initializeHint}
+            viewMode={viewMode}
+            webgl={webgl}
             onInitialize={() => void initialize()}
-            onCommand={(command) => void session.command(command)}
+            onCommand={(command) => void runCommand(command)}
             onSpeed={onSpeed}
             onResetCamera={() => setCameraNonce((n) => n + 1)}
+            onViewModeChange={setViewMode}
+            manual={{
+              available: availability.manual && manualHint !== null && !compare,
+              active: manualActive,
+              hint: manualHint,
+            }}
+            onToggleManual={() => void toggleManual()}
+            compare={{ active: compare, available: !active, onToggle: toggleCompare }}
+            brain={{
+              active: brainActive,
+              available:
+                !compare &&
+                state.sessionId !== null &&
+                state.status !== 'stopped' &&
+                state.status !== 'completed' &&
+                state.status !== 'failed',
+              onToggle: () => void toggleBrain(),
+            }}
           />
-          {notice && (
-            <p
-              className={`note${notice.tone === 'error' ? ' note--error' : ''}`}
-              role={notice.tone === 'error' ? 'alert' : 'status'}
-              style={{ margin: 'var(--space-2) var(--space-3)' }}
-            >
-              {notice.message}
-            </p>
-          )}
           {state.error && (
             <p
               className="note note--error"
@@ -293,17 +650,32 @@ function WorkspaceBody({ catalog, session }: { catalog: Catalog; session: Sessio
             </p>
           )}
 
-          <SimulationViewport
-            store={store}
-            rendererKey={viewEnv?.renderer ?? null}
-            scene={viewScene}
-            environmentName={viewEnv?.name ?? null}
-            status={state.status}
-            preview={state.sessionId === null}
-            cameraResetNonce={cameraNonce}
-            viewMode={viewMode}
-            onViewModeChange={setViewMode}
-          />
+          {compare && battle.battleId !== null ? (
+            <ComparePanes
+              storeA={battle.storeA}
+              storeB={battle.storeB}
+              stateA={battle.stateA}
+              stateB={battle.stateB}
+              rendererKey={viewEnv?.renderer ?? null}
+              environmentName={viewEnv?.name ?? null}
+              viewMode={viewMode}
+              cameraResetNonce={cameraNonce}
+            />
+          ) : (
+            <SimulationViewport
+              store={store}
+              rendererKey={viewEnv?.renderer ?? null}
+              scene={viewScene}
+              environmentName={viewEnv?.name ?? null}
+              status={state.status}
+              preview={state.sessionId === null}
+              cameraResetNonce={cameraNonce}
+              viewMode={viewMode}
+              manualHint={manualActive ? manualHint : null}
+              offline={offline}
+              brainActive={brainActive}
+            />
+          )}
 
           <div className="dock" style={{ ['--dock-height' as string]: `${layout.dock}px` }}>
             <div
@@ -337,7 +709,10 @@ function WorkspaceBody({ catalog, session }: { catalog: Catalog; session: Sessio
               ))}
             </div>
             <div className="tab-body" role="tabpanel">
-              {dockTab === 'metrics' && (
+              {dockTab === 'metrics' && compare && battle.battleId !== null && (
+                <CompareMetrics stateA={battle.stateA} stateB={battle.stateB} />
+              )}
+              {dockTab === 'metrics' && !(compare && battle.battleId !== null) && (
                 <MetricsPanel
                   state={state}
                   agent={findAgent(catalog, state.config?.agent ?? draft.agent)}
@@ -357,6 +732,14 @@ function WorkspaceBody({ catalog, session }: { catalog: Catalog; session: Sessio
 
 /** Full-viewport training workspace entered from "Open Studio". */
 export function StudioWorkspace() {
+  return (
+    <ToastProvider>
+      <StudioWorkspaceContent />
+    </ToastProvider>
+  )
+}
+
+function StudioWorkspaceContent() {
   const session = useStudioSession()
   if (session.catalog.state === 'loading') {
     return (
