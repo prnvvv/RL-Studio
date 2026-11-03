@@ -11,7 +11,7 @@ function scrollToOverview() {
     typeof window.matchMedia === 'function' &&
     window.matchMedia('(prefers-reduced-motion: reduce)').matches
   document
-    .getElementById('overview')
+    .getElementById('telemetry')
     ?.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' })
 }
 
