@@ -29,6 +29,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.logger import KVWriter, Logger
 from stable_baselines3.common.monitor import Monitor
@@ -38,10 +39,12 @@ from backend.database.exceptions import ConflictError, NotFoundError, Validation
 
 from . import custom
 from .catalog import AGENTS, NET_ARCHES, TRAINING_PARAMS, sb3_class
+from .controls import RuntimeControls, validate_action
 from .envs import EnvDefinition, describe_space
 from .hub import SessionHub
 from .params import validate_params
 from .store import RunRecorder
+from .wrappers import HumanControlEnv
 
 logger = logging.getLogger(__name__)
 
@@ -187,17 +190,51 @@ class _StudioCallback(BaseCallback):
     def _on_step(self) -> bool:
         last_obs = getattr(self.model, "_last_obs", None)
         locals_ = self.locals
+        info = locals_["infos"][0]
+        action = locals_["actions"][0]
+        if info.get("action_source") == "human":
+            action = self._adopt_human_action(locals_, info["executed_action"])
         return self.step(
             env=self.training_env.envs[0],
             timestep=int(self.num_timesteps),
             pre_obs=None if last_obs is None else last_obs[0],
             new_obs=locals_["new_obs"][0],
-            action=locals_["actions"][0],
+            action=action,
             reward=float(locals_["rewards"][0]),
             done=bool(locals_["dones"][0]),
-            info=locals_["infos"][0],
+            info=info,
             model=self.model,
         )
+
+    def _adopt_human_action(self, locals_: dict[str, Any], executed: Any) -> Any:
+        """Make the learning buffers record the action the human actually executed.
+
+        SB3 picks the action before this callback runs, so without this the
+        replay/rollout buffer would pair the human's reward with the policy's
+        action. DQN stores the executed action directly. PPO/A2C also need the
+        log-probability and value of that action under the current policy.
+        Human steps remain off-policy for on-policy algorithms; this only keeps
+        the stored transition self-consistent.
+        """
+        action = np.asarray(executed)
+        try:
+            buffer_actions = locals_.get("buffer_actions")
+            if buffer_actions is not None:  # off-policy (DQN)
+                buffer_actions[0] = action
+            elif "log_probs" in locals_ and "obs_tensor" in locals_:  # on-policy (PPO/A2C)
+                import torch
+
+                actions = locals_["actions"]
+                actions[0] = action
+                with torch.no_grad():
+                    values, log_prob, _ = self.model.policy.evaluate_actions(
+                        locals_["obs_tensor"], torch.as_tensor(actions, device=self.model.device)
+                    )
+                locals_["log_probs"].copy_(log_prob.reshape(locals_["log_probs"].shape))
+                locals_["values"].copy_(values.reshape(locals_["values"].shape))
+        except (KeyError, IndexError, RuntimeError, ValueError):
+            logger.warning("Could not align learning buffers with a human action", exc_info=True)
+        return action[()] if action.ndim == 0 else action
 
     def step(self, *, env: Any, timestep: int, pre_obs: Any, new_obs: Any, action: Any, reward: float, done: bool, info: dict[str, Any], model: Any) -> bool:
         """Handle one environment transition. Returns False to stop the run.
@@ -236,6 +273,7 @@ class _StudioCallback(BaseCallback):
                 terminated=done and not truncated,
                 truncated=truncated,
                 next_obs=terminal_obs if done and terminal_obs is not None else new_obs,
+                source=str(info.get("action_source", "agent")),
             )
         if done:
             outcome = self.definition.classify(s.config["env_params"], terminal_obs, info, not truncated)
@@ -247,6 +285,7 @@ class _StudioCallback(BaseCallback):
                 "episode": s._episode_count + 1,
                 "episode_step": self._episode_steps,
                 "action": action_value,
+                "source": str(info.get("action_source", "agent")),
                 "reward": reward,
                 "episode_reward": self._episode_reward,
                 "collision": collision,
@@ -325,6 +364,8 @@ class TrainingSession:
         self._thread: threading.Thread | None = None
         self._model: Any = None
         self._recorder: RunRecorder | None = None
+        self.controls = RuntimeControls()
+        self._action_space: Any = None
         self._obs_shape: list[int] | None = None
         self._scene: dict[str, Any] = {}
         self._reset_metrics()
@@ -376,6 +417,7 @@ class TrainingSession:
             self._scene = self.definition.scene(self.config["env_params"], env)
             self._scene["action_space"] = "discrete" if hasattr(env.action_space, "n") else "box"
             self._obs_shape = [int(d) for d in env.observation_space.shape]
+            self._action_space = env.action_space
             self.hub.set_frame(
                 {
                     "timestep": 0,
@@ -393,6 +435,39 @@ class TrainingSession:
             )
         finally:
             env.close()
+
+    def _build_env(self, seed: int) -> Any:
+        """The environment the training/inference loop steps (wrappers read ``self.controls``)."""
+        env = self.definition.make(self.config["env_params"], seed)
+        env = HumanControlEnv(env, self.controls, self.definition.human_sticky, self._stop.is_set)
+        return Monitor(env)
+
+    # ---------------------------------------------------------- manual control
+
+    def set_human_control(self, active: bool) -> dict[str, Any]:
+        with self._lock:
+            if self._status in (Status.STOPPING, Status.STOPPED, Status.COMPLETED, Status.FAILED):
+                raise ConflictError(
+                    f"Cannot change manual control of a session that is {self._status.value}",
+                    details={"status": self._status.value},
+                )
+        changed = self.controls.set_human(active)
+        if changed:
+            self.hub.publish("control", {"run_id": self.run_id, **self.controls.snapshot()})
+            if active:
+                self.log("INFO", "AGENT", "Manual control taken: your actions replace the agent's and are recorded with source=human", {})
+                if self.mode == "training" and self.config["agent"] in ("PPO", "A2C"):
+                    self.log("WARNING", "AGENT", "Learning from human steps is off-policy for on-policy algorithms", {"agent": self.config["agent"]})
+            else:
+                self.log("INFO", "AGENT", "Manual control released: the agent is acting again", {"human_steps": self.controls.human_steps})
+        return self.command_result()
+
+    def submit_human_action(self, action: Any) -> dict[str, Any]:
+        if not self.controls.human_active:
+            raise ConflictError("Manual control is not active", details={"status": self._status.value})
+        valid = validate_action(self._action_space, action)
+        self.controls.submit_action(valid)
+        return {"accepted": True}
 
     def _set_status(self, status: Status, **extra: Any) -> None:
         with self._lock:
@@ -489,6 +564,7 @@ class TrainingSession:
             self._reset_metrics()
             self._model = None
             self._recorder = None
+            self.controls = RuntimeControls()
             self.error = None
             self.started_at = None
             self.finished_at = None
@@ -537,7 +613,7 @@ class TrainingSession:
         venv = None
         try:
             seed = int(training["seed"])
-            venv = DummyVecEnv([lambda: Monitor(self.definition.make(self.config["env_params"], seed))])
+            venv = DummyVecEnv([lambda: self._build_env(seed)])
             venv.seed(seed)
             policy = custom.load_policy(self.model_record, venv.observation_space, venv.action_space)  # type: ignore[arg-type]
             self._model = policy
@@ -550,6 +626,8 @@ class TrainingSession:
             while timestep < total:
                 action, _ = policy.predict(obs, deterministic=True)
                 new_obs, rewards, dones, infos = venv.step(action)
+                if infos[0].get("action_source") == "human":
+                    action = np.asarray([infos[0]["executed_action"]])
                 timestep += 1
                 keep_going = callback.step(
                     env=venv.envs[0],
@@ -589,7 +667,7 @@ class TrainingSession:
         venv = None
         try:
             seed = int(training["seed"])
-            venv = DummyVecEnv([lambda: Monitor(self.definition.make(self.config["env_params"], seed))])
+            venv = DummyVecEnv([lambda: self._build_env(seed)])
             params = dict(self.config["agent_params"])
             arch = NET_ARCHES[params.pop("net_arch")]
             model = sb3_class(agent)(
@@ -620,6 +698,7 @@ class TrainingSession:
                 venv.close()
 
     def _finish(self, status: Status) -> None:
+        self.controls.set_human(False)
         self._ended_monotonic = time.monotonic()
         self._flush_episodes(force=True)
         self._maybe_progress(self._timestep, force=True)
@@ -867,6 +946,7 @@ class TrainingSession:
             "agent": self.config["agent"],
             "environment": self.config["environment"],
             "mode": self.mode,
+            "controls": self.controls.snapshot(),
             "config": self.config,
             "created_at": self.created_at,
             "started_at": self.started_at,
