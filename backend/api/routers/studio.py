@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
 import re
@@ -274,6 +275,10 @@ async def stream(websocket: WebSocket, session_id: str, after: int = 0) -> None:
 
     A reconnecting client may pass ``after`` (the last sequence it processed);
     it always receives a fresh snapshot so a gap can never leave it stale.
+
+    The client may send ``{"type": "ping", "t": <number>}``; the server echoes
+    ``{"type": "pong", "t": <same number>}`` so the client can measure the real
+    round-trip latency of this connection.
     """
     try:
         session = manager.get(session_id)
@@ -281,12 +286,32 @@ async def stream(websocket: WebSocket, session_id: str, after: int = 0) -> None:
         await websocket.close(code=4404)
         return
     await websocket.accept()
+    pongs: asyncio.Queue[dict[str, Any]] = asyncio.Queue(maxsize=16)
+
+    async def read_client() -> None:
+        try:
+            while True:
+                raw = await websocket.receive_text()
+                try:
+                    message = json.loads(raw)
+                except ValueError:
+                    continue
+                stamp = message.get("t") if isinstance(message, dict) else None
+                if isinstance(message, dict) and message.get("type") == "ping" and isinstance(stamp, (int, float)) and not isinstance(stamp, bool):
+                    with contextlib.suppress(asyncio.QueueFull):
+                        pongs.put_nowait({"type": "pong", "t": stamp})
+        except (WebSocketDisconnect, RuntimeError):
+            return
+
+    reader = asyncio.create_task(read_client())
     try:
         snapshot = session.snapshot()
         await websocket.send_json({"type": "snapshot", "payload": snapshot})
         last_seq = snapshot["seq"]
         last_frame = (session.hub.latest_frame() or {}).get("frame_seq", 0)
-        while True:
+        while not reader.done():
+            while not pongs.empty():
+                await websocket.send_json(pongs.get_nowait())
             events, _gap = session.hub.since(last_seq)
             for event in events:
                 await websocket.send_json(event)
@@ -296,8 +321,8 @@ async def stream(websocket: WebSocket, session_id: str, after: int = 0) -> None:
                 last_frame = frame["frame_seq"]
                 await websocket.send_json(frame)
             await asyncio.sleep(STREAM_INTERVAL_S)
-    except WebSocketDisconnect:
+    except (WebSocketDisconnect, RuntimeError):
+        # Peer closed the socket while we were sending.
         return
-    except RuntimeError:
-        # Socket already closed by the peer while sending.
-        return
+    finally:
+        reader.cancel()
