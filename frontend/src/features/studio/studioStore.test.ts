@@ -31,6 +31,7 @@ function snapshot(overrides: Partial<SessionSnapshot> = {}): SessionSnapshot {
       collisions: 0,
       disturbances: 0,
       last_termination: null,
+      env_state: {},
       speed: 1,
     },
     checkpoints: [],
