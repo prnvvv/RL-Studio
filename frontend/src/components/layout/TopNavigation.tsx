@@ -3,6 +3,7 @@ import type { CSSProperties } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { ThemeToggle } from '../ThemeToggle'
 import { useMediaQuery } from '../../hooks/useMediaQuery'
+import { useUser, SignOutButton } from '@clerk/react'
 
 /** Matches the stacking breakpoint already used for page layouts (`src/styles/layout.css`). */
 const NARROW_QUERY = '(max-width: 960px)'
@@ -46,6 +47,7 @@ export function TopNavigation() {
   const [menuOpen, setMenuOpen] = useState(false)
   const location = useLocation()
   const menuId = useId()
+  const user = useUser()
 
   useEffect(() => {
     setMenuOpen(false)
@@ -120,6 +122,26 @@ export function TopNavigation() {
             </NavLink>
           ))}
         <ThemeToggle />
+        {user?.isSignedIn ? (
+          <SignOutButton />
+        ) : user?.isLoaded ? (
+          <NavLink
+            to="/login"
+            style={{
+              padding: '6px 12px',
+              background: 'var(--bg-panel)',
+              color: 'var(--text-primary)',
+              textDecoration: 'none',
+              border: '1px dashed var(--border-primary)',
+              borderRadius: 'var(--radius-sm)',
+              cursor: 'pointer',
+              fontSize: 'var(--text-sm)',
+              fontFamily: 'var(--font-sans)',
+            }}
+          >
+            Login
+          </NavLink>
+        ) : null}
         {isNarrow && (
           <button
             type="button"

@@ -33,7 +33,7 @@ export function LandingNavbar() {
             </a>
           ),
         )}
-        <Link to="/training" className="ls-pill ls-pill--solid ls-pill--sm">
+        <Link to="/studio" className="ls-pill ls-pill--solid ls-pill--sm">
           Open Studio
           <ArrowIcon className="ls-pill__arrow" />
         </Link>
