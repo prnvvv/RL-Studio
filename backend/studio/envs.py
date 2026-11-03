@@ -36,6 +36,8 @@ class EnvDefinition:
     frame_state: Callable[[gym.Env, np.ndarray | None], dict[str, Any]]
     classify: Callable[[dict[str, Any], np.ndarray | None, dict[str, Any], bool], dict[str, Any]]
     disturbances: bool = False
+    #: Keep applying the last manual action until a new one arrives (balancing tasks).
+    human_sticky: bool = False
 
 
 # --------------------------------------------------------------------------- #
@@ -212,6 +214,7 @@ ENVIRONMENTS: dict[str, EnvDefinition] = {
         frame_state=_cartpole_state,
         classify=_cartpole_classify,
         disturbances=True,
+        human_sticky=True,
     ),
     "warehouse": EnvDefinition(
         key="warehouse",
