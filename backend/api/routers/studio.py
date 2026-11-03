@@ -13,7 +13,7 @@ from typing import Any
 from fastapi import APIRouter, Query, Request, Response, WebSocket, WebSocketDisconnect
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StrictBool
 
 from backend.database.exceptions import ConflictError, NotFoundError, StudioError
 from backend.studio import custom
@@ -43,7 +43,13 @@ class SessionRequest(BaseModel):
 class ControlRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    active: bool
+    active: StrictBool
+
+
+class BrainRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: StrictBool
 
 
 class ActionRequest(BaseModel):
@@ -335,6 +341,12 @@ def reset_session(session_id: str) -> dict[str, Any]:
 def set_human_control(session_id: str, request: ControlRequest) -> dict[str, Any]:
     """Take or release manual control. While taken, submitted actions replace the agent's."""
     return manager.get(session_id).set_human_control(request.active)
+
+
+@router.post("/sessions/{session_id}/brain")
+def set_brain_view(session_id: str, request: BrainRequest) -> dict[str, Any]:
+    """Include the policy's action probabilities / Q-values in every simulation frame."""
+    return manager.get(session_id).set_brain_view(request.enabled)
 
 
 @router.post("/sessions/{session_id}/action")
