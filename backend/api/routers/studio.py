@@ -9,11 +9,13 @@ import re
 from collections.abc import Iterator
 from typing import Any
 
-from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Query, Request, Response, WebSocket, WebSocketDisconnect
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 
-from backend.database.exceptions import NotFoundError
+from backend.database.exceptions import ConflictError, NotFoundError
+from backend.studio import custom
 from backend.studio.catalog import build_catalog
 from backend.studio.manager import manager
 from backend.studio.session import store_path
@@ -46,6 +48,81 @@ class SpeedRequest(BaseModel):
 @router.get("/catalog")
 def get_catalog() -> dict[str, Any]:
     return build_catalog()
+
+
+MAX_LAYOUT_BYTES = 64 * 1024
+
+
+@router.get("/models")
+def list_models() -> dict[str, Any]:
+    return {"models": [{k: v for k, v in m.items() if k != "stored_as"} for m in custom.list_models()]}
+
+
+@router.post("/models/upload", status_code=201)
+async def upload_model(
+    request: Request,
+    response: Response,
+    filename: str = Query(..., min_length=1, max_length=200),
+    name: str | None = Query(None, max_length=60),
+) -> dict[str, Any]:
+    """Upload a model as the raw request body (``?filename=policy.zip``).
+
+    The file is streamed to a quarantine path with a hard size cap, validated
+    without executing anything inside it, and only then moved into the library.
+    """
+    custom.require_supported_extension(filename)
+    declared = request.headers.get("content-length", "")
+    if declared.isdigit() and int(declared) > custom.MAX_MODEL_BYTES:
+        raise custom.PayloadTooLarge("The file is too large", details={"max_bytes": custom.MAX_MODEL_BYTES})
+    temp = custom.new_incoming_path()
+    try:
+        size = 0
+        with temp.open("wb") as handle:
+            async for chunk in request.stream():
+                size += len(chunk)
+                if size > custom.MAX_MODEL_BYTES:
+                    raise custom.PayloadTooLarge("The file is too large", details={"max_bytes": custom.MAX_MODEL_BYTES})
+                handle.write(chunk)
+        record, duplicate = await run_in_threadpool(custom.store_model, temp, filename, name)
+    finally:
+        temp.unlink(missing_ok=True)
+    if duplicate:
+        response.status_code = 200
+    return {"model": record, "duplicate": duplicate}
+
+
+@router.delete("/models/{model_id}")
+def delete_model(model_id: str) -> dict[str, Any]:
+    record = custom.get_model(model_id)
+    if record["key"] in manager.active_references():
+        raise ConflictError("This model is in use by a running session", details={"model_id": record["model_id"]})
+    custom.delete_model(model_id)
+    return {"deleted": record["model_id"]}
+
+
+@router.post("/environments/upload", status_code=201)
+async def upload_environment(request: Request, response: Response) -> dict[str, Any]:
+    """Register a declarative warehouse grid layout (JSON). No code is executed."""
+    body = await request.body()
+    if len(body) > MAX_LAYOUT_BYTES:
+        raise custom.PayloadTooLarge("The layout is too large", details={"max_bytes": MAX_LAYOUT_BYTES})
+    try:
+        raw = json.loads(body)
+    except ValueError:
+        raise custom.ValidationError("The layout is not valid JSON", details={"errors": [{"field": "layout", "message": "not valid JSON"}]}) from None
+    record, duplicate = await run_in_threadpool(custom.store_environment, raw)
+    if duplicate:
+        response.status_code = 200
+    return {"environment": record, "duplicate": duplicate}
+
+
+@router.delete("/environments/{env_id}")
+def delete_environment(env_id: str) -> dict[str, Any]:
+    record = custom.get_environment_record(env_id)
+    if record["key"] in manager.active_references():
+        raise ConflictError("This environment is in use by a running session", details={"env_id": record["env_id"]})
+    custom.delete_environment(env_id)
+    return {"deleted": record["env_id"]}
 
 
 @router.post("/sessions", status_code=201)
