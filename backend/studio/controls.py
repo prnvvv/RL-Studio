@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import math
 import threading
+from collections import deque
 from collections.abc import Callable
 from typing import Any
 
@@ -55,6 +56,12 @@ class RuntimeControls:
         self._last: int | list[float] | None = None
         self.human_steps = 0
         self._brain = False
+        self._chaos_enabled = False
+        self._chaos_intensity = 0.3
+        self._chaos_kinds: tuple[str, ...] = ()
+        self._chaos_triggers: deque[str] = deque(maxlen=32)
+        self.chaos_events = 0
+        self.chaos_noise_steps = 0
 
     # ------------------------------------------------------------- human control
 
@@ -108,5 +115,43 @@ class RuntimeControls:
             self._brain = enabled
             return changed
 
+    # ------------------------------------------------------------- chaos monkey
+
+    def configure_chaos(self, enabled: bool | None, intensity: float | None, kinds: tuple[str, ...] | None) -> None:
+        with self._cond:
+            if enabled is not None:
+                self._chaos_enabled = enabled
+            if intensity is not None:
+                self._chaos_intensity = intensity
+            if kinds is not None:
+                self._chaos_kinds = kinds
+
+    def chaos_config(self) -> tuple[bool, float, tuple[str, ...]]:
+        with self._cond:
+            return self._chaos_enabled, self._chaos_intensity, self._chaos_kinds
+
+    def trigger_chaos(self, kind: str) -> None:
+        """Queue one disturbance of ``kind`` for the next step, whether or not chaos mode is on."""
+        with self._cond:
+            self._chaos_triggers.append(kind)
+
+    def pop_chaos_triggers(self) -> list[str]:
+        with self._cond:
+            triggers = list(self._chaos_triggers)
+            self._chaos_triggers.clear()
+            return triggers
+
     def snapshot(self) -> dict[str, Any]:
-        return {"human": self._human, "human_steps": self.human_steps, "brain": self._brain}
+        enabled, intensity, kinds = self.chaos_config()
+        return {
+            "human": self._human,
+            "human_steps": self.human_steps,
+            "brain": self._brain,
+            "chaos": {
+                "enabled": enabled,
+                "intensity": intensity,
+                "kinds": list(kinds),
+                "events": self.chaos_events,
+                "noise_steps": self.chaos_noise_steps,
+            },
+        }
