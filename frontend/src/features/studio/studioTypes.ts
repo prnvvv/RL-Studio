@@ -27,8 +27,69 @@ export interface SpaceDescription {
   high?: Array<number | null>
 }
 
+/** Where a catalog entry comes from: shipped with the backend, or uploaded by the user. */
+export type CatalogKind = 'builtin' | 'custom'
+
+/** Architecture and provenance of an uploaded model, as inferred by the backend. */
+export interface CustomModelInfo {
+  model_id: string
+  name: string
+  original_filename: string
+  format: 'zip' | 'pt'
+  sha256: string
+  size_bytes: number
+  uploaded_at: string
+  algorithm: string
+  /** True when the algorithm label is inferred from the archive rather than stored in the weights. */
+  algorithm_inferred: boolean
+  obs_dim: number
+  action_type: 'discrete' | 'box'
+  action_dim: number
+  net_arch: number[] | { pi: number[]; vf: number[] }
+  activation: string
+  /** True when the activation function could not be read and the SB3 default is assumed. */
+  activation_assumed: boolean
+}
+
+export interface UploadedModel extends CustomModelInfo {
+  key: string
+}
+
+/** Declarative warehouse-grid layout accepted as a custom environment. */
+export interface GridLayout {
+  name?: string
+  rows: number
+  cols: number
+  start: number[]
+  goal: number[]
+  obstacles: number[][]
+}
+
+export interface CustomEnvironmentInfo {
+  env_id: string
+  uploaded_at: string
+  layout: GridLayout
+}
+
+export interface UploadedEnvironment {
+  env_id: string
+  key: string
+  name: string
+  uploaded_at: string
+  layout: GridLayout
+}
+
+export interface CatalogLimits {
+  model_extensions: string[]
+  max_model_bytes: number
+  max_grid: number
+}
+
 export interface AgentTemplate {
   key: string
+  /** Absent on older backends; treated as built-in. */
+  kind?: CatalogKind
+  custom?: CustomModelInfo
   name: string
   description: string
   family: string
@@ -40,6 +101,8 @@ export interface AgentTemplate {
 
 export interface EnvironmentTemplate {
   key: string
+  kind?: CatalogKind
+  custom?: CustomEnvironmentInfo
   name: string
   description: string
   dimension: '2D' | '3D'
@@ -55,6 +118,7 @@ export interface EnvironmentTemplate {
 
 export interface Catalog {
   schema_version: string
+  limits?: CatalogLimits
   agents: AgentTemplate[]
   environments: EnvironmentTemplate[]
   training_params: ParamSpec[]
@@ -194,6 +258,8 @@ export interface SessionSummary {
   pending_command: 'pause' | null
   agent: string
   environment: string
+  /** `inference` when an uploaded model is run without learning. */
+  mode?: 'training' | 'inference'
   config: SessionConfig
   created_at: string
   started_at: string | null
