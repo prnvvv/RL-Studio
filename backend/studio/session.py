@@ -34,10 +34,11 @@ from stable_baselines3.common.logger import KVWriter, Logger
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import DummyVecEnv
 
-from backend.database.exceptions import ConflictError, ValidationError
+from backend.database.exceptions import ConflictError, NotFoundError, ValidationError
 
+from . import custom
 from .catalog import AGENTS, NET_ARCHES, TRAINING_PARAMS, sb3_class
-from .envs import ENVIRONMENTS, EnvDefinition
+from .envs import EnvDefinition, describe_space
 from .hub import SessionHub
 from .params import validate_params
 from .store import RunRecorder
@@ -97,24 +98,42 @@ def validate_config(raw: dict[str, Any]) -> dict[str, Any]:
     agent_key = raw.get("agent")
     env_key = raw.get("environment")
     errors: list[dict[str, str]] = []
-    if agent_key not in AGENTS:
+    model = None
+    if custom.is_custom_agent(agent_key):
+        try:
+            model = custom.get_model(agent_key)
+        except NotFoundError:
+            errors.append({"field": "agent", "message": "uploaded model not found; it may have been deleted"})
+    elif agent_key not in AGENTS:
         errors.append({"field": "agent", "message": f"unknown agent {agent_key!r}"})
-    if env_key not in ENVIRONMENTS:
+    definition = custom.resolve_environment(env_key)
+    if definition is None:
         errors.append({"field": "environment", "message": f"unknown environment {env_key!r}"})
     if errors:
         raise ValidationError("Invalid configuration", details={"errors": errors})
 
-    agent = AGENTS[agent_key]
-    definition = ENVIRONMENTS[env_key]
     probe = definition.make(validate_params(definition.params, {}, scope="env_params"), 0)
     try:
-        action_type = "discrete" if hasattr(probe.action_space, "n") else "box"
+        obs_desc, act_desc = describe_space(probe.observation_space), describe_space(probe.action_space)
     finally:
         probe.close()
-    if action_type not in agent.action_spaces:
+    if model is not None:
+        reason = custom.incompatibility(model, obs_desc, act_desc, definition.name)
+        if reason:
+            raise ValidationError("Incompatible model and environment", details={"errors": [{"field": "agent", "message": reason}]})
+        agent_params = validate_params((), raw.get("agent_params"), scope="agent_params")
+        env_params = validate_params(definition.params, raw.get("env_params"), scope="env_params")
+        training = validate_params(TRAINING_PARAMS, raw.get("training"), scope="training")
+        # Inference never learns, so periodic checkpoints and evaluations do not apply.
+        training["checkpoint_every"] = 0
+        training["eval_every"] = 0
+        return {"agent": agent_key, "environment": env_key, "agent_params": agent_params, "env_params": env_params, "training": training}
+
+    agent = AGENTS[agent_key]
+    if act_desc["type"] not in agent.action_spaces:
         raise ValidationError(
             "Incompatible agent and environment",
-            details={"errors": [{"field": "agent", "message": f"{agent_key} does not support {action_type} actions"}]},
+            details={"errors": [{"field": "agent", "message": f"{agent_key} does not support {act_desc['type']} actions"}]},
         )
 
     agent_params = validate_params(agent.params, raw.get("agent_params"), scope="agent_params")
@@ -284,9 +303,13 @@ class _StudioCallback(BaseCallback):
 class TrainingSession:
     def __init__(self, session_id: str, config: dict[str, Any], name: str | None = None) -> None:
         self.session_id = session_id
-        self.name = name or f"{config['agent']} on {config['environment']}"
         self.config = config
-        self.definition = ENVIRONMENTS[config["environment"]]
+        self.definition = custom.resolve_environment(config["environment"])  # type: ignore[assignment]
+        self.model_record = custom.get_model(config["agent"]) if custom.is_custom_agent(config["agent"]) else None
+        self.mode = "inference" if self.model_record else "training"
+        agent_label = self.model_record["name"] if self.model_record else config["agent"]
+        builtin_env = config["environment"] in ("cartpole", "warehouse")
+        self.name = name or f"{agent_label} on {config['environment'] if builtin_env else self.definition.name}"
         self.hub = SessionHub(session_id)
         self.created_at = _now()
         self.started_at: str | None = None
@@ -401,7 +424,7 @@ class TrainingSession:
                 name=self.name,
                 agent=self.config["agent"],
                 environment=self.config["environment"],
-                mode="training",
+                mode=self.mode,
                 config=self.config,
                 obs_shape=self._obs_shape,
                 created_at=self.created_at,
@@ -510,7 +533,59 @@ class TrainingSession:
 
     # --------------------------------------------------------------- training
 
+    def _run_inference(self) -> None:
+        """Run an uploaded policy for ``total_timesteps`` steps; nothing is learned."""
+        training = self.config["training"]
+        venv = None
+        try:
+            seed = int(training["seed"])
+            venv = DummyVecEnv([lambda: Monitor(self.definition.make(self.config["env_params"], seed))])
+            venv.seed(seed)
+            policy = custom.load_policy(self.model_record, venv.observation_space, venv.action_space)  # type: ignore[arg-type]
+            self._model = policy
+            record = self.model_record or {}
+            self.log("AGENT", "AGENT", f"Loaded uploaded model {record.get('name')!r} for inference", {"algorithm": record.get("algorithm"), "sha256": str(record.get("sha256"))[:12]})
+            callback = _StudioCallback(self, self.definition)
+            obs = venv.reset()
+            timestep = 0
+            total = int(training["total_timesteps"])
+            while timestep < total:
+                action, _ = policy.predict(obs, deterministic=True)
+                new_obs, rewards, dones, infos = venv.step(action)
+                timestep += 1
+                keep_going = callback.step(
+                    env=venv.envs[0],
+                    timestep=timestep,
+                    pre_obs=obs[0],
+                    new_obs=new_obs[0],
+                    action=action[0],
+                    reward=float(rewards[0]),
+                    done=bool(dones[0]),
+                    info=infos[0],
+                    model=None,
+                )
+                obs = new_obs
+                if not keep_going:
+                    break
+            self._timestep = timestep
+            self._finish(Status.STOPPED if self._stop.is_set() else Status.COMPLETED)
+        except (ValidationError, NotFoundError) as exc:
+            self.error = f"Model could not be used: {exc.message}"
+            self.log("ERROR", "AGENT", self.error, {})
+            self._finish(Status.FAILED)
+        except Exception as exc:  # process boundary; state is recorded
+            logger.exception("Inference session %s failed", self.session_id)
+            self.error = f"Inference failed with {type(exc).__name__}. See server logs for details."
+            self.log("ERROR", "TRAINING", self.error, {})
+            self._finish(Status.FAILED)
+        finally:
+            if venv is not None:
+                venv.close()
+
     def _run(self) -> None:
+        if self.mode == "inference":
+            self._run_inference()
+            return
         training = self.config["training"]
         agent = self.config["agent"]
         venv = None
@@ -793,6 +868,7 @@ class TrainingSession:
             "pending_command": self._pending,
             "agent": self.config["agent"],
             "environment": self.config["environment"],
+            "mode": self.mode,
             "config": self.config,
             "created_at": self.created_at,
             "started_at": self.started_at,
