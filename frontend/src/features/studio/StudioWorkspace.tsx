@@ -20,6 +20,7 @@ import { LibraryPanel, type RemoveTarget } from './LibraryPanel'
 import { LogConsole } from './LogConsole'
 import { MetricsPanel } from './MetricsPanel'
 import { SimulationViewport } from './SimulationViewport'
+import { getRenderer } from './renderers/registry'
 import { webglAvailable } from './webgl'
 import { ToastProvider } from './toast'
 import { useToast } from './toastState'
@@ -265,6 +266,10 @@ function WorkspaceBody({ catalog, session }: { catalog: Catalog; session: Sessio
     return () => controller.abort()
   }, [session.service, adoptBattle, toast])
 
+  const activeAgent = findAgent(catalog, state.config?.agent ?? draft.agent)
+  // Environments drawn only in 2D show the flat view regardless of the 3D/2D toggle.
+  const has3d = viewEnv ? getRenderer(viewEnv.renderer)?.Scene3D !== undefined : true
+  const effectiveView: ViewMode = has3d ? viewMode : '2d'
   const manualActive = !compare && state.controls.human
   const manualHint = controlHint(viewEnv?.renderer ?? null)
   const sendManualAction = useCallback(
@@ -620,15 +625,21 @@ function WorkspaceBody({ catalog, session }: { catalog: Catalog; session: Sessio
             busy={busy}
             speed={speed}
             initializeHint={initializeHint}
-            viewMode={viewMode}
+            viewMode={effectiveView}
             webgl={webgl}
+            has3d={has3d}
             onInitialize={() => void initialize()}
             onCommand={(command) => void runCommand(command)}
             onSpeed={onSpeed}
             onResetCamera={() => setCameraNonce((n) => n + 1)}
             onViewModeChange={setViewMode}
             manual={{
-              available: availability.manual && manualHint !== null && !compare,
+              available:
+                availability.manual &&
+                manualHint !== null &&
+                !compare &&
+                viewEnv?.manual !== false &&
+                activeAgent?.supports_manual !== false,
               active: manualActive,
               hint: manualHint,
             }}
@@ -638,10 +649,15 @@ function WorkspaceBody({ catalog, session }: { catalog: Catalog; session: Sessio
               active: brainActive,
               available:
                 !compare &&
+                activeAgent?.supports_brain !== false &&
                 state.sessionId !== null &&
                 state.status !== 'stopped' &&
                 state.status !== 'completed' &&
                 state.status !== 'failed',
+              reason:
+                activeAgent?.supports_brain === false
+                  ? `${activeAgent.name} has no inspectable action distribution`
+                  : undefined,
               onToggle: () => void toggleBrain(),
             }}
           />

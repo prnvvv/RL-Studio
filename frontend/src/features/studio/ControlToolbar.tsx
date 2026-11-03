@@ -15,6 +15,8 @@ interface Props {
   initializeHint: string | null
   viewMode: ViewMode
   webgl: boolean
+  /** False for environments drawn only in 2D. */
+  has3d?: boolean
   onInitialize: () => void
   onCommand: (command: SessionCommand) => void
   onSpeed: (speed: number) => void
@@ -25,7 +27,7 @@ interface Props {
   /** Compare mode: two agents on the same environment and seed, side by side. */
   compare: { active: boolean; available: boolean; onToggle: () => void }
   /** Overlay the agent's action probabilities / Q-values on the simulation. */
-  brain: { active: boolean; available: boolean; onToggle: () => void }
+  brain: { active: boolean; available: boolean; onToggle: () => void; reason?: string }
 }
 
 function Spinner() {
@@ -45,6 +47,7 @@ export function ControlToolbar({
   initializeHint,
   viewMode,
   webgl,
+  has3d = true,
   onInitialize,
   onCommand,
   onSpeed,
@@ -188,7 +191,7 @@ export function ControlToolbar({
           title={
             brain.available
               ? "Overlay the agent's action probabilities (or Q-values) on the simulation"
-              : 'Initialize a session to inspect the agent'
+              : (brain.reason ?? 'Initialize a session to inspect the agent')
           }
         >
           Show heatmap
@@ -213,8 +216,16 @@ export function ControlToolbar({
               key={mode}
               type="button"
               aria-pressed={viewMode === mode}
-              disabled={mode === '3d' && !webgl}
-              title={mode === '3d' && !webgl ? 'WebGL is not available in this browser' : undefined}
+              disabled={mode === '3d' && (!webgl || !has3d)}
+              title={
+                mode !== '3d'
+                  ? undefined
+                  : !has3d
+                    ? 'This environment is drawn in 2D only'
+                    : !webgl
+                      ? 'WebGL is not available in this browser'
+                      : undefined
+              }
               onClick={() => onViewModeChange(mode)}
             >
               {mode.toUpperCase()}

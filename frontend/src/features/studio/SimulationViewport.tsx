@@ -132,7 +132,8 @@ export function SimulationViewport({
 
   const camera = useMemo(() => definition?.camera(scene) ?? null, [definition, scene])
   const sceneKey = `${rendererKey}:${JSON.stringify(scene)}`
-  const use3d = viewMode === '3d' && webgl && definition !== null
+  const Scene3D = definition?.Scene3D
+  const use3d = viewMode === '3d' && webgl && Scene3D !== undefined
 
   const flat = definition ? (
     <definition.Scene2D scene={scene} store={store} palette={palette} />
@@ -169,7 +170,7 @@ export function SimulationViewport({
             gl={{ antialias: true }}
           >
             <color attach="background" args={[palette.background]} />
-            <definition.Scene3D scene={scene} store={store} palette={palette} />
+            {Scene3D && <Scene3D scene={scene} store={store} palette={palette} />}
             <OrbitControls
               ref={controlsRef}
               makeDefault
@@ -207,7 +208,12 @@ export function SimulationViewport({
               Preview — environment not initialized
             </div>
           )}
-          {!webgl && viewMode === '3d' && (
+          {viewMode === '3d' && definition !== null && Scene3D === undefined && (
+            <div className="sim-viewport__badge sim-viewport__badge--warn" role="note">
+              2D view — this environment has no 3D scene
+            </div>
+          )}
+          {!webgl && viewMode === '3d' && Scene3D !== undefined && (
             <div className="sim-viewport__badge sim-viewport__badge--warn" role="note">
               WebGL unavailable — showing the 2D view
             </div>

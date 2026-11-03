@@ -1,5 +1,5 @@
 import { useFrameSnapshot } from '../useFrameSnapshot'
-import { adaptGridAgent, gridScene } from '../simulationAdapters'
+import { adaptGridAgent, adaptGridObstacles, gridScene } from '../simulationAdapters'
 import { GRID_ARROW_DEGREES, heatOpacity } from '../brainHelpers'
 import type { RendererProps } from './types'
 
@@ -9,6 +9,7 @@ export function GridMaze2D({ scene, store, palette }: RendererProps) {
   const grid = gridScene(scene)
   if (!grid) return null
   const [row, col] = adaptGridAgent(frame, grid)
+  const obstacles = adaptGridObstacles(frame, grid)
   const hit = frame?.collision === true
 
   return (
@@ -71,7 +72,7 @@ export function GridMaze2D({ scene, store, palette }: RendererProps) {
           />
         </g>
       ))}
-      {grid.obstacles.map(([r, c]) => (
+      {obstacles.map(([r, c]) => (
         <rect
           key={`o${r}-${c}`}
           x={c + 0.06}

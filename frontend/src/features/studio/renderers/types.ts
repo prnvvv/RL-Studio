@@ -17,8 +17,8 @@ export interface CameraSetup {
 export interface RendererDefinition {
   key: string
   label: string
-  /** Three.js scene contents (rendered inside a Canvas). */
-  Scene3D: ComponentType<RendererProps>
+  /** Three.js scene contents (rendered inside a Canvas). Absent for 2D-only environments. */
+  Scene3D?: ComponentType<RendererProps>
   /** Flat SVG view; also the fallback when WebGL is unavailable. */
   Scene2D: ComponentType<RendererProps>
   camera: (scene: Record<string, unknown> | null) => CameraSetup

@@ -4,6 +4,21 @@
  */
 import type { FramePayload } from './studioTypes'
 
+/** A numeric state value, or the fallback when the frame is missing or carries something else. */
+export function stateNumber(frame: FramePayload | null, key: string, fallback = 0): number {
+  const value = frame?.state[key]
+  return typeof value === 'number' ? value : fallback
+}
+
+/** A list of (x, y) points from the frame state (terrain, obstacle cells), or []. */
+export function statePoints(frame: FramePayload | null, key: string): Array<[number, number]> {
+  const value = frame?.state[key]
+  if (!Array.isArray(value)) return []
+  return value.filter(
+    (p): p is number[] => Array.isArray(p) && p.length >= 2 && typeof p[0] === 'number',
+  ) as Array<[number, number]>
+}
+
 export interface CartPoleScene {
   x_limit: number
   theta_limit: number
@@ -29,8 +44,8 @@ export function cartPoleScene(scene: Record<string, unknown> | null): CartPoleSc
 }
 
 export function adaptCartPole(frame: FramePayload | null, scene: CartPoleScene): CartPolePose {
-  const x = frame?.state.x ?? 0
-  const theta = frame?.state.theta ?? 0
+  const x = stateNumber(frame, 'x')
+  const theta = stateNumber(frame, 'theta')
   return {
     cartX: x,
     poleAngle: theta,
@@ -54,6 +69,8 @@ export interface GridScene {
   start: [number, number]
   goal: [number, number]
   obstacles: Array<[number, number]>
+  /** Obstacles drift; their live cells arrive with each frame. */
+  moving_obstacles?: boolean
 }
 
 export function gridScene(scene: Record<string, unknown> | null): GridScene | null {
@@ -65,6 +82,7 @@ export function gridScene(scene: Record<string, unknown> | null): GridScene | nu
     start: s.start ?? [0, 0],
     goal: s.goal ?? [s.rows - 1, s.cols - 1],
     obstacles: s.obstacles ?? [],
+    moving_obstacles: s.moving_obstacles === true,
   }
 }
 
@@ -74,7 +92,17 @@ export function cellToWorld(grid: GridScene, row: number, col: number): [number,
 }
 
 export function adaptGridAgent(frame: FramePayload | null, grid: GridScene): [number, number] {
-  const row = frame?.state.row ?? grid.start[0]
-  const col = frame?.state.col ?? grid.start[1]
-  return [row, col]
+  return [stateNumber(frame, 'row', grid.start[0]), stateNumber(frame, 'col', grid.start[1])]
+}
+
+/**
+ * The obstacle cells to draw now. Static layouts come from the scene; when obstacles move the
+ * backend sends their current cells with every frame, and those win.
+ */
+export function adaptGridObstacles(
+  frame: FramePayload | null,
+  grid: GridScene,
+): Array<[number, number]> {
+  const live = statePoints(frame, 'obstacles')
+  return grid.moving_obstacles && live.length > 0 ? live : grid.obstacles
 }

@@ -3,6 +3,9 @@ import { CartPole2D } from './CartPole2D'
 import { CartPole3D } from './CartPole3D'
 import { GridMaze2D } from './GridMaze2D'
 import { GridMaze3D } from './GridMaze3D'
+import { BipedalWalker2D } from './BipedalWalker2D'
+import { LunarLander2D } from './LunarLander2D'
+import { MountainCar2D } from './MountainCar2D'
 import type { RendererDefinition } from './types'
 
 /**
@@ -27,8 +30,28 @@ const registry: Record<string, RendererDefinition> = {
     camera: (scene) => {
       const grid = gridScene(scene)
       const size = grid ? Math.max(grid.rows, grid.cols) : 8
-      return { position: [size * 0.55, size * 0.95, size * 0.95], target: [0, 0, 0] }
+      // Far enough back that the whole board, including the goal corner, stays in frame.
+      return { position: [size * 0.62, size * 1.15, size * 1.15], target: [0, 0, 0] }
     },
+  },
+  // The physics environments below are drawn in 2D only; the viewport says so instead of faking 3D.
+  mountain_car: {
+    key: 'mountain_car',
+    label: 'MountainCar',
+    Scene2D: MountainCar2D,
+    camera: () => ({ position: [0, 0, 5], target: [0, 0, 0] }),
+  },
+  lunar_lander: {
+    key: 'lunar_lander',
+    label: 'LunarLander',
+    Scene2D: LunarLander2D,
+    camera: () => ({ position: [0, 0, 5], target: [0, 0, 0] }),
+  },
+  bipedal_walker: {
+    key: 'bipedal_walker',
+    label: 'BipedalWalker',
+    Scene2D: BipedalWalker2D,
+    camera: () => ({ position: [0, 0, 5], target: [0, 0, 0] }),
   },
 }
 

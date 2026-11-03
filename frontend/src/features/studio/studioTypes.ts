@@ -97,6 +97,10 @@ export interface AgentTemplate {
   params: ParamSpec[]
   reported_metrics: string[]
   compatible_environments: string[]
+  /** False when the policy has no inspectable action distribution (SAC, TD3, PPO-LSTM). */
+  supports_brain?: boolean
+  /** False when a human cannot take the agent over. */
+  supports_manual?: boolean
 }
 
 export interface EnvironmentTemplate {
@@ -114,6 +118,11 @@ export interface EnvironmentTemplate {
   supports_disturbances: boolean
   /** Disturbances chaos mode can inject here. */
   chaos_kinds?: string[]
+  /** False when no keyboard mapping exists for this environment. */
+  manual?: boolean
+  /** False when something the environment needs (for example Box2D) is not installed. */
+  available?: boolean
+  unavailable_reason?: string | null
   params: ParamSpec[]
   compatible_agents: string[]
 }
@@ -264,6 +273,9 @@ export interface BrainPayload {
   grid?: BrainCell[]
 }
 
+/** One value in a frame's `state`: scalars, flags (leg contact) and point lists (terrain, obstacles). */
+export type FrameValue = number | boolean | number[] | number[][]
+
 export interface FramePayload {
   timestep: number
   episode: number
@@ -280,7 +292,7 @@ export interface FramePayload {
   done: boolean
   initial?: boolean
   outcome?: { success: boolean; reason: string }
-  state: Record<string, number>
+  state: Record<string, FrameValue>
 }
 
 export type LogLevel = 'INFO' | 'WARNING' | 'ERROR'

@@ -10,14 +10,66 @@ import {
   type Mesh,
   type MeshStandardMaterial,
 } from 'three'
-import { adaptGridAgent, cellToWorld, gridScene } from '../simulationAdapters'
+import {
+  adaptGridAgent,
+  adaptGridObstacles,
+  cellToWorld,
+  gridScene,
+  type GridScene,
+} from '../simulationAdapters'
 import { BrainField3D } from './BrainField3D'
 import type { RendererProps } from './types'
+import type { ScenePalette } from './palette'
 
 const WALL_HEIGHT = 0.8
 const AGENT_RADIUS = 0.28
 const TRAIL_LENGTH = 40
 const DAMPING = 18
+
+/**
+ * Obstacle blocks. They sit still for static layouts; when the backend moves them, each block
+ * glides to the cell it occupies in the latest frame (the cells are never invented here).
+ */
+function Obstacles3D({
+  grid,
+  store,
+  palette,
+}: {
+  grid: GridScene
+  store: RendererProps['store']
+  palette: ScenePalette
+}) {
+  const blocks = useRef<Array<Mesh | null>>([])
+  useFrame((_, delta) => {
+    const cells = adaptGridObstacles(store.frame, grid)
+    cells.forEach(([r, c], index) => {
+      const block = blocks.current[index]
+      if (!block) return
+      const [x, z] = cellToWorld(grid, r, c)
+      block.position.x = MathUtils.damp(block.position.x, x, DAMPING, delta)
+      block.position.z = MathUtils.damp(block.position.z, z, DAMPING, delta)
+    })
+  })
+  return (
+    <>
+      {grid.obstacles.map(([r, c], index) => {
+        const [ox, oz] = cellToWorld(grid, r, c)
+        return (
+          <mesh
+            key={index}
+            ref={(mesh) => {
+              blocks.current[index] = mesh
+            }}
+            position={[ox, WALL_HEIGHT / 2, oz]}
+          >
+            <boxGeometry args={[0.9, WALL_HEIGHT, 0.9]} />
+            <meshStandardMaterial color={palette.structure} />
+          </mesh>
+        )
+      })}
+    </>
+  )
+}
 
 /** 3D warehouse maze: extruded obstacles, goal marker, animated agent and trail. */
 export function GridMaze3D({ scene, store, palette }: RendererProps) {
@@ -99,15 +151,7 @@ export function GridMaze3D({ scene, store, palette }: RendererProps) {
           grid.rows / Math.max(grid.rows, grid.cols),
         ]}
       />
-      {grid.obstacles.map(([r, c]) => {
-        const [ox, oz] = cellToWorld(grid, r, c)
-        return (
-          <mesh key={`${r}-${c}`} position={[ox, WALL_HEIGHT / 2, oz]}>
-            <boxGeometry args={[0.9, WALL_HEIGHT, 0.9]} />
-            <meshStandardMaterial color={palette.structure} />
-          </mesh>
-        )
-      })}
+      <Obstacles3D grid={grid} store={store} palette={palette} />
       <mesh position={[gx, 0.02, gz]} rotation={[-Math.PI / 2, 0, 0]}>
         <ringGeometry args={[0.3, 0.42, 32]} />
         <meshStandardMaterial color={palette.good} />
