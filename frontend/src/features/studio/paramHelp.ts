@@ -47,7 +47,24 @@ export const PARAM_HELP: Record<string, string> = {
   force_mag: 'Force applied to the cart by each push action.',
   wind_probability: 'Chance each step of a sideways velocity impulse (a disturbance).',
   wind_strength: 'Size of the velocity impulse the wind applies.',
-  difficulty: 'Grid size and obstacle count for the generated warehouse.',
+  grid_size:
+    'Side of the square warehouse grid (5x5 up to 20x20). Bigger grids are harder to explore.',
+  num_obstacles:
+    'How many obstacle cells are placed (0 to 50). The layout is checked so the goal always stays reachable.',
+  obstacle_movement:
+    'When on, obstacles drift to a free neighbouring cell every few steps. The agent cannot see them, so it must cope with a changing map.',
+  force: 'Acceleration of each engine push. A weaker engine means the car must build momentum.',
+  wind_power:
+    'Strength of the sideways wind pushing the lander. 0 turns wind off. The simulator applies it every step.',
+  turbulence_power: 'Strength of the rotational turbulence that comes with wind.',
+  hardcore:
+    'Adds ladders, stumps and pitfalls to the course, making the walker much harder to train.',
+  lstm_hidden_size: 'Units in the recurrent layer. More units give more memory but train slower.',
+  tau: 'How quickly the slow target networks follow the online networks (soft update rate).',
+  gradient_steps: 'Gradient updates performed after each batch of environment steps.',
+  policy_delay: 'TD3 updates the actor once for every this-many critic updates, for stability.',
+  exploration_noise:
+    'Std of the Gaussian noise added to the actions while training. TD3 is deterministic, so without it the agent would not explore.',
   layout_seed: 'Seeds obstacle placement so the same layout can be rebuilt.',
   goal_reward: 'Reward granted when the agent reaches the goal cell.',
   step_reward: 'Reward added on every step. A small negative value rewards finishing quickly.',

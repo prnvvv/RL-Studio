@@ -18,10 +18,12 @@ interface FieldProps {
   value: ParamValue | undefined
   error: string | undefined
   disabled: boolean
+  /** Also offer a slider for bounded numbers (environment dynamics). */
+  slider?: boolean
   onChange: (value: ParamValue) => void
 }
 
-function ParamField({ spec, value, error, disabled, onChange }: FieldProps) {
+function ParamField({ spec, value, error, disabled, slider, onChange }: FieldProps) {
   const id = `cfg-${spec.key}`
   // Numeric fields keep the typed text so partial input ("0.") is not clamped away.
   const [text, setText] = useState(String(value ?? ''))
@@ -58,23 +60,49 @@ function ParamField({ spec, value, error, disabled, onChange }: FieldProps) {
       />
     )
   } else {
-    control = (
+    const bounded =
+      slider === true &&
+      spec.min !== null &&
+      spec.max !== null &&
+      Number.isFinite(spec.min) &&
+      Number.isFinite(spec.max)
+    const numeric = Number(value)
+    const slide = bounded ? (
       <input
-        id={id}
-        type="number"
-        inputMode="decimal"
-        value={text}
+        type="range"
+        className="field__slider"
+        aria-label={`${spec.label} slider`}
         min={spec.min ?? undefined}
         max={spec.max ?? undefined}
         step={spec.step ?? 'any'}
+        value={Number.isFinite(numeric) ? numeric : (spec.min ?? 0)}
         disabled={disabled}
-        aria-invalid={error ? true : undefined}
-        aria-describedby={error ? `${id}-err` : undefined}
         onChange={(e) => {
           setText(e.target.value)
-          onChange(e.target.value === '' ? ('' as ParamValue) : Number(e.target.value))
+          onChange(Number(e.target.value))
         }}
       />
+    ) : null
+    control = (
+      <>
+        {slide}
+        <input
+          id={id}
+          type="number"
+          inputMode="decimal"
+          value={text}
+          min={spec.min ?? undefined}
+          max={spec.max ?? undefined}
+          step={spec.step ?? 'any'}
+          disabled={disabled}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? `${id}-err` : undefined}
+          onChange={(e) => {
+            setText(e.target.value)
+            onChange(e.target.value === '' ? ('' as ParamValue) : Number(e.target.value))
+          }}
+        />
+      </>
     )
   }
   return (
@@ -103,6 +131,7 @@ interface SectionProps {
   errors: FieldErrors
   disabled: boolean
   open?: boolean
+  sliders?: boolean
   onChange: (key: string, value: ParamValue) => void
   empty?: string
 }
@@ -115,6 +144,7 @@ function Section({
   errors,
   disabled,
   open,
+  sliders,
   onChange,
   empty,
 }: SectionProps) {
@@ -134,6 +164,7 @@ function Section({
                 errors[`${scope}.${spec.key}`] ?? validateParam(spec, values[spec.key]) ?? undefined
               }
               disabled={disabled}
+              slider={sliders}
               onChange={(value) => onChange(spec.key, value)}
             />
           ))}
@@ -203,13 +234,14 @@ export function ConfigPanel({
         onChange={(k, v) => onChange('agent_params', k, v)}
       />
       <Section
-        title={env ? `${env.name} settings` : 'Environment settings'}
+        title={env ? `Environment Dynamics · ${env.name}` : 'Environment Dynamics'}
         scope="env_params"
         specs={env?.params ?? []}
         values={draft.env_params}
         errors={errors}
         disabled={disabled}
         open
+        sliders
         empty="Select an environment to configure it."
         onChange={(k, v) => onChange('env_params', k, v)}
       />
