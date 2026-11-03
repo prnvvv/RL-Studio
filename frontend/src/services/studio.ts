@@ -109,7 +109,7 @@ function xhrUpload(
       resolve(result)
     }
     xhr.onload = () => {
-      let parsed: unknown = null
+      let parsed: unknown
       try {
         parsed = xhr.responseText ? (JSON.parse(xhr.responseText) as unknown) : null
       } catch {
