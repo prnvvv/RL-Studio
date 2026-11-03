@@ -1,5 +1,5 @@
 import { useFrameSnapshot } from '../useFrameSnapshot'
-import { adaptCartPole, cartPoleScene } from '../simulationAdapters'
+import { adaptCartPole, cartPoleActionDirection, cartPoleScene } from '../simulationAdapters'
 import type { RendererProps } from './types'
 
 /** Side view of the cart and pole, driven only by backend frame state. */
@@ -8,6 +8,7 @@ export function CartPole2D({ scene, store, palette }: RendererProps) {
   const dims = cartPoleScene(scene)
   const pose = adaptCartPole(frame, dims)
   const span = dims.x_limit + 0.8
+  const push = cartPoleActionDirection(frame)
   const failed = frame?.done === true && frame.outcome?.success === false
   const poleColor = failed ? palette.bad : palette.agent
 
@@ -31,6 +32,16 @@ export function CartPole2D({ scene, store, palette }: RendererProps) {
           strokeWidth={0.03}
         />
       ))}
+      {push !== 0 && frame && (
+        <polygon
+          key={frame.timestep}
+          className="action-flash"
+          data-testid="action-arrow"
+          points="0,-0.12 0.24,0 0,0.12"
+          fill={palette.agent}
+          transform={`translate(${pose.cartX + push * 0.5} 0) scale(${push} 1)`}
+        />
+      )}
       <g transform={`translate(${pose.cartX} 0)`}>
         <rect x={-0.25} y={-0.15} width={0.5} height={0.3} rx={0.03} fill={palette.accent} />
         <g transform={`translate(0 -0.15) rotate(${(pose.poleAngle * 180) / Math.PI})`}>
