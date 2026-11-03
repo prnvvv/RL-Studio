@@ -34,12 +34,21 @@ def _wait(client: TestClient, sid: str, states: set[str], timeout: float = 60.0)
     raise AssertionError(f"timed out waiting for {states}; last={snap.get('status')}")
 
 
+def _expected_builtin_agents() -> set[str]:
+    """Every built-in agent this deployment can run (PPO-LSTM needs sb3-contrib)."""
+    import importlib.util
+
+    base = {"PPO", "A2C", "DQN", "SAC", "TD3"}
+    return base | ({"PPO_LSTM"} if importlib.util.find_spec("sb3_contrib") else set())
+
+
 def test_catalog_lists_only_runnable_agents_with_derived_compatibility(client: TestClient) -> None:
     catalog = client.get(f"{BASE}/catalog").json()
-    assert {a["key"] for a in catalog["agents"]} == {"PPO", "A2C", "DQN"}
+    assert {a["key"] for a in catalog["agents"]} == _expected_builtin_agents()
     cartpole = next(e for e in catalog["environments"] if e["key"] == "cartpole")
     assert cartpole["action_space"] == {"type": "discrete", "n": 2}
-    assert set(cartpole["compatible_agents"]) == {"PPO", "A2C", "DQN"}
+    # CartPole is discrete, so continuous-only agents (SAC, TD3) are correctly absent.
+    assert set(cartpole["compatible_agents"]) == _expected_builtin_agents() - {"SAC", "TD3"}
 
 
 @pytest.mark.parametrize(

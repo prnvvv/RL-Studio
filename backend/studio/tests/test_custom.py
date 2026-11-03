@@ -72,7 +72,9 @@ def test_catalog_lists_uploaded_model_with_derived_compatibility(client: TestCli
     cartpole = next(e for e in catalog["environments"] if e["key"] == "cartpole")
     assert key in cartpole["compatible_agents"]
     assert key not in next(e for e in catalog["environments"] if e["key"] == "warehouse")["compatible_agents"]
-    assert {a["key"] for a in catalog["agents"] if a["kind"] == "builtin"} == {"PPO", "A2C", "DQN"}
+    from .test_studio import _expected_builtin_agents
+
+    assert {a["key"] for a in catalog["agents"] if a["kind"] == "builtin"} == _expected_builtin_agents()
 
 
 def test_duplicate_upload_is_idempotent(client: TestClient, ppo_zip: bytes) -> None:
