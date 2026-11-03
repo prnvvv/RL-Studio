@@ -3,6 +3,14 @@ import { MAX_LAYOUT_BYTES } from '../../services/studio'
 import { UploadDropzone, type UploadHooks, type UploadOutcome } from './UploadDropzone'
 import { findAgent, findEnvironment, incompatibilityReason } from './studioConfig'
 import type { Draft } from './studioConfig'
+import {
+  AgentGraph,
+  AgentIcon,
+  CheckBadge,
+  CubeIcon,
+  EnvironmentPreview,
+  LayersIcon,
+} from './libraryVisuals'
 import type { AgentTemplate, Catalog, EnvironmentTemplate, SpaceDescription } from './studioTypes'
 
 export type RemoveTarget = { kind: 'model' | 'environment'; id: string; key: string; name: string }
@@ -43,6 +51,16 @@ function sizeLabel(bytes: number): string {
   return bytes >= 1024 * 1024
     ? `${(bytes / 1024 / 1024).toFixed(1)} MB`
     : `${Math.max(1, Math.round(bytes / 1024))} KB`
+}
+
+/** "Proximal Policy Optimization. Clipped ..." becomes "Proximal Policy Optimization". */
+function fullName(agent: AgentTemplate): string {
+  const first = agent.description.split(/\.\s|\.$/)[0]?.trim()
+  return first && first.length <= 40 ? first : agent.name
+}
+
+function capitalize(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1)
 }
 
 function agentDetails(agent: AgentTemplate): string | null {
@@ -98,6 +116,13 @@ export function LibraryPanel({
   const [removing, setRemoving] = useState<string | null>(null)
   const selectedAgent = findAgent(catalog, draft.agent)
   const selectedEnv = findEnvironment(catalog, draft.environment)
+  // Real compatibility metadata: the selected environment's built-in agents, otherwise every
+  // built-in agent that at least one environment supports.
+  const compatibleAgents = (
+    selectedEnv
+      ? selectedEnv.compatible_agents
+      : [...new Set(catalog.environments.flatMap((env) => env.compatible_agents))]
+  ).filter((key) => !key.startsWith('custom:'))
 
   async function remove(target: RemoveTarget) {
     if (confirming !== target.key) {
@@ -129,41 +154,62 @@ export function LibraryPanel({
         </p>
       )}
 
-      <h3 className="section-title">Agents</h3>
-      <div role="radiogroup" aria-label="Agent">
+      <div className="section-head">
+        <h3>
+          <LayersIcon size={16} />
+          <span>Agents</span>
+          <span className="count-badge" aria-label={`${catalog.agents.length} agents`}>
+            {catalog.agents.length}
+          </span>
+        </h3>
+      </div>
+      <div role="radiogroup" aria-label="Agent" className="agent-grid">
         {catalog.agents.map((agent) => {
           const compatible =
             draft.environment === null || agent.compatible_environments.includes(draft.environment)
           const custom = agent.kind === 'custom'
           const details = agentDetails(agent)
+          const selected = draft.agent === agent.key
           return (
-            <div key={agent.key} className="choice-wrap">
+            <div key={agent.key} className="choice-wrap agent-wrap">
               <button
                 type="button"
                 role="radio"
-                className="choice"
-                aria-checked={draft.agent === agent.key}
+                className="agent-card"
+                data-selected={selected || undefined}
+                data-incompatible={!compatible || undefined}
+                aria-checked={selected}
                 disabled={locked}
                 onClick={() => onSelectAgent(agent.key)}
               >
-                <span className="choice__head">
-                  <span>{agent.name}</span>
-                  <span className="chip">{custom ? 'uploaded' : agent.family}</span>
+                <span className="agent-card__top">
+                  <span className="agent-card__icon">
+                    <AgentIcon agentKey={custom ? 'custom' : agent.key} />
+                  </span>
+                  <span className="agent-card__badge">{custom ? 'uploaded' : agent.family}</span>
                 </span>
-                <p>{agent.description}</p>
-                {details && <span className="choice__meta">{details}</span>}
-                <span className="chips">
+                <span className="agent-card__abbr">{agent.name}</span>
+                <span className="agent-card__name">
+                  {custom ? agent.description : fullName(agent)}
+                </span>
+                {custom ? (
+                  details && <span className="agent-card__details">{details}</span>
+                ) : (
+                  <AgentGraph agentKey={agent.key} />
+                )}
+                <span className="agent-card__tags">
                   {agent.action_spaces.map((space) => (
-                    <span key={space} className="chip">
-                      {space} actions
+                    <span key={space} className="tag">
+                      {capitalize(space)}
                     </span>
                   ))}
                   {!compatible && (
-                    <span className="chip chip--off">not compatible with selection</span>
+                    <span className="tag tag--off">not compatible with selection</span>
                   )}
                 </span>
-                {custom && <span style={{ display: 'block', height: 22 }} aria-hidden="true" />}
+                {custom && <span className="agent-card__reserve" aria-hidden="true" />}
               </button>
+              {selected && <CheckBadge />}
               {custom && agent.custom && (
                 <RemoveButton
                   confirming={confirming === agent.key}
@@ -192,46 +238,75 @@ export function LibraryPanel({
         upload={uploadModel}
       />
 
-      <h3 className="section-title">Environments</h3>
-      <div role="radiogroup" aria-label="Environment">
+      <div className="section-head">
+        <h3>
+          <CubeIcon size={16} />
+          <span>Environments</span>
+          <span className="count-badge" aria-label={`${catalog.environments.length} environments`}>
+            {catalog.environments.length}
+          </span>
+        </h3>
+        {compatibleAgents.length > 0 && (
+          <div className="compat" aria-label="Compatible agents">
+            <span>Compatible with</span>
+            {compatibleAgents.map((key) => (
+              <span key={key} className="tag">
+                {key}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+      <div role="radiogroup" aria-label="Environment" className="env-list">
         {catalog.environments.map((env) => {
           const compatible = draft.agent === null || env.compatible_agents.includes(draft.agent)
           const custom = env.kind === 'custom'
           const details = envDetails(env)
+          const selected = draft.environment === env.key
           return (
-            <div key={env.key} className="choice-wrap">
+            <div key={env.key} className="choice-wrap env-wrap">
               <button
                 type="button"
                 role="radio"
-                className="choice"
-                aria-checked={draft.environment === env.key}
+                className="env-card"
+                data-selected={selected || undefined}
+                data-incompatible={!compatible || undefined}
+                aria-checked={selected}
                 disabled={locked}
                 onClick={() => onSelectEnvironment(env.key)}
               >
-                <span className="choice__head">
-                  <span>{env.name}</span>
-                  <span className="chip">
-                    {custom ? 'uploaded grid' : `${env.dimension} · ${env.difficulty}`}
+                <span className="env-card__preview">
+                  <EnvironmentPreview
+                    envKey={env.key}
+                    renderer={env.renderer}
+                    layout={env.custom?.layout}
+                  />
+                </span>
+                <span className="env-card__body">
+                  <span className="env-card__title">{env.name}</span>
+                  <span className="env-card__desc">{env.description}</span>
+                  {details && <span className="env-card__meta">{details}</span>}
+                  <span className="env-card__meta">
+                    obs {spaceLabel(env.observation_space)} · act {spaceLabel(env.action_space)}
+                  </span>
+                  <span className="env-card__tags">
+                    <span className="tag">{custom ? 'uploaded grid' : env.dimension}</span>
+                    {!custom && <span className="tag">{capitalize(env.difficulty)}</span>}
+                    <span className="tag">{capitalize(env.action_space.type)}</span>
+                    {env.compatible_agents
+                      .filter((key) => !key.startsWith('custom:'))
+                      .map((agent) => (
+                        <span key={agent} className="tag">
+                          {agent}
+                        </span>
+                      ))}
+                    {!compatible && (
+                      <span className="tag tag--off">not compatible with selection</span>
+                    )}
                   </span>
                 </span>
-                <p>{env.description}</p>
-                {details && <span className="choice__meta">{details}</span>}
-                <span className="chips">
-                  <span className="chip">obs {spaceLabel(env.observation_space)}</span>
-                  <span className="chip">act {spaceLabel(env.action_space)}</span>
-                  {env.compatible_agents
-                    .filter((key) => !key.startsWith('custom:'))
-                    .map((agent) => (
-                      <span key={agent} className="chip">
-                        {agent}
-                      </span>
-                    ))}
-                  {!compatible && (
-                    <span className="chip chip--off">not compatible with selection</span>
-                  )}
-                </span>
-                {custom && <span style={{ display: 'block', height: 22 }} aria-hidden="true" />}
               </button>
+              {selected && <CheckBadge />}
               {custom && env.custom && (
                 <RemoveButton
                   confirming={confirming === env.key}
