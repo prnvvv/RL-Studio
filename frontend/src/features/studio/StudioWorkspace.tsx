@@ -46,11 +46,14 @@ import type { SessionCommand } from '../../services/studio'
 import { useStudioSession } from './useStudioSession'
 import './studio.css'
 import './studio.ux.css'
+import './studio.redesign.css'
+import { LogoMark } from './libraryVisuals'
 
 type LeftTab = 'library' | 'configure'
 type DockTab = 'metrics' | 'logs' | 'experiments'
 
-const LAYOUT_KEY = 'rl-studio-workspace-layout'
+// v2: the default split became 43% / 57%; layouts saved by v1 used 35%.
+const LAYOUT_KEY = 'rl-studio-workspace-layout-v2'
 const MIN_LEFT = 280
 const MIN_DOCK = 120
 
@@ -66,7 +69,7 @@ function loadLayout(): { left: number; dock: number } {
   } catch {
     // Storage unavailable or corrupt: fall back to defaults.
   }
-  return { left: Math.round(window.innerWidth * 0.35), dock: 300 }
+  return { left: Math.round(window.innerWidth * 0.43), dock: 300 }
 }
 
 function saveLayout(layout: { left: number; dock: number }) {
@@ -188,6 +191,12 @@ function WorkspaceBody({ catalog, session }: { catalog: Catalog; session: Sessio
     state.config !== null &&
     !active &&
     !sameConfig(toSessionConfig(draft), state.config)
+
+  const headerAgent = findAgent(catalog, draft.agent)
+  const headerEnv = findEnvironment(catalog, draft.environment)
+  const headerInfo =
+    state.name ??
+    (headerAgent && headerEnv ? `${headerAgent.name} · ${headerEnv.name}` : 'No session')
 
   const speed = state.progress?.speed ?? Number(draft.training.simulation_speed ?? 1)
 
@@ -508,9 +517,11 @@ function WorkspaceBody({ catalog, session }: { catalog: Catalog; session: Sessio
       <header className="studio-header">
         <div className="studio-header__left">
           <Link to="/" className="studio-header__brand">
-            RL Studio
+            <LogoMark />
+            <span>RL Studio</span>
           </Link>
-          <span className="studio-header__session">{state.name ?? 'No session'}</span>
+          <span className="studio-header__sep" aria-hidden="true" />
+          <span className="studio-header__session">{headerInfo}</span>
           <ConnectionLabel connection={state.connection} />
         </div>
         <nav className="studio-header__right" aria-label="Studio navigation">
