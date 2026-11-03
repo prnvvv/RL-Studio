@@ -1,5 +1,6 @@
 import type { ComponentType, SVGProps } from 'react'
 import { Link } from 'react-router-dom'
+import { AmbientWaves } from '../features/landing/AmbientWaves'
 import { FeatureStrip } from '../features/landing/FeatureStrip'
 import { CubeIcon, CycleIcon, PulseIcon } from '../features/landing/icons'
 import { LandingHero } from '../features/landing/LandingHero'
@@ -74,6 +75,7 @@ export function HomePage() {
   return (
     <div className="ls-root">
       <div className="ls-first-screen">
+        <AmbientWaves />
         <LandingNavbar />
         <main className="ls-main">
           <LandingHero />
