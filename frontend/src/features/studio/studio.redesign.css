@@ -198,14 +198,92 @@
   }
 }
 
-/* ---------- Agent cards ---------- */
-.agent-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--space-3);
+/* ---------- Carousels (agents and environments) ---------- */
+.carousel {
+  position: relative;
 }
+.carousel__track {
+  display: flex;
+  gap: var(--space-3);
+  /* Room for the lift on hover and the selection badge that sits outside the card. */
+  padding: 9px 2px 12px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline: 2px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--text-muted) transparent;
+}
+.carousel__track::-webkit-scrollbar {
+  height: 6px;
+}
+.carousel__track::-webkit-scrollbar-thumb {
+  background: var(--text-muted);
+  border-radius: 3px;
+}
+/* Fade only the edge that still hides cards: the cue that there is more to scroll to. */
+.carousel[data-end] .carousel__track {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 44px), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 44px), transparent);
+}
+.carousel[data-start] .carousel__track {
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 44px);
+  mask-image: linear-gradient(to right, transparent, #000 44px);
+}
+.carousel[data-start][data-end] .carousel__track {
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 44px,
+    #000 calc(100% - 44px),
+    transparent
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 44px,
+    #000 calc(100% - 44px),
+    transparent
+  );
+}
+.carousel-nav {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+}
+.carousel-nav button {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid var(--border-primary);
+  border-radius: 50%;
+  font: inherit;
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    color 150ms ease,
+    border-color 150ms ease;
+}
+.carousel-nav button:hover:not(:disabled) {
+  color: var(--text-primary);
+  border-color: var(--text-primary);
+}
+.carousel-nav button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+/* ---------- Agent cards ---------- */
 .agent-wrap {
   display: flex;
+  /* About three cards fit; the rest scroll into view and snap. */
+  flex: 0 0 calc((100% - 2 * var(--space-3)) / 3);
+  min-width: 148px;
+  scroll-snap-align: start;
 }
 .agent-card {
   display: flex;
@@ -326,10 +404,11 @@
 }
 
 /* ---------- Environment cards ---------- */
-.env-list {
+.env-wrap {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
+  /* Wide cards, with a peek of the next one so it is clear the row scrolls. */
+  flex: 0 0 min(88%, 420px);
+  scroll-snap-align: start;
 }
 .env-card {
   display: flex;
@@ -408,6 +487,13 @@
 .env-card__meta {
   color: var(--text-muted);
   font: 400 10px/1.5 var(--font-mono);
+}
+.env-card[data-unavailable] {
+  opacity: 0.55;
+}
+.env-card__meta--warn {
+  color: var(--text-secondary);
+  font-style: italic;
 }
 .env-card__tags {
   display: flex;
@@ -499,8 +585,8 @@
 
 /* ---------- Narrower left panel ---------- */
 @container (max-width: 470px) {
-  .agent-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .agent-wrap {
+    flex-basis: calc((100% - var(--space-3)) / 2);
   }
 }
 @container (max-width: 400px) {
@@ -543,4 +629,18 @@
   .check-badge {
     animation: none;
   }
+}
+
+/* ---------- Environment Dynamics sliders ---------- */
+.field__slider {
+  width: 100%;
+  height: 18px;
+  margin: 0 0 2px;
+  accent-color: var(--text-primary);
+  background: transparent;
+  cursor: pointer;
+}
+.field__slider:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
 }
