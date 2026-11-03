@@ -162,7 +162,9 @@ def describe_state_dict(state: dict[str, Any], data_keys: set[str] | None) -> di
             raise _fail("log_std does not match the action head")
         algorithm = "ActorCritic (PPO/A2C)"
         if data_keys is not None:
-            algorithm = "PPO" if "n_epochs" in data_keys else "A2C" if "use_rms_prop" in data_keys else algorithm
+            # PPO stores clipping/epoch settings; A2C has no keys of its own, so it is the
+            # remaining on-policy actor-critic. Weights alone cannot tell them apart.
+            algorithm = "PPO" if {"n_epochs", "clip_range"} & data_keys else "A2C"
         return {"family": "actor_critic", "algorithm": algorithm, "obs_dim": obs_dim, "action_type": "box" if is_box else "discrete", "action_dim": action_out, "net_arch": {"pi": pi, "vf": vf}, "activation": "Tanh"}
 
     raise _fail("These weights are not a standard SB3 MlpPolicy (expected actor-critic or DQN tensors)")
@@ -296,13 +298,19 @@ def get_model(key_or_id: str) -> dict[str, Any]:
         raise NotFoundError("Model not found", details={"model_id": model_id}) from None
 
 
-def store_model(temp_path: Path, filename: str, name: str | None) -> tuple[dict[str, Any], bool]:
-    """Validate ``temp_path`` and move it into the registry. Returns (public record, was_duplicate)."""
+def require_supported_extension(filename: str) -> str:
+    """Fail fast (before reading the body) on formats that are refused."""
     ext = Path(filename).suffix.lower()
     if ext in _REJECTED_FORMATS:
         raise _fail(_REJECTED_FORMATS[ext])
     if ext not in ALLOWED_EXTENSIONS:
         raise _fail(f"Unsupported file type {ext or '(none)'}. Upload an SB3 .zip or a .pt state dict.")
+    return ext
+
+
+def store_model(temp_path: Path, filename: str, name: str | None) -> tuple[dict[str, Any], bool]:
+    """Validate ``temp_path`` and move it into the registry. Returns (public record, was_duplicate)."""
+    ext = require_supported_extension(filename)
     size = temp_path.stat().st_size
     if size == 0:
         raise _fail("The file is empty")
@@ -328,6 +336,7 @@ def store_model(temp_path: Path, filename: str, name: str | None) -> tuple[dict[
         "stored_as": stored_as,
         **spec,
         "activation_assumed": True,
+        "algorithm_inferred": True,
     }
     directory = models_dir() / model_id
     directory.mkdir(parents=True, exist_ok=True)
