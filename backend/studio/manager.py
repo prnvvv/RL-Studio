@@ -56,6 +56,12 @@ class SessionManager:
                 )
             return session.start()
 
+    def active_references(self) -> set[str]:
+        """Agent and environment keys used by sessions that are currently running."""
+        with self._lock:
+            live = [s for s in self._sessions.values() if s.status in ACTIVE]
+        return {s.config["agent"] for s in live} | {s.config["environment"] for s in live}
+
     def _evict_if_full(self) -> None:
         if len(self._sessions) < MAX_SESSIONS:
             return
