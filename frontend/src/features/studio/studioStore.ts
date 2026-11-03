@@ -9,6 +9,7 @@
 import type {
   CheckpointRecord,
   CommandResult,
+  ControlState,
   EpisodeRecord,
   EvaluationRecord,
   FramePayload,
@@ -44,6 +45,7 @@ export interface StudioState {
   logs: LogEntry[]
   lastSeq: number
   connection: ConnectionState
+  controls: ControlState
   /** Increments whenever the backend resets the run, so views can clear local view state. */
   resetCount: number
 }
@@ -65,6 +67,7 @@ export const emptyState: StudioState = {
   logs: [],
   lastSeq: 0,
   connection: 'idle',
+  controls: { human: false, human_steps: 0 },
   resetCount: 0,
 }
 
@@ -112,6 +115,7 @@ export class StudioStore {
   /** Bumped for every frame so cheap consumers can detect change. */
   frameVersion = 0
   readonly stream: StreamStats = { frames: 0, rttMs: null }
+  private sender: ((message: unknown) => boolean) | null = null
 
   getState = (): StudioState => this.state
 
@@ -170,7 +174,18 @@ export class StudioStore {
       checkpoints: snapshot.checkpoints ?? [],
       logs: (snapshot.logs ?? []).map(toLogEntry),
       lastSeq: snapshot.seq,
+      controls: snapshot.controls ?? { human: false, human_steps: 0 },
     })
+  }
+
+  /** Called by the connection when its socket opens (and with null when it closes). */
+  setSender(sender: ((message: unknown) => boolean) | null): void {
+    this.sender = sender
+  }
+
+  /** Send a message to the backend over the live stream. False when there is no open socket. */
+  send(message: unknown): boolean {
+    return this.sender !== null && this.sender(message)
   }
 
   recordRtt(rttMs: number): void {
@@ -235,6 +250,15 @@ export class StudioStore {
           checkpoints: [...base.checkpoints, payload as unknown as CheckpointRecord],
         })
         return
+      case 'control':
+        this.set({
+          ...base,
+          controls: {
+            human: payload.human === true,
+            human_steps: typeof payload.human_steps === 'number' ? payload.human_steps : 0,
+          },
+        })
+        return
       case 'speed':
         this.set(
           base.progress && typeof payload.speed === 'number'
@@ -250,6 +274,7 @@ export class StudioStore {
           evaluations: [],
           checkpoints: [],
           error: null,
+          controls: { human: false, human_steps: 0 },
           resetCount: base.resetCount + 1,
         })
         return

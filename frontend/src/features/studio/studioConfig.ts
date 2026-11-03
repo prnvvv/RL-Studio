@@ -146,6 +146,8 @@ export interface ControlAvailability {
   resume: boolean
   stop: boolean
   reset: boolean
+  /** Manual control can be taken or released. */
+  manual: boolean
 }
 
 /**
@@ -165,6 +167,7 @@ export function controlAvailability(
     pause: status === 'running' && pendingCommand !== 'pause',
     resume: status === 'paused' || (status === 'running' && pendingCommand === 'pause'),
     stop: status === 'running' || status === 'paused',
+    manual: status === 'running' || status === 'paused',
     reset:
       status === 'initialized' ||
       status === 'stopped' ||

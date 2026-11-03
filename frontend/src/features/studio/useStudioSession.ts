@@ -159,6 +159,28 @@ export function useStudioSession(service: StudioService = defaultService) {
     [service, store],
   )
 
+  const setManualControl = useCallback(
+    async (active: boolean): Promise<boolean> => {
+      const sessionId = store.getState().sessionId
+      if (sessionId === null) return false
+      const result = await service.setControl(sessionId, active)
+      if (result.state === 'error') {
+        setNotice({
+          tone: 'error',
+          message: describeFailure('Changing manual control', result.error),
+        })
+        return false
+      }
+      return true
+    },
+    [service, store],
+  )
+
+  const sendAction = useCallback(
+    (action: number) => store.send({ type: 'action', action }),
+    [store],
+  )
+
   const setSpeed = useCallback(
     async (speed: number) => {
       const sessionId = store.getState().sessionId
@@ -181,6 +203,8 @@ export function useStudioSession(service: StudioService = defaultService) {
     initialize,
     command,
     setSpeed,
+    setManualControl,
+    sendAction,
     reloadCatalog: loadCatalog,
     refreshCatalog,
     service,

@@ -208,11 +208,19 @@ export interface CheckpointRecord {
   environment: string
 }
 
+/** Manual-control state published by the backend (`controls` in snapshots, `control` events). */
+export interface ControlState {
+  human: boolean
+  human_steps: number
+}
+
 export interface FramePayload {
   timestep: number
   episode: number
   episode_step: number
   action: number | number[] | null
+  /** Who chose `action`: the agent, or a human who took manual control. */
+  source?: 'agent' | 'human'
   reward: number
   episode_reward: number
   collision: boolean
@@ -248,6 +256,7 @@ export interface SessionSummary {
   environment: string
   /** `inference` when an uploaded model is run without learning. */
   mode?: 'training' | 'inference'
+  controls?: ControlState
   config: SessionConfig
   created_at: string
   started_at: string | null

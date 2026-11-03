@@ -187,6 +187,7 @@ export interface StudioService {
   getSession(sessionId: string, signal?: AbortSignal): Promise<ServiceResult<SessionSnapshot>>
   command(sessionId: string, command: SessionCommand): Promise<ServiceResult<CommandResult>>
   setSpeed(sessionId: string, speed: number): Promise<ServiceResult<CommandResult>>
+  setControl(sessionId: string, active: boolean): Promise<ServiceResult<CommandResult>>
   listSessions(signal?: AbortSignal): Promise<ServiceResult<SessionSummary[]>>
   listHistory(signal?: AbortSignal): Promise<ServiceResult<ExperimentSummary[]>>
   getHistoryRecord(runId: string, signal?: AbortSignal): Promise<ServiceResult<SessionSnapshot>>
@@ -237,6 +238,14 @@ export function createStudioService(): StudioService {
       return guard(
         await api.post<unknown>(`${BASE}/sessions/${encodeURIComponent(sessionId)}/speed`, {
           jsonBody: { speed },
+        }),
+        isCommandResult,
+      )
+    },
+    async setControl(sessionId, active) {
+      return guard(
+        await api.post<unknown>(`${BASE}/sessions/${encodeURIComponent(sessionId)}/control`, {
+          jsonBody: { active },
         }),
         isCommandResult,
       )

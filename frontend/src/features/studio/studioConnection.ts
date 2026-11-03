@@ -67,6 +67,11 @@ export function connectSession(store: StudioStore, options: ConnectionOptions): 
     socket = ws
 
     ws.onopen = () => {
+      store.setSender((message) => {
+        if (ws.readyState !== 1) return false
+        ws.send(JSON.stringify(message))
+        return true
+      })
       if (pingInterval <= 0) return
       const ping = () => {
         if (ws.readyState === 1) ws.send(JSON.stringify({ type: 'ping', t: now() }))
@@ -94,6 +99,7 @@ export function connectSession(store: StudioStore, options: ConnectionOptions): 
 
     ws.onclose = (closeEvent: CloseEvent) => {
       stopPinging()
+      store.setSender(null)
       if (disposed) return
       // 4404: the backend does not know this session; retrying cannot help.
       if (closeEvent.code === 4404) {
@@ -115,6 +121,7 @@ export function connectSession(store: StudioStore, options: ConnectionOptions): 
   return () => {
     disposed = true
     stopPinging()
+    store.setSender(null)
     if (timer !== null) clearTimeout(timer)
     if (socket !== null) {
       socket.onclose = null
