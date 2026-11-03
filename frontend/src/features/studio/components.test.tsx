@@ -40,6 +40,8 @@ describe('ControlToolbar', () => {
     onSpeed: vi.fn(),
     onResetCamera: vi.fn(),
     onViewModeChange: vi.fn(),
+    manual: { available: true, active: false, hint: '← / A' },
+    onToggleManual: vi.fn(),
   }
   const renderBar = (status: SessionStatus | null, busy: string | null = null) =>
     render(

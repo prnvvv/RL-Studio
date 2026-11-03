@@ -25,6 +25,8 @@ interface Props {
   /** Bumped by the parent to reset the camera. */
   cameraResetNonce: number
   viewMode: ViewMode
+  /** Key help shown while the human drives; null when the agent is in control. */
+  manualHint?: string | null
 }
 
 class CanvasBoundary extends Component<
@@ -65,6 +67,7 @@ function Hud({
     ['Step', frame ? String(frame.episode_step) : '—'],
     ['Reward', frame ? frame.episode_reward.toFixed(2) : '—'],
     ['Action', frame ? describeAction(frame.action) : '—'],
+    ['Source', frame?.source ?? '—'],
   ]
   return (
     <div className="sim-hud" aria-label="Simulation readout">
@@ -96,6 +99,7 @@ export function SimulationViewport({
   preview,
   cameraResetNonce,
   viewMode,
+  manualHint = null,
 }: Props) {
   const palette = useScenePalette()
   const definition = getRenderer(rendererKey)
@@ -175,6 +179,11 @@ export function SimulationViewport({
       {definition !== null && (
         <>
           <StreamOverlay store={store} />
+          {manualHint !== null && (
+            <div className="sim-manual" role="status">
+              <strong>Manual control</strong> — {manualHint}
+            </div>
+          )}
           <Hud store={store} status={status} preview={preview} />
           <div className="sim-shortcuts" aria-hidden="true">
             <kbd>Space</kbd> pause / resume · <kbd>C</kbd> reset camera

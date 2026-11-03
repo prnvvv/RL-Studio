@@ -20,6 +20,8 @@ interface Props {
   onSpeed: (speed: number) => void
   onResetCamera: () => void
   onViewModeChange: (mode: ViewMode) => void
+  manual: { available: boolean; active: boolean; hint: string | null }
+  onToggleManual: () => void
 }
 
 function Spinner() {
@@ -44,6 +46,8 @@ export function ControlToolbar({
   onSpeed,
   onResetCamera,
   onViewModeChange,
+  manual,
+  onToggleManual,
 }: Props) {
   const idle = busy === null
   const label = pendingCommand === 'pause' ? 'pausing…' : (status ?? 'no session')
@@ -119,6 +123,20 @@ export function ControlToolbar({
           title="Discard this run's metrics and rebuild the environment"
         >
           {labelled('Resetting…', 'Reset', 'reset')}
+        </button>
+        <button
+          type="button"
+          className={`btn btn--ghost${manual.active ? ' is-active' : ''}`}
+          aria-pressed={manual.active}
+          disabled={!manual.available || !idle}
+          onClick={onToggleManual}
+          title={
+            manual.hint
+              ? `Take over the agent with the keyboard: ${manual.hint}`
+              : 'This environment has no keyboard mapping for manual control'
+          }
+        >
+          {manual.active ? 'Release control' : 'Take control'}
         </button>
       </div>
 

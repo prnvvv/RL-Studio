@@ -19,6 +19,8 @@ import { SimulationViewport } from './SimulationViewport'
 import { webglAvailable } from './webgl'
 import { ToastProvider } from './toast'
 import { useToast } from './toastState'
+import { controlHint } from './humanControl'
+import { useManualControl } from './useManualControl'
 import type { UploadHooks, UploadOutcome } from './UploadDropzone'
 import {
   controlAvailability,
@@ -156,6 +158,29 @@ function WorkspaceBody({ catalog, session }: { catalog: Catalog; session: Sessio
     if (ok) {
       setCameraNonce((n) => n + 1)
       toast.push('success', 'Session initialized')
+    }
+  }
+
+  const manualActive = state.controls.human
+  const manualHint = controlHint(viewEnv?.renderer ?? null)
+  const sendManualAction = useCallback(
+    (action: number) => {
+      if (!session.sendAction(action))
+        toast.push('error', 'Not connected to the session: action not sent')
+    },
+    [session, toast],
+  )
+  useManualControl(manualActive, viewEnv?.renderer ?? null, sendManualAction)
+  const toggleManual = async () => {
+    const next = !manualActive
+    const ok = await session.setManualControl(next)
+    if (ok) {
+      toast.push(
+        'info',
+        next
+          ? `Manual control taken. ${manualHint ?? ''}`.trim()
+          : 'Manual control released: the agent is acting again',
+      )
     }
   }
 
@@ -426,6 +451,12 @@ function WorkspaceBody({ catalog, session }: { catalog: Catalog; session: Sessio
             onSpeed={onSpeed}
             onResetCamera={() => setCameraNonce((n) => n + 1)}
             onViewModeChange={setViewMode}
+            manual={{
+              available: availability.manual && manualHint !== null,
+              active: manualActive,
+              hint: manualHint,
+            }}
+            onToggleManual={() => void toggleManual()}
           />
           {state.error && (
             <p
@@ -452,6 +483,7 @@ function WorkspaceBody({ catalog, session }: { catalog: Catalog; session: Sessio
             preview={state.sessionId === null}
             cameraResetNonce={cameraNonce}
             viewMode={viewMode}
+            manualHint={manualActive ? manualHint : null}
           />
 
           <div className="dock" style={{ ['--dock-height' as string]: `${layout.dock}px` }}>
