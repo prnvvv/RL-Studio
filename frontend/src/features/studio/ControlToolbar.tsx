@@ -33,22 +33,54 @@ export function ControlToolbar({
   const label = pendingCommand === 'pause' ? 'pausing…' : (status ?? 'no session')
   return (
     <div className="control-bar" role="toolbar" aria-label="Training controls">
-      <button type="button" className="btn btn--ghost" disabled={!availability.initialize || !idle} onClick={onInitialize} title={initializeHint ?? 'Create the sandbox for the selected agent and environment'}>
+      <button
+        type="button"
+        className="btn btn--ghost"
+        disabled={!availability.initialize || !idle}
+        onClick={onInitialize}
+        title={initializeHint ?? 'Create the sandbox for the selected agent and environment'}
+      >
         {busy === 'initialize' ? 'Initializing…' : 'Initialize'}
       </button>
-      <button type="button" className="btn" disabled={!availability.train || !idle} onClick={() => onCommand('start')}>
+      <button
+        type="button"
+        className="btn"
+        disabled={!availability.train || !idle}
+        onClick={() => onCommand('start')}
+      >
         Train
       </button>
-      <button type="button" className="btn btn--ghost" disabled={!availability.pause || !idle} onClick={() => onCommand('pause')}>
+      <button
+        type="button"
+        className="btn btn--ghost"
+        disabled={!availability.pause || !idle}
+        onClick={() => onCommand('pause')}
+      >
         Pause
       </button>
-      <button type="button" className="btn btn--ghost" disabled={!availability.resume || !idle} onClick={() => onCommand('resume')}>
+      <button
+        type="button"
+        className="btn btn--ghost"
+        disabled={!availability.resume || !idle}
+        onClick={() => onCommand('resume')}
+      >
         Resume
       </button>
-      <button type="button" className="btn btn--danger" disabled={!availability.stop || !idle} onClick={() => onCommand('stop')}>
+      <button
+        type="button"
+        className="btn btn--danger"
+        disabled={!availability.stop || !idle}
+        onClick={() => onCommand('stop')}
+      >
         Stop
       </button>
-      <button type="button" className="btn btn--ghost" disabled={!availability.reset || !idle} onClick={() => onCommand('reset')} title="Discard this run's metrics and rebuild the environment">
+      <button
+        type="button"
+        className="btn btn--ghost"
+        disabled={!availability.reset || !idle}
+        onClick={() => onCommand('reset')}
+        title="Discard this run's metrics and rebuild the environment"
+      >
         Reset
       </button>
 
@@ -57,9 +89,16 @@ export function ControlToolbar({
       <label htmlFor="sim-speed" style={{ color: 'var(--text-muted)', fontSize: 'var(--text-xs)' }}>
         Playback speed
       </label>
-      <select id="sim-speed" value={speed} onChange={(e) => onSpeed(Number(e.target.value))} title="Paces the simulation for viewing. It does not change the learning algorithm.">
+      <select
+        id="sim-speed"
+        value={speed}
+        onChange={(e) => onSpeed(Number(e.target.value))}
+        title="Paces the simulation for viewing. It does not change the learning algorithm."
+      >
         {SPEED_OPTIONS.map((option) => (
-          <option key={option.value} value={option.value}>{option.label}</option>
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
         ))}
       </select>
       <button type="button" className="btn btn--ghost" onClick={onResetCamera}>

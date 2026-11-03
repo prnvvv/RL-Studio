@@ -28,7 +28,11 @@ export function GridMaze3D({ scene, store, palette }: RendererProps) {
   const lastCell = useRef<string>('')
   const lastEpisode = useRef(-1)
   const trail = useMemo(
-    () => new ThreeLine(new BufferGeometry(), new LineBasicMaterial({ transparent: true, opacity: 0.7 })),
+    () =>
+      new ThreeLine(
+        new BufferGeometry(),
+        new LineBasicMaterial({ transparent: true, opacity: 0.7 }),
+      ),
     [],
   )
 
@@ -64,7 +68,7 @@ export function GridMaze3D({ scene, store, palette }: RendererProps) {
       lastCell.current = `${row},${col}`
       trailPoints.current = [...trailPoints.current, here].slice(-TRAIL_LENGTH)
     }
-    (trail.material as LineBasicMaterial).color.set(palette.accent)
+    ;(trail.material as LineBasicMaterial).color.set(palette.accent)
     trail.geometry.setFromPoints(trailPoints.current.map(([px, py, pz]) => new Vector3(px, py, pz)))
   })
 
@@ -80,7 +84,20 @@ export function GridMaze3D({ scene, store, palette }: RendererProps) {
         <boxGeometry args={[grid.cols, 0.1, grid.rows]} />
         <meshStandardMaterial color={palette.floor} />
       </mesh>
-      <gridHelper args={[Math.max(grid.rows, grid.cols), Math.max(grid.rows, grid.cols), palette.grid, palette.grid]} position={[0, 0.001, 0]} scale={[grid.cols / Math.max(grid.rows, grid.cols), 1, grid.rows / Math.max(grid.rows, grid.cols)]} />
+      <gridHelper
+        args={[
+          Math.max(grid.rows, grid.cols),
+          Math.max(grid.rows, grid.cols),
+          palette.grid,
+          palette.grid,
+        ]}
+        position={[0, 0.001, 0]}
+        scale={[
+          grid.cols / Math.max(grid.rows, grid.cols),
+          1,
+          grid.rows / Math.max(grid.rows, grid.cols),
+        ]}
+      />
       {grid.obstacles.map(([r, c]) => {
         const [ox, oz] = cellToWorld(grid, r, c)
         return (
@@ -96,7 +113,11 @@ export function GridMaze3D({ scene, store, palette }: RendererProps) {
       </mesh>
       <mesh ref={goalMarker} position={[gx, 0.45, gz]}>
         <octahedronGeometry args={[0.18]} />
-        <meshStandardMaterial color={palette.good} emissive={palette.good} emissiveIntensity={0.5} />
+        <meshStandardMaterial
+          color={palette.good}
+          emissive={palette.good}
+          emissiveIntensity={0.5}
+        />
       </mesh>
       <primitive object={trail} />
       <group ref={agent} position={[startX, AGENT_RADIUS, startZ]}>

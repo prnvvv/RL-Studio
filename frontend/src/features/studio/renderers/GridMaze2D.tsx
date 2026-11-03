@@ -18,17 +18,56 @@ export function GridMaze2D({ scene, store, palette }: RendererProps) {
       preserveAspectRatio="xMidYMid meet"
       style={{ width: '100%', height: '100%', background: palette.background }}
     >
-      <rect x={0} y={0} width={grid.cols} height={grid.rows} fill={palette.floor} stroke={palette.grid} strokeWidth={0.04} />
+      <rect
+        x={0}
+        y={0}
+        width={grid.cols}
+        height={grid.rows}
+        fill={palette.floor}
+        stroke={palette.grid}
+        strokeWidth={0.04}
+      />
       {Array.from({ length: grid.rows + 1 }, (_, i) => (
-        <line key={`r${i}`} x1={0} x2={grid.cols} y1={i} y2={i} stroke={palette.grid} strokeWidth={0.02} />
+        <line
+          key={`r${i}`}
+          x1={0}
+          x2={grid.cols}
+          y1={i}
+          y2={i}
+          stroke={palette.grid}
+          strokeWidth={0.02}
+        />
       ))}
       {Array.from({ length: grid.cols + 1 }, (_, i) => (
-        <line key={`c${i}`} y1={0} y2={grid.rows} x1={i} x2={i} stroke={palette.grid} strokeWidth={0.02} />
+        <line
+          key={`c${i}`}
+          y1={0}
+          y2={grid.rows}
+          x1={i}
+          x2={i}
+          stroke={palette.grid}
+          strokeWidth={0.02}
+        />
       ))}
       {grid.obstacles.map(([r, c]) => (
-        <rect key={`o${r}-${c}`} x={c + 0.06} y={r + 0.06} width={0.88} height={0.88} fill={palette.structure} />
+        <rect
+          key={`o${r}-${c}`}
+          x={c + 0.06}
+          y={r + 0.06}
+          width={0.88}
+          height={0.88}
+          fill={palette.structure}
+        />
       ))}
-      <rect x={grid.goal[1] + 0.12} y={grid.goal[0] + 0.12} width={0.76} height={0.76} fill="none" stroke={palette.good} strokeWidth={0.08} />
+      <rect
+        x={grid.goal[1] + 0.12}
+        y={grid.goal[0] + 0.12}
+        width={0.76}
+        height={0.76}
+        fill="none"
+        stroke={palette.good}
+        strokeWidth={0.08}
+      />
       <circle cx={col + 0.5} cy={row + 0.5} r={0.3} fill={hit ? palette.bad : palette.agent} />
     </svg>
   )

@@ -45,7 +45,10 @@ export function useScenePalette(): ScenePalette {
   const [theme, setTheme] = useState(currentTheme)
   useEffect(() => {
     const observer = new MutationObserver(() => setTheme(currentTheme()))
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['data-theme'],
+    })
     return () => observer.disconnect()
   }, [])
   return theme === 'light' ? LIGHT : DARK

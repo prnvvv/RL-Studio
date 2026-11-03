@@ -19,8 +19,15 @@ export function CartPole3D({ scene, store, palette }: RendererProps) {
   useFrame((_, delta) => {
     const frame = store.frame
     const pose = adaptCartPole(frame, dims)
-    if (cart.current) cart.current.position.x = MathUtils.damp(cart.current.position.x, pose.cartX, DAMPING, delta)
-    if (pole.current) pole.current.rotation.z = MathUtils.damp(pole.current.rotation.z, -pose.poleAngle, DAMPING, delta)
+    if (cart.current)
+      cart.current.position.x = MathUtils.damp(cart.current.position.x, pose.cartX, DAMPING, delta)
+    if (pole.current)
+      pole.current.rotation.z = MathUtils.damp(
+        pole.current.rotation.z,
+        -pose.poleAngle,
+        DAMPING,
+        delta,
+      )
     if (poleMaterial.current) {
       const failed = frame?.done === true && frame.outcome?.success === false
       poleMaterial.current.color.set(failed ? palette.bad : palette.agent)

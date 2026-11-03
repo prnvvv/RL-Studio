@@ -133,7 +133,9 @@
   font-size: var(--text-sm);
   font-weight: 500;
   cursor: pointer;
-  transition: opacity 120ms ease, background 120ms ease;
+  transition:
+    opacity 120ms ease,
+    background 120ms ease;
 }
 .btn:hover:not(:disabled) {
   opacity: 0.85;
@@ -211,7 +213,9 @@
   color: inherit;
   font: inherit;
   cursor: pointer;
-  transition: border-color 120ms ease, background 120ms ease;
+  transition:
+    border-color 120ms ease,
+    background 120ms ease;
 }
 .choice:hover:not(:disabled) {
   background: var(--bg-hover);

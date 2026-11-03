@@ -1,5 +1,11 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { findAgent, findEnvironment, validateParam, type Draft, type FieldErrors } from './studioConfig'
+import {
+  findAgent,
+  findEnvironment,
+  validateParam,
+  type Draft,
+  type FieldErrors,
+} from './studioConfig'
 import type { Catalog, ParamSpec, ParamValue, ParamValues } from './studioTypes'
 
 interface FieldProps {
@@ -23,15 +29,28 @@ function ParamField({ spec, value, error, disabled, onChange }: FieldProps) {
   let control: ReactNode
   if (spec.kind === 'choice') {
     control = (
-      <select id={id} value={String(value)} disabled={disabled} onChange={(e) => onChange(e.target.value)}>
+      <select
+        id={id}
+        value={String(value)}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.value)}
+      >
         {spec.options.map((option) => (
-          <option key={option} value={option}>{option}</option>
+          <option key={option} value={option}>
+            {option}
+          </option>
         ))}
       </select>
     )
   } else if (spec.kind === 'bool') {
     control = (
-      <input id={id} type="checkbox" checked={value === true} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />
+      <input
+        id={id}
+        type="checkbox"
+        checked={value === true}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.checked)}
+      />
     )
   } else {
     control = (
@@ -78,7 +97,17 @@ interface SectionProps {
   empty?: string
 }
 
-function Section({ title, scope, specs, values, errors, disabled, open, onChange, empty }: SectionProps) {
+function Section({
+  title,
+  scope,
+  specs,
+  values,
+  errors,
+  disabled,
+  open,
+  onChange,
+  empty,
+}: SectionProps) {
   return (
     <details className="cfg-section" open={open}>
       <summary>{title}</summary>
@@ -91,7 +120,9 @@ function Section({ title, scope, specs, values, errors, disabled, open, onChange
               key={spec.key}
               spec={spec}
               value={values[spec.key]}
-              error={errors[`${scope}.${spec.key}`] ?? (validateParam(spec, values[spec.key]) ?? undefined)}
+              error={
+                errors[`${scope}.${spec.key}`] ?? validateParam(spec, values[spec.key]) ?? undefined
+              }
               disabled={disabled}
               onChange={(value) => onChange(spec.key, value)}
             />
@@ -108,7 +139,11 @@ interface Props {
   errors: FieldErrors
   /** Frozen while a session is active; edits apply on the next initialization. */
   disabled: boolean
-  onChange: (scope: 'agent_params' | 'env_params' | 'training', key: string, value: ParamValue) => void
+  onChange: (
+    scope: 'agent_params' | 'env_params' | 'training',
+    key: string,
+    value: ParamValue,
+  ) => void
 }
 
 /** Parameter forms generated from the backend's declarative specs. */
@@ -120,7 +155,10 @@ export function ConfigPanel({ catalog, draft, errors, disabled, onChange }: Prop
   return (
     <div>
       {disabled && (
-        <p className="note">Configuration is locked while a session is active. Reset or stop, then initialize again to apply changes.</p>
+        <p className="note">
+          Configuration is locked while a session is active. Reset or stop, then initialize again to
+          apply changes.
+        </p>
       )}
       <Section
         title={agent ? `${agent.name} hyperparameters` : 'Agent hyperparameters'}

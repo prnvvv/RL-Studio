@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type PointerEvent,
+} from 'react'
 import { Link } from 'react-router-dom'
 import { ThemeToggle } from '../../components/ThemeToggle'
 import { ConfigPanel } from './ConfigPanel'
@@ -84,10 +92,16 @@ function WorkspaceBody({ catalog, session }: { catalog: Catalog; session: Sessio
   const active = state.status !== null && ACTIVE_STATUSES.includes(state.status)
   const errors = useMemo(() => validateDraft(catalog, draft), [catalog, draft])
   const mismatch = incompatibilityReason(catalog, draft.agent, draft.environment)
-  const ready = draft.agent !== null && draft.environment !== null && mismatch === null && Object.keys(errors).length === 0
-  const initializeHint = !draft.agent || !draft.environment
-    ? 'Select an agent and an environment first'
-    : mismatch ?? (Object.keys(errors).length > 0 ? 'Fix the highlighted configuration fields' : null)
+  const ready =
+    draft.agent !== null &&
+    draft.environment !== null &&
+    mismatch === null &&
+    Object.keys(errors).length === 0
+  const initializeHint =
+    !draft.agent || !draft.environment
+      ? 'Select an agent and an environment first'
+      : (mismatch ??
+        (Object.keys(errors).length > 0 ? 'Fix the highlighted configuration fields' : null))
   const availability = controlAvailability(state.status, state.pendingCommand, ready)
 
   // Which environment the viewport shows: the session's, else the current selection (preview).
@@ -131,10 +145,16 @@ function WorkspaceBody({ catalog, session }: { catalog: Catalog; session: Sessio
     const drag = dragRef.current
     if (!drag) return
     if (drag.kind === 'left') {
-      const next = Math.min(Math.max(drag.origin + (event.clientX - drag.start), MIN_LEFT), window.innerWidth * 0.6)
+      const next = Math.min(
+        Math.max(drag.origin + (event.clientX - drag.start), MIN_LEFT),
+        window.innerWidth * 0.6,
+      )
       setLayout((l) => ({ ...l, left: next }))
     } else {
-      const next = Math.min(Math.max(drag.origin - (event.clientY - drag.start), MIN_DOCK), window.innerHeight * 0.7)
+      const next = Math.min(
+        Math.max(drag.origin - (event.clientY - drag.start), MIN_DOCK),
+        window.innerHeight * 0.7,
+      )
       setLayout((l) => ({ ...l, dock: next }))
     }
   }
@@ -144,11 +164,19 @@ function WorkspaceBody({ catalog, session }: { catalog: Catalog; session: Sessio
   }
   const onKey = (kind: 'left' | 'dock') => (event: KeyboardEvent<HTMLElement>) => {
     const step = event.shiftKey ? 80 : 24
-    const delta = event.key === 'ArrowRight' || event.key === 'ArrowUp' ? step : event.key === 'ArrowLeft' || event.key === 'ArrowDown' ? -step : 0
+    const delta =
+      event.key === 'ArrowRight' || event.key === 'ArrowUp'
+        ? step
+        : event.key === 'ArrowLeft' || event.key === 'ArrowDown'
+          ? -step
+          : 0
     if (delta === 0) return
     event.preventDefault()
     setLayout((l) => {
-      const next = kind === 'left' ? { ...l, left: Math.max(MIN_LEFT, l.left + delta) } : { ...l, dock: Math.max(MIN_DOCK, l.dock + delta) }
+      const next =
+        kind === 'left'
+          ? { ...l, left: Math.max(MIN_LEFT, l.left + delta) }
+          : { ...l, dock: Math.max(MIN_DOCK, l.dock + delta) }
       saveLayout(next)
       return next
     })
@@ -156,7 +184,8 @@ function WorkspaceBody({ catalog, session }: { catalog: Catalog; session: Sessio
 
   useEffect(() => {
     // Keep the layout within the viewport when the window shrinks.
-    const onResize = () => setLayout((l) => ({ ...l, left: Math.min(l.left, window.innerWidth * 0.6) }))
+    const onResize = () =>
+      setLayout((l) => ({ ...l, left: Math.min(l.left, window.innerWidth * 0.6) }))
     window.addEventListener('resize', onResize)
     return () => window.removeEventListener('resize', onResize)
   }, [])
@@ -165,7 +194,9 @@ function WorkspaceBody({ catalog, session }: { catalog: Catalog; session: Sessio
     <div className="studio">
       <header className="studio-header">
         <div className="studio-header__left">
-          <Link to="/" className="studio-header__brand">RL Studio</Link>
+          <Link to="/" className="studio-header__brand">
+            RL Studio
+          </Link>
           <span className="studio-header__session">{state.name ?? 'No session'}</span>
           <ConnectionLabel connection={state.connection} />
         </div>
@@ -181,7 +212,13 @@ function WorkspaceBody({ catalog, session }: { catalog: Catalog; session: Sessio
         <aside className="studio-left" style={{ width: layout.left }} aria-label="Configuration">
           <div className="tabs" role="tablist" aria-label="Configuration sections">
             {(['library', 'configure'] as const).map((tab) => (
-              <button key={tab} type="button" role="tab" aria-selected={leftTab === tab} onClick={() => setLeftTab(tab)}>
+              <button
+                key={tab}
+                type="button"
+                role="tab"
+                aria-selected={leftTab === tab}
+                onClick={() => setLeftTab(tab)}
+              >
                 {tab === 'library' ? 'Agents & environments' : 'Configure'}
               </button>
             ))}
@@ -196,7 +233,13 @@ function WorkspaceBody({ catalog, session }: { catalog: Catalog; session: Sessio
                 onSelectEnvironment={(key) => setDraft((d) => selectEnvironment(catalog, d, key))}
               />
             ) : (
-              <ConfigPanel catalog={catalog} draft={draft} errors={errors} disabled={active} onChange={changeParam} />
+              <ConfigPanel
+                catalog={catalog}
+                draft={draft}
+                errors={errors}
+                disabled={active}
+                onChange={changeParam}
+              />
             )}
           </div>
         </aside>
@@ -226,18 +269,27 @@ function WorkspaceBody({ catalog, session }: { catalog: Catalog; session: Sessio
             onResetCamera={() => setCameraNonce((n) => n + 1)}
           />
           {notice && (
-            <p className={`note${notice.tone === 'error' ? ' note--error' : ''}`} role={notice.tone === 'error' ? 'alert' : 'status'} style={{ margin: 'var(--space-2) var(--space-3)' }}>
+            <p
+              className={`note${notice.tone === 'error' ? ' note--error' : ''}`}
+              role={notice.tone === 'error' ? 'alert' : 'status'}
+              style={{ margin: 'var(--space-2) var(--space-3)' }}
+            >
               {notice.message}
             </p>
           )}
           {state.error && (
-            <p className="note note--error" role="alert" style={{ margin: 'var(--space-2) var(--space-3)' }}>
+            <p
+              className="note note--error"
+              role="alert"
+              style={{ margin: 'var(--space-2) var(--space-3)' }}
+            >
               {state.error}
             </p>
           )}
           {draftDiffers && (
             <p className="note" role="status" style={{ margin: 'var(--space-2) var(--space-3)' }}>
-              The configuration on the left differs from the initialized session. Initialize again to apply it.
+              The configuration on the left differs from the initialized session. Initialize again
+              to apply it.
             </p>
           )}
 
@@ -273,15 +325,28 @@ function WorkspaceBody({ catalog, session }: { catalog: Catalog; session: Sessio
                   ['experiments', 'Experiments'],
                 ] as const
               ).map(([tab, label]) => (
-                <button key={tab} type="button" role="tab" aria-selected={dockTab === tab} onClick={() => setDockTab(tab)}>
+                <button
+                  key={tab}
+                  type="button"
+                  role="tab"
+                  aria-selected={dockTab === tab}
+                  onClick={() => setDockTab(tab)}
+                >
                   {label}
                 </button>
               ))}
             </div>
             <div className="tab-body" role="tabpanel">
-              {dockTab === 'metrics' && <MetricsPanel state={state} agent={findAgent(catalog, state.config?.agent ?? draft.agent)} />}
+              {dockTab === 'metrics' && (
+                <MetricsPanel
+                  state={state}
+                  agent={findAgent(catalog, state.config?.agent ?? draft.agent)}
+                />
+              )}
               {dockTab === 'logs' && <LogConsole logs={state.logs} />}
-              {dockTab === 'experiments' && <ExperimentsPanel service={session.service} state={state} />}
+              {dockTab === 'experiments' && (
+                <ExperimentsPanel service={session.service} state={state} />
+              )}
             </div>
           </div>
         </section>
@@ -296,7 +361,9 @@ export function StudioWorkspace() {
   if (session.catalog.state === 'loading') {
     return (
       <div className="studio" role="status" aria-busy="true">
-        <div className="empty" style={{ margin: 'auto' }}>Loading agents and environments from the backend…</div>
+        <div className="empty" style={{ margin: 'auto' }}>
+          Loading agents and environments from the backend…
+        </div>
       </div>
     )
   }
@@ -305,11 +372,16 @@ export function StudioWorkspace() {
       <div className="studio">
         <div className="empty" style={{ margin: 'auto', maxWidth: 420 }} role="alert">
           <h2 style={{ color: 'var(--text-primary)' }}>The studio backend is unavailable</h2>
-          <p>{session.catalog.error.message} No agents or environments are listed because none can be run right now.</p>
+          <p>
+            {session.catalog.error.message} No agents or environments are listed because none can be
+            run right now.
+          </p>
           <button type="button" className="btn" onClick={() => void session.reloadCatalog()}>
             Retry
           </button>
-          <p><Link to="/">Back to home</Link></p>
+          <p>
+            <Link to="/">Back to home</Link>
+          </p>
         </div>
       </div>
     )

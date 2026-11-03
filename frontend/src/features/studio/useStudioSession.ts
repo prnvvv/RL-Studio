@@ -64,7 +64,8 @@ export function useStudioSession(service: StudioService = defaultService) {
       const result = await service.getCatalog(signal)
       if (signal?.aborted) return
       if (result.state === 'ok') setCatalog({ state: 'ready', catalog: result.data })
-      else if (result.error.kind !== 'cancelled') setCatalog({ state: 'error', error: result.error })
+      else if (result.error.kind !== 'cancelled')
+        setCatalog({ state: 'error', error: result.error })
     },
     [service],
   )
@@ -154,5 +155,17 @@ export function useStudioSession(service: StudioService = defaultService) {
     [service, store],
   )
 
-  return { store, state, catalog, busy, notice, setNotice, initialize, command, setSpeed, reloadCatalog: loadCatalog, service }
+  return {
+    store,
+    state,
+    catalog,
+    busy,
+    notice,
+    setNotice,
+    initialize,
+    command,
+    setSpeed,
+    reloadCatalog: loadCatalog,
+    service,
+  }
 }

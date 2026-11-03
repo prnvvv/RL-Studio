@@ -25,7 +25,9 @@ const intSpec: ParamSpec = {
 const catalog: Catalog = {
   schema_version: '1.0',
   net_arches: [],
-  training_params: [{ ...intSpec, key: 'total_timesteps', default: 20000, min: 1000, max: 1_000_000 }],
+  training_params: [
+    { ...intSpec, key: 'total_timesteps', default: 20000, min: 1000, max: 1_000_000 },
+  ],
   agents: [
     {
       key: 'PPO',
@@ -137,7 +139,10 @@ describe('control availability', () => {
       reset: false,
       initialize: false,
     })
-    expect(controlAvailability('completed', null, true)).toMatchObject({ reset: true, train: false })
+    expect(controlAvailability('completed', null, true)).toMatchObject({
+      reset: true,
+      train: false,
+    })
     expect(controlAvailability(null, null, false).initialize).toBe(false)
   })
 })

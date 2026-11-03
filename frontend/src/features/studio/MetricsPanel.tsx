@@ -57,7 +57,10 @@ export function MetricsPanel({ state, agent }: Props) {
         label: 'Moving average (20)',
         lineStyle: 'solid',
         emphasis: true,
-        points: downsample(episodes, MAX_POINTS).map((e) => ({ x: e.timestep, y: e.moving_avg_reward })),
+        points: downsample(episodes, MAX_POINTS).map((e) => ({
+          x: e.timestep,
+          y: e.moving_avg_reward,
+        })),
       },
     ],
     [episodes],
@@ -116,11 +119,21 @@ export function MetricsPanel({ state, agent }: Props) {
 
   return (
     <div>
-      <div className="progress-bar" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress.fraction * 100)} aria-label="Training progress">
+      <div
+        className="progress-bar"
+        role="progressbar"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={Math.round(progress.fraction * 100)}
+        aria-label="Training progress"
+      >
         <div style={{ width: `${progress.fraction * 100}%` }} />
       </div>
       <div className="tiles">
-        <Tile label="Timestep" value={`${formatInt(progress.timestep)} / ${formatInt(progress.total_timesteps)}`} />
+        <Tile
+          label="Timestep"
+          value={`${formatInt(progress.timestep)} / ${formatInt(progress.total_timesteps)}`}
+        />
         <Tile label="Episodes" value={formatInt(progress.episodes)} />
         <Tile label="Duration" value={formatDuration(progress.elapsed_seconds)} />
         <Tile label="Steps / sec" value={formatInt(progress.steps_per_second)} />
@@ -129,34 +142,70 @@ export function MetricsPanel({ state, agent }: Props) {
         <Tile label="Best reward" value={formatNumber(progress.best_reward)} />
         <Tile label="Success rate" value={formatPercent(progress.success_rate)} />
         <Tile label="Collisions" value={formatInt(progress.collisions)} />
-        <Tile label="Last termination" value={progress.last_termination?.replace(/_/g, ' ') ?? '—'} />
+        <Tile
+          label="Last termination"
+          value={progress.last_termination?.replace(/_/g, ' ') ?? '—'}
+        />
         {Object.entries(progress.env_state ?? {}).map(([key, value]) => (
           <Tile key={key} label={`Env ${key.replace(/_/g, ' ')}`} value={formatNumber(value, 3)} />
         ))}
-        {lastEval && <Tile label="Eval reward" value={`${formatNumber(lastEval.mean_reward)} ± ${formatNumber(lastEval.std_reward)}`} />}
+        {lastEval && (
+          <Tile
+            label="Eval reward"
+            value={`${formatNumber(lastEval.mean_reward)} ± ${formatNumber(lastEval.std_reward)}`}
+          />
+        )}
         {reported.map((key) => (
-          <Tile key={key} label={METRIC_LABELS[key] ?? key} value={formatNumber(latest(updates, key as keyof UpdateRecord), 3)} />
+          <Tile
+            key={key}
+            label={METRIC_LABELS[key] ?? key}
+            value={formatNumber(latest(updates, key as keyof UpdateRecord), 3)}
+          />
         ))}
       </div>
       <div className="charts">
         <div className="chart-card">
           <h4>Reward vs. timestep</h4>
-          <LineChart title="Episode reward versus timestep" series={rewardSeries} xLabel="Timestep" yLabel="Reward" height={CHART_HEIGHT} />
+          <LineChart
+            title="Episode reward versus timestep"
+            series={rewardSeries}
+            xLabel="Timestep"
+            yLabel="Reward"
+            height={CHART_HEIGHT}
+          />
         </div>
         <div className="chart-card">
           <h4>Success rate</h4>
-          <LineChart title="Success rate versus timestep" series={successSeries} xLabel="Timestep" yLabel="Rate" height={CHART_HEIGHT} />
+          <LineChart
+            title="Success rate versus timestep"
+            series={successSeries}
+            xLabel="Timestep"
+            yLabel="Rate"
+            height={CHART_HEIGHT}
+          />
         </div>
         {lossSeries.length > 0 && (
           <div className="chart-card">
             <h4>Algorithm loss</h4>
-            <LineChart title="Loss versus timestep" series={lossSeries} xLabel="Timestep" yLabel="Loss" height={CHART_HEIGHT} />
+            <LineChart
+              title="Loss versus timestep"
+              series={lossSeries}
+              xLabel="Timestep"
+              yLabel="Loss"
+              height={CHART_HEIGHT}
+            />
           </div>
         )}
         {evaluations.length > 0 && (
           <div className="chart-card">
             <h4>Evaluation (deterministic policy, separate env)</h4>
-            <LineChart title="Evaluation reward versus timestep" series={evalSeries} xLabel="Timestep" yLabel="Mean reward" height={CHART_HEIGHT} />
+            <LineChart
+              title="Evaluation reward versus timestep"
+              series={evalSeries}
+              xLabel="Timestep"
+              yLabel="Mean reward"
+              height={CHART_HEIGHT}
+            />
           </div>
         )}
       </div>

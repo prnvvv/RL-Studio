@@ -55,7 +55,15 @@ function describeAction(action: FramePayload['action']): string {
   return Array.isArray(action) ? action.map((a) => a.toFixed(2)).join(', ') : String(action)
 }
 
-function Hud({ store, status, preview }: { store: StudioStore; status: SessionStatus | null; preview: boolean }) {
+function Hud({
+  store,
+  status,
+  preview,
+}: {
+  store: StudioStore
+  status: SessionStatus | null
+  preview: boolean
+}) {
   const frame = useFrameSnapshot(store)
   const outcome = frame?.done ? frame.outcome : undefined
   const rows: Array<[string, string]> = [
@@ -144,7 +152,12 @@ export function SimulationViewport({
             </button>
           ))}
         </div>
-        <button type="button" className="btn btn--ghost" onClick={() => toggleFullscreen()} aria-pressed={fullscreen}>
+        <button
+          type="button"
+          className="btn btn--ghost"
+          onClick={() => toggleFullscreen()}
+          aria-pressed={fullscreen}
+        >
           {fullscreen ? 'Exit fullscreen' : 'Fullscreen'}
         </button>
       </div>
@@ -160,10 +173,21 @@ export function SimulationViewport({
         </div>
       ) : use3d && camera ? (
         <CanvasBoundary resetKey={sceneKey} fallback={flat}>
-          <Canvas key={sceneKey} camera={{ position: camera.position, fov: 45 }} dpr={[1, 2]} gl={{ antialias: true }}>
+          <Canvas
+            key={sceneKey}
+            camera={{ position: camera.position, fov: 45 }}
+            dpr={[1, 2]}
+            gl={{ antialias: true }}
+          >
             <color attach="background" args={[palette.background]} />
             <definition.Scene3D scene={scene} store={store} palette={palette} />
-            <OrbitControls ref={controlsRef} makeDefault target={camera.target} enableDamping maxPolarAngle={Math.PI * 0.49} />
+            <OrbitControls
+              ref={controlsRef}
+              makeDefault
+              target={camera.target}
+              enableDamping
+              maxPolarAngle={Math.PI * 0.49}
+            />
           </Canvas>
         </CanvasBoundary>
       ) : (

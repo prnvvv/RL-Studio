@@ -210,10 +210,16 @@ export class StudioStore {
         })
         return
       case 'evaluation':
-        this.set({ ...base, evaluations: [...base.evaluations, payload as unknown as EvaluationRecord] })
+        this.set({
+          ...base,
+          evaluations: [...base.evaluations, payload as unknown as EvaluationRecord],
+        })
         return
       case 'checkpoint':
-        this.set({ ...base, checkpoints: [...base.checkpoints, payload as unknown as CheckpointRecord] })
+        this.set({
+          ...base,
+          checkpoints: [...base.checkpoints, payload as unknown as CheckpointRecord],
+        })
         return
       case 'speed':
         this.set(

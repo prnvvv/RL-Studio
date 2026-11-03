@@ -20,10 +20,7 @@ export interface ConnectionOptions {
   maxDelayMs?: number
 }
 
-type StreamMessage =
-  | { type: 'snapshot'; payload: SessionSnapshot }
-  | FrameMessage
-  | StudioEvent
+type StreamMessage = { type: 'snapshot'; payload: SessionSnapshot } | FrameMessage | StudioEvent
 
 function parse(raw: unknown): StreamMessage | null {
   if (typeof raw !== 'string') return null
@@ -38,10 +35,7 @@ function parse(raw: unknown): StreamMessage | null {
 }
 
 /** Open the stream (the session is identified by `options.url`). Returns a disposer that closes it and stops reconnecting. */
-export function connectSession(
-  store: StudioStore,
-  options: ConnectionOptions,
-): () => void {
+export function connectSession(store: StudioStore, options: ConnectionOptions): () => void {
   const minDelay = options.minDelayMs ?? 500
   const maxDelay = options.maxDelayMs ?? 8000
   const create = options.createSocket ?? ((url: string) => new WebSocket(url))

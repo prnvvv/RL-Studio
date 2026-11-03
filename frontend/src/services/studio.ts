@@ -70,7 +70,9 @@ export function uploadErrorMessage(status: number, body: unknown): string {
   const details = isObject(error.details) ? error.details : null
   const first = details && Array.isArray(details.errors) ? details.errors[0] : null
   const text = isObject(first) && typeof first.message === 'string' ? first.message : error.message
-  return typeof text === 'string' && text.trim() !== '' ? text.trim().slice(0, MAX_DETAIL_CHARS) : MESSAGES[kind]
+  return typeof text === 'string' && text.trim() !== ''
+    ? text.trim().slice(0, MAX_DETAIL_CHARS)
+    : MESSAGES[kind]
 }
 
 function xhrUpload(
@@ -87,7 +89,8 @@ function xhrUpload(
     xhr.setRequestHeader('Content-Type', contentType)
     xhr.setRequestHeader('Accept', 'application/json')
     xhr.upload.onprogress = (event) => {
-      if (event.lengthComputable && event.total > 0) options.onProgress?.(event.loaded / event.total)
+      if (event.lengthComputable && event.total > 0)
+        options.onProgress?.(event.loaded / event.total)
     }
     xhr.upload.onload = () => options.onPhase?.('validating')
     const onAbort = () => xhr.abort()
@@ -105,10 +108,14 @@ function xhrUpload(
       }
       if (xhr.status >= 200 && xhr.status < 300) {
         return done(
-          parsed === null ? serviceError('unexpected', MESSAGES.unexpected, xhr.status) : { state: 'ok', data: parsed },
+          parsed === null
+            ? serviceError('unexpected', MESSAGES.unexpected, xhr.status)
+            : { state: 'ok', data: parsed },
         )
       }
-      done(serviceError(kindForStatus(xhr.status), uploadErrorMessage(xhr.status, parsed), xhr.status))
+      done(
+        serviceError(kindForStatus(xhr.status), uploadErrorMessage(xhr.status, parsed), xhr.status),
+      )
     }
     xhr.onerror = () => done(serviceError('network', MESSAGES.network))
     xhr.ontimeout = () => done(serviceError('timeout', MESSAGES.timeout))
@@ -160,9 +167,7 @@ function isSnapshot(value: unknown): value is SessionSnapshot {
 }
 
 function isCommandResult(value: unknown): value is CommandResult {
-  return (
-    isObject(value) && typeof value.session_id === 'string' && typeof value.status === 'string'
-  )
+  return isObject(value) && typeof value.session_id === 'string' && typeof value.status === 'string'
 }
 
 function guard<T>(
@@ -186,7 +191,10 @@ export interface StudioService {
   listHistory(signal?: AbortSignal): Promise<ServiceResult<ExperimentSummary[]>>
   getHistoryRecord(runId: string, signal?: AbortSignal): Promise<ServiceResult<SessionSnapshot>>
   uploadModel(file: File, options?: UploadOptions): Promise<ServiceResult<ModelUploadResult>>
-  uploadEnvironment(file: File, options?: UploadOptions): Promise<ServiceResult<EnvironmentUploadResult>>
+  uploadEnvironment(
+    file: File,
+    options?: UploadOptions,
+  ): Promise<ServiceResult<EnvironmentUploadResult>>
   deleteModel(modelId: string): Promise<ServiceResult<unknown>>
   deleteEnvironment(envId: string): Promise<ServiceResult<unknown>>
 }
@@ -211,10 +219,7 @@ export function createStudioService(): StudioService {
       return guard(await api.get<unknown>(`${BASE}/catalog`, { signal }), isCatalog)
     },
     async createSession(request) {
-      return guard(
-        await api.post<unknown>(`${BASE}/sessions`, { jsonBody: request }),
-        isSnapshot,
-      )
+      return guard(await api.post<unknown>(`${BASE}/sessions`, { jsonBody: request }), isSnapshot)
     },
     async getSession(sessionId, signal) {
       return guard(
@@ -261,12 +266,20 @@ export function createStudioService(): StudioService {
     async uploadModel(file, options = {}) {
       const query = new URLSearchParams({ filename: file.name })
       if (options.name) query.set('name', options.name)
-      const result = await xhrUpload(`${BASE}/models/upload?${query}`, file, 'application/octet-stream', options)
+      const result = await xhrUpload(
+        `${BASE}/models/upload?${query}`,
+        file,
+        'application/octet-stream',
+        options,
+      )
       return guard(result, isModelUpload)
     },
     async uploadEnvironment(file, options = {}) {
       if (file.size > MAX_LAYOUT_BYTES) {
-        return serviceError('invalid_request', `A layout file must be smaller than ${MAX_LAYOUT_BYTES / 1024} KB.`)
+        return serviceError(
+          'invalid_request',
+          `A layout file must be smaller than ${MAX_LAYOUT_BYTES / 1024} KB.`,
+        )
       }
       const text = await file.text()
       return guard(
@@ -275,10 +288,14 @@ export function createStudioService(): StudioService {
       )
     },
     async deleteModel(modelId) {
-      return api.request<unknown>(`${BASE}/models/${encodeURIComponent(modelId)}`, { method: 'DELETE' })
+      return api.request<unknown>(`${BASE}/models/${encodeURIComponent(modelId)}`, {
+        method: 'DELETE',
+      })
     },
     async deleteEnvironment(envId) {
-      return api.request<unknown>(`${BASE}/environments/${encodeURIComponent(envId)}`, { method: 'DELETE' })
+      return api.request<unknown>(`${BASE}/environments/${encodeURIComponent(envId)}`, {
+        method: 'DELETE',
+      })
     },
   }
 }

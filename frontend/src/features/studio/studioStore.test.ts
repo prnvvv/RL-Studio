@@ -11,7 +11,13 @@ function snapshot(overrides: Partial<SessionSnapshot> = {}): SessionSnapshot {
     pending_command: null,
     agent: 'PPO',
     environment: 'cartpole',
-    config: { agent: 'PPO', environment: 'cartpole', agent_params: {}, env_params: {}, training: {} },
+    config: {
+      agent: 'PPO',
+      environment: 'cartpole',
+      agent_params: {},
+      env_params: {},
+      training: {},
+    },
     created_at: '',
     started_at: null,
     finished_at: null,
@@ -63,7 +69,10 @@ describe('StudioStore', () => {
     store.applySnapshot(snapshot())
     store.applyEvent(event(5, 'lifecycle', { status: 'running' }))
     expect(store.getState().status).toBe('initialized')
-    store.applyEvent({ ...event(6, 'lifecycle', { status: 'running' }), session_id: 'ses_bbbbbbbb' })
+    store.applyEvent({
+      ...event(6, 'lifecycle', { status: 'running' }),
+      session_id: 'ses_bbbbbbbb',
+    })
     expect(store.getState().status).toBe('initialized')
     store.applyEvent(event(6, 'lifecycle', { status: 'running' }))
     expect(store.getState().status).toBe('running')
@@ -83,7 +92,9 @@ describe('StudioStore', () => {
     const store = new StudioStore()
     store.applySnapshot(snapshot())
     store.applyEvent(event(6, 'update', { timestep: 10, update: 1, value_loss: 0.5 }))
-    store.applyEvent(event(7, 'log', { level: 'WARNING', category: 'FAULT', message: 'm', run_id: 'r', meta: {} }))
+    store.applyEvent(
+      event(7, 'log', { level: 'WARNING', category: 'FAULT', message: 'm', run_id: 'r', meta: {} }),
+    )
     store.applyEvent(event(8, 'checkpoint', { checkpoint_id: 'ckpt_1' }))
     const state = store.getState()
     expect(state.updates[0].value_loss).toBe(0.5)
@@ -102,7 +113,15 @@ describe('StudioStore', () => {
   it('a fresh snapshot after reconnect replaces state including logs', () => {
     const store = new StudioStore()
     store.applySnapshot(snapshot())
-    store.applyEvent(event(6, 'log', { level: 'INFO', category: 'TRAINING', message: 'old', run_id: 'r', meta: {} }))
+    store.applyEvent(
+      event(6, 'log', {
+        level: 'INFO',
+        category: 'TRAINING',
+        message: 'old',
+        run_id: 'r',
+        meta: {},
+      }),
+    )
     store.applySnapshot(snapshot({ seq: 20, status: 'running', logs: [] }))
     expect(store.getState().logs).toEqual([])
     expect(store.getState().status).toBe('running')
@@ -113,8 +132,16 @@ describe('StudioStore', () => {
     const store = new StudioStore()
     const before = store.getState()
     store.applyFrame({
-      timestep: 1, episode: 1, episode_step: 1, action: 0, reward: 1, episode_reward: 1,
-      collision: false, disturbance: false, done: false, state: { x: 0 },
+      timestep: 1,
+      episode: 1,
+      episode_step: 1,
+      action: 0,
+      reward: 1,
+      episode_reward: 1,
+      collision: false,
+      disturbance: false,
+      done: false,
+      state: { x: 0 },
     })
     expect(store.frame?.timestep).toBe(1)
     expect(store.getState()).toBe(before)

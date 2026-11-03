@@ -18,20 +18,28 @@ function spaceLabel(space: SpaceDescription): string {
 }
 
 /** Agent and environment templates, straight from the backend catalog. */
-export function LibraryPanel({ catalog, draft, locked, onSelectAgent, onSelectEnvironment }: Props) {
+export function LibraryPanel({
+  catalog,
+  draft,
+  locked,
+  onSelectAgent,
+  onSelectEnvironment,
+}: Props) {
   const reason = incompatibilityReason(catalog, draft.agent, draft.environment)
   return (
     <div>
       {locked && (
         <p className="note" role="status">
-          A session is active. Stop it to change the agent or environment — the running session is never replaced silently.
+          A session is active. Stop it to change the agent or environment — the running session is
+          never replaced silently.
         </p>
       )}
 
       <h3 className="section-title">Agents</h3>
       <div role="radiogroup" aria-label="Agent">
         {catalog.agents.map((agent) => {
-          const compatible = draft.environment === null || agent.compatible_environments.includes(draft.environment)
+          const compatible =
+            draft.environment === null || agent.compatible_environments.includes(draft.environment)
           return (
             <button
               key={agent.key}
@@ -49,9 +57,13 @@ export function LibraryPanel({ catalog, draft, locked, onSelectAgent, onSelectEn
               <p>{agent.description}</p>
               <span className="chips">
                 {agent.action_spaces.map((space) => (
-                  <span key={space} className="chip">{space} actions</span>
+                  <span key={space} className="chip">
+                    {space} actions
+                  </span>
                 ))}
-                {!compatible && <span className="chip chip--off">not compatible with selection</span>}
+                {!compatible && (
+                  <span className="chip chip--off">not compatible with selection</span>
+                )}
               </span>
             </button>
           )
@@ -74,16 +86,22 @@ export function LibraryPanel({ catalog, draft, locked, onSelectAgent, onSelectEn
             >
               <span className="choice__head">
                 <span>{env.name}</span>
-                <span className="chip">{env.dimension} · {env.difficulty}</span>
+                <span className="chip">
+                  {env.dimension} · {env.difficulty}
+                </span>
               </span>
               <p>{env.description}</p>
               <span className="chips">
                 <span className="chip">obs {spaceLabel(env.observation_space)}</span>
                 <span className="chip">act {spaceLabel(env.action_space)}</span>
                 {env.compatible_agents.map((agent) => (
-                  <span key={agent} className="chip">{agent}</span>
+                  <span key={agent} className="chip">
+                    {agent}
+                  </span>
                 ))}
-                {!compatible && <span className="chip chip--off">not compatible with selection</span>}
+                {!compatible && (
+                  <span className="chip chip--off">not compatible with selection</span>
+                )}
               </span>
             </button>
           )
@@ -96,8 +114,8 @@ export function LibraryPanel({ catalog, draft, locked, onSelectAgent, onSelectEn
         </p>
       )}
       <p className="note">
-        Only algorithms and environments the backend can actually run are listed. Compatibility is derived from each
-        environment&apos;s real action space.
+        Only algorithms and environments the backend can actually run are listed. Compatibility is
+        derived from each environment&apos;s real action space.
       </p>
     </div>
   )

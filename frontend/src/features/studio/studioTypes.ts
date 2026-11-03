@@ -126,13 +126,7 @@ export interface Catalog {
 }
 
 export type SessionStatus =
-  | 'initialized'
-  | 'running'
-  | 'paused'
-  | 'stopping'
-  | 'stopped'
-  | 'completed'
-  | 'failed'
+  'initialized' | 'running' | 'paused' | 'stopping' | 'stopped' | 'completed' | 'failed'
 
 export const ACTIVE_STATUSES: readonly SessionStatus[] = ['running', 'paused', 'stopping']
 
@@ -230,13 +224,7 @@ export interface FramePayload {
 }
 
 export type LogLevel = 'INFO' | 'WARNING' | 'ERROR'
-export type LogCategory =
-  | 'TRAINING'
-  | 'ENVIRONMENT'
-  | 'AGENT'
-  | 'FAULT'
-  | 'RECOVERY'
-  | 'CHECKPOINT'
+export type LogCategory = 'TRAINING' | 'ENVIRONMENT' | 'AGENT' | 'FAULT' | 'RECOVERY' | 'CHECKPOINT'
 
 export interface LogEntry {
   seq: number
