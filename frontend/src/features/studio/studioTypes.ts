@@ -158,6 +158,8 @@ export interface Progress {
   /** Latest environment state sampled by the backend (about 2 Hz). */
   env_state: Record<string, number>
   speed: number
+  /** Reward of finished episodes per environment step. */
+  reward_per_step?: number | null
 }
 
 export interface EpisodeRecord {
@@ -257,6 +259,8 @@ export interface SessionSummary {
   /** `inference` when an uploaded model is run without learning. */
   mode?: 'training' | 'inference'
   controls?: ControlState
+  /** Present when this session is one side of a battle. */
+  battle?: { battle_id: string; side: 'a' | 'b' } | null
   config: SessionConfig
   created_at: string
   started_at: string | null
@@ -313,4 +317,55 @@ export interface FrameMessage {
   frame_seq: number
   session_id: string
   payload: FramePayload
+}
+
+export type BattleSide = 'a' | 'b'
+
+export interface BattleSideRequest {
+  agent: string
+  agent_params: ParamValues
+}
+
+export interface BattleRequest {
+  environment: string
+  name?: string
+  env_params: ParamValues
+  training: ParamValues
+  a: BattleSideRequest
+  b: BattleSideRequest
+}
+
+export interface BattleSideMetrics {
+  timestep: number | null
+  episodes: number | null
+  current_reward_avg: number | null
+  best_reward: number | null
+  success_rate: number | null
+  reward_per_step: number | null
+  steps_per_second: number | null
+}
+
+export interface BattleComparison {
+  metrics: Record<BattleSide, BattleSideMetrics>
+  /** The side with the higher moving-average reward right now (not a significance test). */
+  leader: BattleSide | null
+  leader_basis: string
+  same_environment: boolean
+  same_seed: boolean
+}
+
+export interface BattleSnapshot {
+  battle_id: string
+  a: SessionSnapshot
+  b: SessionSnapshot
+  comparison: BattleComparison
+}
+
+/** Per-side outcome of a battle command; a side that could not comply reports why. */
+export type BattleSideResult = CommandResult | { error: string; status: SessionStatus }
+
+export interface BattleCommandResult {
+  battle_id: string
+  a: BattleSideResult
+  b: BattleSideResult
 }

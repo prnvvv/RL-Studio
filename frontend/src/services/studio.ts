@@ -5,6 +5,9 @@
  * `ServiceResult`; nothing here invents data when the backend is unreachable.
  */
 import type {
+  BattleCommandResult,
+  BattleRequest,
+  BattleSnapshot,
   Catalog,
   CommandResult,
   ExperimentSummary,
@@ -166,6 +169,22 @@ function isSnapshot(value: unknown): value is SessionSnapshot {
   )
 }
 
+function isBattleSnapshot(value: unknown): value is BattleSnapshot {
+  return (
+    isObject(value) &&
+    typeof value.battle_id === 'string' &&
+    isSnapshot(value.a) &&
+    isSnapshot(value.b) &&
+    isObject(value.comparison)
+  )
+}
+
+function isBattleCommandResult(value: unknown): value is BattleCommandResult {
+  return (
+    isObject(value) && typeof value.battle_id === 'string' && isObject(value.a) && isObject(value.b)
+  )
+}
+
 function isCommandResult(value: unknown): value is CommandResult {
   return isObject(value) && typeof value.session_id === 'string' && typeof value.status === 'string'
 }
@@ -196,6 +215,13 @@ export interface StudioService {
     file: File,
     options?: UploadOptions,
   ): Promise<ServiceResult<EnvironmentUploadResult>>
+  createBattle(request: BattleRequest): Promise<ServiceResult<BattleSnapshot>>
+  getBattle(battleId: string, signal?: AbortSignal): Promise<ServiceResult<BattleSnapshot>>
+  battleCommand(
+    battleId: string,
+    command: SessionCommand,
+  ): Promise<ServiceResult<BattleCommandResult>>
+  setBattleSpeed(battleId: string, speed: number): Promise<ServiceResult<BattleCommandResult>>
   deleteModel(modelId: string): Promise<ServiceResult<unknown>>
   deleteEnvironment(envId: string): Promise<ServiceResult<unknown>>
 }
@@ -240,6 +266,32 @@ export function createStudioService(): StudioService {
           jsonBody: { speed },
         }),
         isCommandResult,
+      )
+    },
+    async createBattle(request) {
+      return guard(
+        await api.post<unknown>(`${BASE}/battles`, { jsonBody: request }),
+        isBattleSnapshot,
+      )
+    },
+    async getBattle(battleId, signal) {
+      return guard(
+        await api.get<unknown>(`${BASE}/battles/${encodeURIComponent(battleId)}`, { signal }),
+        isBattleSnapshot,
+      )
+    },
+    async battleCommand(battleId, command) {
+      return guard(
+        await api.post<unknown>(`${BASE}/battles/${encodeURIComponent(battleId)}/${command}`),
+        isBattleCommandResult,
+      )
+    },
+    async setBattleSpeed(battleId, speed) {
+      return guard(
+        await api.post<unknown>(`${BASE}/battles/${encodeURIComponent(battleId)}/speed`, {
+          jsonBody: { speed },
+        }),
+        isBattleCommandResult,
       )
     },
     async setControl(sessionId, active) {
