@@ -14,6 +14,7 @@ import type {
   FramePayload,
   LogEntry,
   Progress,
+  SessionConfig,
   SessionSnapshot,
   SessionStatus,
   StudioEvent,
@@ -34,6 +35,7 @@ export interface StudioState {
   pendingCommand: 'pause' | null
   error: string | null
   scene: Record<string, unknown> | null
+  config: SessionConfig | null
   progress: Progress | null
   episodes: EpisodeRecord[]
   updates: UpdateRecord[]
@@ -54,6 +56,7 @@ export const emptyState: StudioState = {
   pendingCommand: null,
   error: null,
   scene: null,
+  config: null,
   progress: null,
   episodes: [],
   updates: [],
@@ -150,6 +153,7 @@ export class StudioStore {
       pendingCommand: snapshot.pending_command,
       error: snapshot.error,
       scene: snapshot.scene,
+      config: snapshot.config,
       progress: snapshot.progress,
       episodes: snapshot.episodes ?? [],
       updates: snapshot.updates ?? [],
