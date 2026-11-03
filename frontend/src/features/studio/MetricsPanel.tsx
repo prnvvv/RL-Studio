@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { LineChart, type ChartSeries } from '../../components/charts/LineChart'
+import { findBestEpisode } from './bestEpisode'
 import { downsample, formatDuration, formatInt, formatNumber, formatPercent } from './format'
 import type { StudioState } from './studioStore'
 import type { AgentTemplate, UpdateRecord } from './studioTypes'
@@ -116,6 +117,11 @@ export function MetricsPanel({ state, agent }: Props) {
   }
 
   const lastEval = evaluations[evaluations.length - 1]
+  const total = Math.max(progress.total_timesteps, 1)
+  // The backend's best_reward is authoritative; the episode list may have dropped old entries.
+  const candidate = findBestEpisode(episodes)
+  const bestEpisode =
+    candidate !== null && candidate.reward === progress.best_reward ? candidate : null
 
   return (
     <div>
@@ -163,6 +169,14 @@ export function MetricsPanel({ state, agent }: Props) {
           />
         ))}
       </div>
+      {progress.best_reward !== null && (
+        <div className="best-episode" role="status" data-testid="best-episode">
+          <strong>Best episode</strong>{' '}
+          {bestEpisode
+            ? `#${bestEpisode.episode} — reward ${formatNumber(bestEpisode.reward)} over ${formatInt(bestEpisode.length)} steps (timestep ${formatInt(bestEpisode.timestep)}, ${bestEpisode.reason.replace(/_/g, ' ')})`
+            : `reward ${formatNumber(progress.best_reward)} (an earlier episode no longer kept in this view)`}
+        </div>
+      )}
       <div className="charts">
         <div className="chart-card">
           <h4>Reward vs. timestep</h4>
@@ -172,6 +186,9 @@ export function MetricsPanel({ state, agent }: Props) {
             xLabel="Timestep"
             yLabel="Reward"
             height={CHART_HEIGHT}
+            xDomain={[0, total]}
+            markers={bestEpisode ? [{ x: bestEpisode.timestep, label: 'best' }] : []}
+            emptyMessage="Waiting for the first episode"
           />
         </div>
         <div className="chart-card">
@@ -182,6 +199,9 @@ export function MetricsPanel({ state, agent }: Props) {
             xLabel="Timestep"
             yLabel="Rate"
             height={CHART_HEIGHT}
+            xDomain={[0, total]}
+            yDomain={[0, 1]}
+            emptyMessage="Waiting for the first episode"
           />
         </div>
         {lossSeries.length > 0 && (
