@@ -47,7 +47,15 @@ function extensionOf(name: string): string {
  * backend's verdict. Nothing here decides whether a file is valid beyond cheap
  * extension and size pre-checks; the backend is authoritative.
  */
-export function UploadDropzone({ label, accept, hint, maxBytes, disabled = false, upload, example }: Props) {
+export function UploadDropzone({
+  label,
+  accept,
+  hint,
+  maxBytes,
+  disabled = false,
+  upload,
+  example,
+}: Props) {
   const [phase, setPhase] = useState<Phase>({ kind: 'idle' })
   const [dragging, setDragging] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -59,11 +67,19 @@ export function UploadDropzone({ label, accept, hint, maxBytes, disabled = false
     if (busyRef.current || disabled) return
     const ext = extensionOf(file.name)
     if (!accept.includes(ext)) {
-      setPhase({ kind: 'error', name: file.name, message: `Unsupported file type${ext ? ` ${ext}` : ''}. Accepted: ${accept.join(', ')}.` })
+      setPhase({
+        kind: 'error',
+        name: file.name,
+        message: `Unsupported file type${ext ? ` ${ext}` : ''}. Accepted: ${accept.join(', ')}.`,
+      })
       return
     }
     if (maxBytes !== undefined && file.size > maxBytes) {
-      setPhase({ kind: 'error', name: file.name, message: `File is larger than the ${Math.round(maxBytes / 1024 / 1024)} MB limit.` })
+      setPhase({
+        kind: 'error',
+        name: file.name,
+        message: `File is larger than the ${Math.round(maxBytes / 1024 / 1024)} MB limit.`,
+      })
       return
     }
     busyRef.current = true
@@ -73,14 +89,22 @@ export function UploadDropzone({ label, accept, hint, maxBytes, disabled = false
         onPhase: (next) =>
           setPhase((current) => {
             if (next === 'validating') return { kind: 'validating', name: file.name }
-            return current.kind === 'uploading' ? current : { kind: 'uploading', name: file.name, progress: 0 }
+            return current.kind === 'uploading'
+              ? current
+              : { kind: 'uploading', name: file.name, progress: 0 }
           }),
         onProgress: (fraction) =>
           setPhase((current) =>
-            current.kind === 'uploading' ? { ...current, progress: Math.min(1, Math.max(0, fraction)) } : current,
+            current.kind === 'uploading'
+              ? { ...current, progress: Math.min(1, Math.max(0, fraction)) }
+              : current,
           ),
       })
-      setPhase(outcome.ok ? { kind: 'ready', name: file.name, message: outcome.message } : { kind: 'error', name: file.name, message: outcome.message })
+      setPhase(
+        outcome.ok
+          ? { kind: 'ready', name: file.name, message: outcome.message }
+          : { kind: 'error', name: file.name, message: outcome.message },
+      )
     } catch {
       setPhase({ kind: 'error', name: file.name, message: 'The upload failed unexpectedly.' })
     } finally {
@@ -96,7 +120,13 @@ export function UploadDropzone({ label, accept, hint, maxBytes, disabled = false
   }
 
   const activeStep =
-    phase.kind === 'uploading' ? 'uploading' : phase.kind === 'validating' ? 'validating' : phase.kind === 'ready' ? 'done' : null
+    phase.kind === 'uploading'
+      ? 'uploading'
+      : phase.kind === 'validating'
+        ? 'validating'
+        : phase.kind === 'ready'
+          ? 'done'
+          : null
 
   return (
     <div
@@ -136,7 +166,12 @@ export function UploadDropzone({ label, accept, hint, maxBytes, disabled = false
         }}
       />
       <div className="dropzone__actions">
-        <button type="button" className="btn btn--ghost" disabled={blocked} onClick={() => inputRef.current?.click()}>
+        <button
+          type="button"
+          className="btn btn--ghost"
+          disabled={blocked}
+          onClick={() => inputRef.current?.click()}
+        >
           {busy && <span className="spinner" aria-hidden="true" />}
           {busy ? 'Working…' : 'Upload'}
         </button>
@@ -154,11 +189,22 @@ export function UploadDropzone({ label, accept, hint, maxBytes, disabled = false
             </div>
           )}
           {phase.kind === 'uploading' && (
-            <div className="dropzone__bar" role="progressbar" aria-label="Upload progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(phase.progress * 100)}>
+            <div
+              className="dropzone__bar"
+              role="progressbar"
+              aria-label="Upload progress"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={Math.round(phase.progress * 100)}
+            >
               <div style={{ width: `${phase.progress * 100}%` }} />
             </div>
           )}
-          <div className="dropzone__status" data-phase={phase.kind} role={phase.kind === 'error' ? 'alert' : 'status'}>
+          <div
+            className="dropzone__status"
+            data-phase={phase.kind}
+            role={phase.kind === 'error' ? 'alert' : 'status'}
+          >
             {busy && <span className="spinner" aria-hidden="true" />}
             <span>
               {phase.kind === 'uploading' && `Uploading ${phase.name}…`}
@@ -172,7 +218,11 @@ export function UploadDropzone({ label, accept, hint, maxBytes, disabled = false
 
       {example && (
         <details>
-          <summary style={{ cursor: 'pointer', marginTop: 'var(--space-2)', fontSize: 'var(--text-xs)' }}>{example.summary}</summary>
+          <summary
+            style={{ cursor: 'pointer', marginTop: 'var(--space-2)', fontSize: 'var(--text-xs)' }}
+          >
+            {example.summary}
+          </summary>
           <pre className="dropzone__example">{example.text}</pre>
         </details>
       )}

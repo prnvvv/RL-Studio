@@ -57,7 +57,14 @@ describe('connection latency probe', () => {
 
   it('counts received simulation frames', () => {
     const { store, socket, dispose } = open({ t: 0 })
-    socket.onmessage?.({ data: JSON.stringify({ type: 'frame', frame_seq: 1, session_id: 's', payload: { timestep: 1 } }) })
+    socket.onmessage?.({
+      data: JSON.stringify({
+        type: 'frame',
+        frame_seq: 1,
+        session_id: 's',
+        payload: { timestep: 1 },
+      }),
+    })
     expect(store.stream.frames).toBe(1)
     dispose()
   })

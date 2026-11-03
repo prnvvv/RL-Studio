@@ -4,8 +4,19 @@ import { UploadDropzone, type UploadHooks, type UploadOutcome } from './UploadDr
 
 const file = (name: string, size = 10) => new File([new Uint8Array(size)], name)
 
-function setup(upload: (f: File, h: UploadHooks) => Promise<UploadOutcome>, extra: Partial<Parameters<typeof UploadDropzone>[0]> = {}) {
-  render(<UploadDropzone label="Drag & drop a custom model" accept={['.zip', '.pt']} hint="SB3 .zip or .pt" upload={upload} {...extra} />)
+function setup(
+  upload: (f: File, h: UploadHooks) => Promise<UploadOutcome>,
+  extra: Partial<Parameters<typeof UploadDropzone>[0]> = {},
+) {
+  render(
+    <UploadDropzone
+      label="Drag & drop a custom model"
+      accept={['.zip', '.pt']}
+      hint="SB3 .zip or .pt"
+      upload={upload}
+      {...extra}
+    />,
+  )
   return screen.getByTestId('upload-input') as HTMLInputElement
 }
 
@@ -24,7 +35,10 @@ describe('UploadDropzone', () => {
 
     expect(await screen.findByText(/Uploading policy\.zip/)).toBeInTheDocument()
     act(() => hooks.onProgress(0.5))
-    expect(screen.getByRole('progressbar', { name: 'Upload progress' })).toHaveAttribute('aria-valuenow', '50')
+    expect(screen.getByRole('progressbar', { name: 'Upload progress' })).toHaveAttribute(
+      'aria-valuenow',
+      '50',
+    )
     act(() => hooks.onPhase('validating'))
     expect(screen.getByText(/Validating policy\.zip/)).toBeInTheDocument()
     await act(async () => finish({ ok: true, message: 'PPO · 4 inputs → 2 actions' }))
@@ -32,7 +46,10 @@ describe('UploadDropzone', () => {
   })
 
   it('shows the backend rejection reason as an error', async () => {
-    const input = setup(async () => ({ ok: false, message: 'This model expects 8 observation values but CartPole provides 4.' }))
+    const input = setup(async () => ({
+      ok: false,
+      message: 'This model expects 8 observation values but CartPole provides 4.',
+    }))
     fireEvent.change(input, { target: { files: [file('big.zip')] } })
     expect(await screen.findByRole('alert')).toHaveTextContent('expects 8 observation values')
   })
@@ -63,7 +80,9 @@ describe('UploadDropzone', () => {
     const upload = vi.fn()
     setup(upload, { disabled: true })
     expect(screen.getByRole('button', { name: /Drag & drop a custom model/ })).toBeDisabled()
-    fireEvent.drop(document.querySelector('.dropzone') as HTMLElement, { dataTransfer: { files: [file('a.zip')] } })
+    fireEvent.drop(document.querySelector('.dropzone') as HTMLElement, {
+      dataTransfer: { files: [file('a.zip')] },
+    })
     expect(upload).not.toHaveBeenCalled()
   })
 })

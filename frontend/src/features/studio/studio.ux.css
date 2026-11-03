@@ -199,7 +199,10 @@
   color: var(--text-secondary);
   font-size: var(--text-sm);
   text-align: center;
-  transition: border-color 120ms ease, background 120ms ease, color 120ms ease;
+  transition:
+    border-color 120ms ease,
+    background 120ms ease,
+    color 120ms ease;
 }
 .dropzone:hover,
 .dropzone[data-dragging='true'] {
