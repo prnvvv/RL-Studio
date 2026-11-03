@@ -97,6 +97,8 @@ export interface Progress {
   collisions: number
   disturbances: number
   last_termination: string | null
+  /** Latest environment state sampled by the backend (about 2 Hz). */
+  env_state: Record<string, number>
   speed: number
 }
 
