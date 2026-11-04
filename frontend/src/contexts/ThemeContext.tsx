@@ -34,7 +34,11 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       setThemeState(newTheme)
       root.dataset.theme = newTheme
     }
-    const startViewTransition = (document as Document & { startViewTransition?: (cb: () => void) => { finished: Promise<void> } }).startViewTransition
+    const startViewTransition = (
+      document as Document & {
+        startViewTransition?: (cb: () => void) => { finished: Promise<void> }
+      }
+    ).startViewTransition
     if (origin && typeof startViewTransition === 'function') {
       const radius = Math.hypot(
         Math.max(origin.x, window.innerWidth - origin.x),
