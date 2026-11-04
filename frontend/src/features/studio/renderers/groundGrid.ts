@@ -52,7 +52,14 @@ export function makeGridTexture(
 
   if (fadeFrom !== null) {
     const r = Math.min(width, height) / 2
-    const fade = ctx.createRadialGradient(width / 2, height / 2, r * fadeFrom, width / 2, height / 2, r)
+    const fade = ctx.createRadialGradient(
+      width / 2,
+      height / 2,
+      r * fadeFrom,
+      width / 2,
+      height / 2,
+      r,
+    )
     fade.addColorStop(0, 'rgba(0, 0, 0, 1)')
     fade.addColorStop(1, 'rgba(0, 0, 0, 0.25)') // never fades to nothing: the edge stays visible
     ctx.globalCompositeOperation = 'destination-in'
