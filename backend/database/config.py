@@ -25,19 +25,22 @@ def _env_path(name: str, default: Path) -> Path:
 
 @dataclass(frozen=True)
 class DatabaseConfig:
-    """Runtime paths and SQLite settings.
+    """Runtime database configuration.
 
-    ``database_path`` is the SQLite file, ``artifact_root`` is the only
-    directory from which artifact files may be read or written.
+    If ``DATABASE_URL`` is set, a Postgres connection is used via psycopg2.
+    Otherwise, SQLite is used as the default.
     """
 
     database_path: Path
     artifact_root: Path
     busy_timeout_ms: int = 5000
     max_artifact_bytes: int = 2 * 1024 * 1024 * 1024
+    use_postgres: bool = False
+    postgres_dsn: str = ""
 
     @classmethod
     def from_env(cls) -> DatabaseConfig:
+        use_postgres = os.environ.get("DATABASE_URL", "").strip() != ""
         data_root = _env_path("RL_STUDIO_DATA_ROOT", _repo_root() / "var")
         database_path = _env_path(
             "RL_STUDIO_DB_PATH", data_root / "rl_studio.sqlite3"
@@ -49,11 +52,14 @@ class DatabaseConfig:
         max_artifact_bytes = int(
             os.environ.get("RL_STUDIO_MAX_ARTIFACT_BYTES", str(2 * 1024 * 1024 * 1024))
         )
+        postgres_dsn = os.environ.get("DATABASE_URL", "")
         return cls(
             database_path=database_path,
             artifact_root=artifact_root,
             busy_timeout_ms=busy_timeout_ms,
             max_artifact_bytes=max_artifact_bytes,
+            use_postgres=use_postgres,
+            postgres_dsn=postgres_dsn,
         )
 
     @classmethod
