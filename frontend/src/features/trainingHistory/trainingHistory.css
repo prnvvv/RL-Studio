@@ -1,0 +1,203 @@
+/* Training-history UI. Built from the same tokens and Monitoring classes (`mon-*`) as the rest of the workspace. */
+
+.th-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  background: var(--bg-panel);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-lg);
+  font-family: var(--font-sans);
+}
+
+.th-bar__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  flex: 1 1 320px;
+  min-width: 0;
+}
+
+.th-bar__label {
+  font-size: var(--text-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.th-bar__select {
+  width: 100%;
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+}
+
+.th-bar__select:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+
+.th-bar__message {
+  margin: 0;
+  flex: 1 1 280px;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+.th-bar__facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin: 0;
+}
+
+.th-bar__facts dt {
+  font-size: var(--text-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.th-bar__facts dd {
+  margin: 2px 0 0;
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+}
+
+.th-bar__link {
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  margin-left: auto;
+}
+
+.th-status {
+  display: inline-block;
+  padding: 1px 9px;
+  border: 1px solid var(--border-primary);
+  border-radius: 999px;
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.th-status--running,
+.th-status--paused,
+.th-status--stopping {
+  color: var(--text-primary);
+  border-color: var(--text-primary);
+}
+
+/* ---- History table ----------------------------------------------------------------------------------------- */
+
+.th-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: flex-end;
+  margin-bottom: var(--space-3);
+}
+
+.th-filters label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: var(--text-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.th-filters select,
+.th-filters input {
+  min-width: 140px;
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.th-table-wrap {
+  overflow-x: auto;
+}
+
+.th-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-sans);
+}
+
+.th-table th,
+.th-table td {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border-secondary);
+  font-size: var(--text-sm);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.th-table th {
+  font-size: var(--text-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.th-table td.th-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.th-table td.th-mono {
+  font-family: var(--font-mono);
+}
+
+.th-table tr[aria-selected='true'] td {
+  background: var(--bg-hover);
+}
+
+.th-actions {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.th-actions a {
+  color: var(--text-primary);
+}
+
+.th-na {
+  font-style: italic;
+  color: var(--text-muted);
+}
+
+.th-pager {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+.th-compare {
+  margin-top: var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+@media (max-width: 720px) {
+  .th-bar__link {
+    margin-left: 0;
+  }
+}
