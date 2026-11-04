@@ -4,8 +4,8 @@ type Theme = 'dark' | 'light'
 
 interface ThemeContextValue {
   theme: Theme
-  toggleTheme: () => void
-  setTheme: (theme: Theme) => void
+  toggleTheme: (origin?: { x: number; y: number }) => void
+  setTheme: (theme: Theme, origin?: { x: number; y: number }) => void
 }
 
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined)
@@ -27,12 +27,32 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     window.localStorage.setItem(THEME_STORAGE_KEY, theme)
   }, [theme])
 
-  const setTheme = (newTheme: Theme) => {
-    setThemeState(newTheme)
+  const setTheme = (newTheme: Theme, origin?: { x: number; y: number }) => {
+    if (newTheme === theme) return
+    const root = document.documentElement
+    const apply = () => {
+      setThemeState(newTheme)
+      root.dataset.theme = newTheme
+    }
+    const startViewTransition = (document as Document & { startViewTransition?: (cb: () => void) => { finished: Promise<void> } }).startViewTransition
+    if (origin && typeof startViewTransition === 'function') {
+      const radius = Math.hypot(
+        Math.max(origin.x, window.innerWidth - origin.x),
+        Math.max(origin.y, window.innerHeight - origin.y),
+      )
+      root.style.setProperty('--theme-x', `${origin.x}px`)
+      root.style.setProperty('--theme-y', `${origin.y}px`)
+      root.style.setProperty('--theme-r', `${radius}px`)
+      root.classList.add('theme-animating')
+      const transition = startViewTransition.call(document, apply)
+      transition.finished.finally(() => root.classList.remove('theme-animating'))
+    } else {
+      apply()
+    }
   }
 
-  const toggleTheme = () => {
-    setThemeState((prev) => (prev === 'dark' ? 'light' : 'dark'))
+  const toggleTheme = (origin?: { x: number; y: number }) => {
+    setTheme(theme === 'dark' ? 'light' : 'dark', origin)
   }
 
   return (
