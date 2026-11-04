@@ -78,7 +78,10 @@
   text-decoration: none;
   cursor: pointer;
   white-space: nowrap;
-  transition: background 0.18s ease, border-color 0.18s ease, transform 0.2s ease;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    transform 0.2s ease;
 }
 
 .btn:hover:not(:disabled),
@@ -114,7 +117,10 @@
   border: 1px solid var(--border-primary);
   border-radius: 16px;
   box-shadow: inset 0 1px 0 color-mix(in srgb, var(--text-primary) 5%, transparent);
-  transition: border-color 0.18s ease, transform 0.22s ease, box-shadow 0.22s ease;
+  transition:
+    border-color 0.18s ease,
+    transform 0.22s ease,
+    box-shadow 0.22s ease;
   text-decoration: none;
   color: inherit;
 }
@@ -197,13 +203,29 @@ a.card:hover,
 }
 
 @media (max-width: 720px) {
-  .app-main { padding: 28px 18px 72px; }
-  .page-head { align-items: flex-start; flex-direction: column; }
-  .card { padding: 20px; }
+  .app-main {
+    padding: 28px 18px 72px;
+  }
+  .page-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .card {
+    padding: 20px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .btn, .card, a.card { transition: none; }
-  a.card:hover, .card.card--hover:hover { transform: none; }
-  .btn--solid:hover { transform: none; }
+  .btn,
+  .card,
+  a.card {
+    transition: none;
+  }
+  a.card:hover,
+  .card.card--hover:hover {
+    transform: none;
+  }
+  .btn--solid:hover {
+    transform: none;
+  }
 }
