@@ -211,6 +211,24 @@ def reject_requirement(project_id: ProjectId, requirement_id: ObjId, request: Re
     return _call(lambda: _service(request).reject_requirement(project_id, requirement_id, body.reason if body else None))
 
 
+class CriticalBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    critical: bool
+
+
+@router.put("/{project_id}/requirements/{requirement_id}/critical")
+def set_critical(project_id: ProjectId, requirement_id: ObjId, body: CriticalBody, request: Request) -> dict[str, Any]:
+    """Explicitly mark a confirmed requirement as a critical safety rule. Only such a requirement can raise an
+    incident from an interim (still-training) verification."""
+    return _call(lambda: _service(request).set_critical(project_id, requirement_id, body.critical))
+
+
+@router.post("/{project_id}/verifications/{verification_id}/promote")
+def promote_verification(project_id: ProjectId, verification_id: ObjId, request: Request) -> dict[str, Any]:
+    """Promote a provisional (interim) failure to an incident. Idempotent; never duplicates an incident."""
+    return _call(lambda: _service(request).promote(project_id, verification_id))
+
+
 @router.get("/{project_id}/runs")
 def list_runs(project_id: ProjectId, request: Request) -> dict[str, Any]:
     items = _call(lambda: _service(request).list_runs(project_id))

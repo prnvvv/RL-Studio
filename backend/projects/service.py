@@ -32,6 +32,8 @@ from backend.verification.input.studio_evidence import StudioEvidence
 from backend.verification.intent import requirement_validation as rv
 from backend.verification.intent.ai_interpreter import MAX_STATEMENT_CHARS
 from backend.verification.lifecycle.service import (
+    FINAL,
+    INTERIM,
     PROJECT_SCOPE_PREFIX,
     Conflict,
     InvalidRequest,
@@ -431,9 +433,11 @@ class ProjectService:
         links = {link["requirement_id"]: link for link in self.repo.requirement_links(project_id)}
         conflicts, superseded = self._conflicts(project_id), self._superseded(project_id)
         latest = {v["requirement_id"]: v for v in self.repo.run_verifications(project_id)}  # last row wins
+        critical = self.repo.critical_flags(project_id)
         out = []
         for rec in self._records(project_id):
             view = self._requirement_view(self.lifecycle.requirement_view(rec), links.get(rec["requirement_id"]), conflicts, superseded)
+            view["critical_safety"] = bool(critical.get(rec["requirement_id"]))
             last = latest.get(rec["requirement_id"])
             view["latest_verification"] = None if last is None else {
                 "verification_id": last["verification_id"], "run_id": last["run_id"],
@@ -578,7 +582,14 @@ class ProjectService:
                 bound[run_req_id] = (rec, link)
         if not bound:
             raise Conflict("none of the requirements apply to this run", {"skipped": skipped})
-        verification = self.lifecycle.execute(run_id, list(bound), idempotency_key)
+        # Incident policy: a result taken while the run is still training is interim (provisional); its
+        # failures are not registered as ordinary incidents. Only requirements the user explicitly flagged
+        # critical_safety can raise one immediately. Once the run is over the verification is final and the
+        # existing handoff applies unchanged.
+        interim = run_status in ACTIVE_RUN_STATUSES
+        self._sync_policy(project_id, bound)
+        verification = self.lifecycle.execute(run_id, list(bound), idempotency_key,
+                                              finality=INTERIM if interim else FINAL)
         for result in self.lifecycle.get_results(verification["verification_id"]):
             rec, link = bound[result["requirement_id"]]
             self.repo.record_run_verification({
@@ -590,8 +601,46 @@ class ProjectService:
             })
         self.repo.touch(project_id)
         return {"project_id": project_id, "run_id": run_id, "state": "evaluated", "stage": stage,
-                "interim": run_status in ACTIVE_RUN_STATUSES, "evaluation_window": window,
+                "interim": interim, "finality": INTERIM if interim else FINAL, "evaluation_window": window,
                 "verification": verification, "skipped": skipped}
+
+    # ---- interim-incident policy -------------------------------------------------------------------------------
+    def _sync_policy(self, project_id: str, bound: dict[str, tuple[dict[str, Any], dict[str, Any]]]) -> None:
+        """Copy the user's explicit critical-safety flag onto this run's bound copy of each requirement.
+
+        Only policy metadata changes; the confirmed statement, comparison and expected value are untouched, and the
+        deterministic verdict does not depend on it.
+        """
+        flags = self.repo.critical_flags(project_id)
+        for run_req_id, (rec, _link) in bound.items():
+            wanted = bool(flags.get(rec["requirement_id"]))
+            row = self.store.get_requirement(run_req_id)
+            if row is None:
+                continue
+            req = dict(row["requirement"])
+            md = dict(req.get("metadata") or {})
+            if bool(md.get("critical_safety")) != wanted:
+                md["critical_safety"] = wanted
+                self.store.update_requirement(run_req_id, requirement={**req, "metadata": md})
+
+    def set_critical(self, project_id: str, requirement_id: str, critical: bool) -> dict[str, Any]:
+        """Explicitly mark a confirmed requirement as a critical safety rule (or clear the mark)."""
+        link = self._own_requirement(project_id, requirement_id)
+        rec = self.store.get_requirement(requirement_id)
+        if rec is None or rec["lifecycle_status"] not in _CONFIRMED_LIFECYCLE:
+            raise Conflict("only a confirmed requirement can be marked as a critical safety rule",
+                           {"requirement_id": requirement_id})
+        self.repo.set_critical(project_id, requirement_id, critical)
+        self.repo.touch(project_id)
+        view = self._requirement_view(self.lifecycle.requirement_view(rec), link, {}, set())
+        view["critical_safety"] = critical
+        return view
+
+    def promote(self, project_id: str, verification_id: str) -> dict[str, Any]:
+        """Promote a provisional (interim) failure to an incident, on the user's explicit request. Idempotent."""
+        self._require(project_id)
+        self.run_verification_detail(project_id, verification_id)  # must belong to this project
+        return self.lifecycle.promote_interim(verification_id)
 
     def list_verifications(self, project_id: str, run_id: str | None = None) -> list[dict[str, Any]]:
         self._require(project_id)

@@ -163,6 +163,22 @@ class ProjectRepository:
     def requirement_link(self, project_id: str, requirement_id: str) -> dict[str, Any] | None:
         return next((r for r in self.requirement_links(project_id) if r["requirement_id"] == requirement_id), None)
 
+    # ---- requirement policy (explicit critical-safety flag) ------------------------------------------------
+    def set_critical(self, project_id: str, requirement_id: str, critical: bool) -> None:
+        with self.database.write() as conn:
+            conn.execute(
+                "INSERT INTO project_requirement_policies(requirement_id, project_id, critical_safety, updated_at) "
+                "VALUES (?,?,?,?) ON CONFLICT(requirement_id) DO UPDATE SET critical_safety = excluded.critical_safety, "
+                "updated_at = excluded.updated_at",
+                (requirement_id, project_id, int(critical), utc_now_iso()),
+            )
+
+    def critical_flags(self, project_id: str) -> dict[str, bool]:
+        with self.database.read() as conn:
+            rows = conn.execute("SELECT requirement_id, critical_safety FROM project_requirement_policies WHERE project_id = ?",
+                                (project_id,)).fetchall()
+        return {r["requirement_id"]: bool(r["critical_safety"]) for r in rows}
+
     # ---- run bindings and run verifications ----------------------------------------------------------------
     def get_binding(self, requirement_id: str, run_id: str) -> dict[str, Any] | None:
         with self.database.read() as conn:
