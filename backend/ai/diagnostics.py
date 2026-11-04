@@ -9,6 +9,7 @@ call to each hosted model. The vocabulary is deliberate and never blurred:
 * ``MODEL_AVAILABLE``         the provider lists this exact model for this exact provider as live
 * ``INFERENCE_SUCCESSFUL``    a real inference call returned usable output
 * ``AUTHENTICATION_FAILED`` / ``RATE_LIMITED`` / ``PROVIDER_UNAVAILABLE``  what the provider actually said
+* ``QUOTA_EXCEEDED``          the provider refused for billing reasons (HTTP 402): the account has no credits (the key and model are fine)
 
 Secrets are never printed, logged or returned: only variable names and booleans appear in any output.
 """
@@ -29,6 +30,7 @@ from .errors import (
     AIError,
     AIModelUnavailableError,
     AIProviderUnavailableError,
+    AIQuotaError,
     AIRateLimitError,
     AITimeoutError,
 )
@@ -44,6 +46,7 @@ INFERENCE_SUCCESSFUL = "INFERENCE_SUCCESSFUL"
 PROVIDER_UNAVAILABLE = "PROVIDER_UNAVAILABLE"
 AUTHENTICATION_FAILED = "AUTHENTICATION_FAILED"
 RATE_LIMITED = "RATE_LIMITED"
+QUOTA_EXCEEDED = "QUOTA_EXCEEDED"
 
 EXPECTED_ROUTER_URL = "https://router.huggingface.co/v1"
 EXPECTED_QWEN_MODEL = "Qwen/Qwen2.5-VL-3B-Instruct:featherless-ai"
@@ -131,6 +134,8 @@ def probe_image() -> bytes:
 def _failure_state(exc: AIError) -> str:
     if isinstance(exc, AIAuthError):
         return AUTHENTICATION_FAILED
+    if isinstance(exc, AIQuotaError):  # before AIRateLimitError, which it subclasses
+        return QUOTA_EXCEEDED
     if isinstance(exc, AIRateLimitError):
         return RATE_LIMITED
     if isinstance(exc, (AIProviderUnavailableError, AITimeoutError, AIModelUnavailableError)):

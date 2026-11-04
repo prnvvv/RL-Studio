@@ -215,6 +215,19 @@ def test_rate_limit_moves_to_the_next_key_then_stops_without_hammering() -> None
     assert len(server.requests) == 2  # one attempt per key, then give up
 
 
+def test_http_402_is_a_quota_error_distinct_from_rate_limit_and_outage() -> None:
+    from backend.ai.errors import AIQuotaError
+
+    server = Server((402, {"error": "Purchase pre-paid credits to continue"}))
+    client, _ = make(server, keys=("hf_a", "hf_b"), max_retries=3)
+    with pytest.raises(AIQuotaError) as info:
+        client.describe("x", image=png_bytes())
+    assert info.value.code == "AI-011" and not info.value.retryable and info.value.http_status == 402
+    assert isinstance(info.value, AIRateLimitError) and not isinstance(info.value, AIProviderUnavailableError)
+    assert len(server.requests) == 2  # one attempt per key, never retried with backoff
+    assert "Purchase" not in str(info.value)  # the provider's raw text is not forwarded
+
+
 def test_unavailable_model_and_invalid_requests_are_permanent_not_retried() -> None:
     for status, exc in ((404, AIModelUnavailableError), (400, AIInvalidInputError), (422, AIInvalidInputError)):
         server = Server((status, {"error": "x"}))

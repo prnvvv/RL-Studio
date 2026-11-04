@@ -30,6 +30,7 @@ from backend.ai.errors import (
     AIModelUnavailableError,
     AIPayloadTooLargeError,
     AIProviderUnavailableError,
+    AIQuotaError,
     AIRateLimitError,
     AITimeoutError,
 )
@@ -66,6 +67,8 @@ def map_openai_error(exc: Exception, model: str) -> AIError:
         return AIInvalidInputError("huggingface rejected the request as invalid", **kw)
     if isinstance(exc, openai.APIStatusError):
         status = getattr(exc, "status_code", 0) or 0
+        if status == 402:
+            return AIQuotaError("huggingface reports that credits or quota are exhausted (HTTP 402)", **kw)
         if status == 413:
             return AIPayloadTooLargeError("huggingface rejected the payload as too large", **kw)
         if status >= 500:

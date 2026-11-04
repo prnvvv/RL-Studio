@@ -70,3 +70,15 @@ class AIInvalidInputError(AIError):
 class AIPayloadTooLargeError(AIInvalidInputError):
     code = "AI-010"
     http_status = 413
+
+
+class AIQuotaError(AIRateLimitError):
+    """The provider refused the call for billing reasons (HTTP 402): credits or quota are exhausted.
+
+    Not retryable and not an outage: nothing is wrong with the model, the key or the request, and waiting does not help
+    until credits are added. Distinct from a transient 429 rate limit.
+    """
+
+    code = "AI-011"
+    retryable = False
+    http_status = 402

@@ -172,6 +172,15 @@ def test_rate_limits_try_each_key_once_without_hammering() -> None:
     assert len(hub.calls) == 2
 
 
+def test_http_402_is_a_quota_error_and_not_retried() -> None:
+    from backend.ai.errors import AIQuotaError
+
+    hub = FakeHub(hub_error(402))
+    with pytest.raises(AIQuotaError):
+        make(hub, keys=("hf_a", "hf_b"), max_retries=3)[0].segment(png_bytes())
+    assert len(hub.calls) == 2  # one attempt per key
+
+
 def test_unavailable_model_and_bad_requests_are_permanent() -> None:
     for error, expected in ((hub_error(404), AIModelUnavailableError), (hub_error(400), AIInvalidInputError),
                             (ValueError("Model x is not supported by provider y"), AIModelUnavailableError)):

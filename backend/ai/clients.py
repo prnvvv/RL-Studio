@@ -25,6 +25,7 @@ from .errors import (
     AIModelUnavailableError,
     AIPayloadTooLargeError,
     AIProviderUnavailableError,
+    AIQuotaError,
     AIRateLimitError,
     AITimeoutError,
 )
@@ -38,6 +39,8 @@ def classify_status(status: int, provider: str, model: str | None) -> AIError:
     kw = {"provider": provider, "model": model}
     if status in (401, 403):
         return AIAuthError(f"{provider} rejected the configured credentials", **kw)
+    if status == 402:
+        return AIQuotaError(f"{provider} reports that credits or quota are exhausted (HTTP 402)", **kw)
     if status == 429:
         return AIRateLimitError(f"{provider} rate limit or quota reached", **kw)
     if status == 404:

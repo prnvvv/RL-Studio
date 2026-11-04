@@ -157,6 +157,19 @@ def test_a_listed_model_is_not_reported_as_a_successful_inference(monkeypatch: p
     assert empty.state == d.MODEL_AVAILABLE and d.INFERENCE_SUCCESSFUL not in empty.reached
 
 
+def test_a_402_is_reported_as_quota_exceeded_not_as_an_outage_or_bad_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
+    from backend.ai.errors import AIQuotaError
+
+    monkeypatch.setattr(d, "model_listing", lambda *a, **k: (d.MODEL_AVAILABLE, "listed"))
+    settings = AISettings.from_env(GOOD)
+    refuse = lambda self, *a, **k: (_ for _ in ()).throw(AIQuotaError("credits exhausted"))
+    monkeypatch.setattr(AIService, "analyze_image", refuse)
+    monkeypatch.setattr(AIService, "segment_image", refuse)
+    for probe in (d.probe_vision(settings), d.probe_segmentation(settings)):
+        assert probe.state == d.QUOTA_EXCEEDED
+        assert d.MODEL_AVAILABLE in probe.reached and d.INFERENCE_SUCCESSFUL not in probe.reached
+
+
 def test_the_probe_image_is_generated_locally_and_valid() -> None:
     from backend.ai.imaging import inspect_image
 
