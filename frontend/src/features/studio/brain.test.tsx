@@ -7,6 +7,9 @@ import { GridMaze2D } from './renderers/GridMaze2D'
 import type { ScenePalette } from './renderers/palette'
 import { StudioStore } from './studioStore'
 import type { BrainPayload, FramePayload } from './studioTypes'
+import { i18n } from '../i18n'
+import { I18nextProvider } from 'react-i18next'
+import { renderToString } from 'react-dom/server'
 
 const palette: ScenePalette = {
   background: '#000',
@@ -68,14 +71,23 @@ describe('brain helpers', () => {
 
 describe('BrainPanel', () => {
   it('waits until the backend sends a decision', () => {
-    render(<BrainPanel store={new StudioStore()} renderer="cartpole" />)
+    const { unmount } = render(
+      <I18nextProvider i18n={i18n}>
+        <BrainPanel store={new StudioStore()} renderer="cartpole" />
+      </I18nextProvider>
+    )
     expect(screen.getByText('Waiting for the first decision…')).toBeInTheDocument()
+    unmount()
   })
 
   it('shows action probabilities and marks the action taken', () => {
     const store = new StudioStore()
     store.applyFrame(frame({ kind: 'probs', probs: [0.25, 0.75], greedy: 1, executed: 1 }))
-    render(<BrainPanel store={store} renderer="cartpole" />)
+    render(
+      <I18nextProvider i18n={i18n}>
+        <BrainPanel store={store} renderer="cartpole" />
+      </I18nextProvider>
+    )
     const panel = screen.getByRole('status', { name: 'Agent brain' })
     expect(within(panel).getByText('Push right')).toBeInTheDocument()
     expect(within(panel).getByText('75%')).toBeInTheDocument()
@@ -94,7 +106,11 @@ describe('BrainPanel', () => {
         executed: 0,
       }),
     )
-    render(<BrainPanel store={store} renderer="cartpole" />)
+    render(
+      <I18nextProvider i18n={i18n}>
+        <BrainPanel store={store} renderer="cartpole" />
+      </I18nextProvider>
+    )
     expect(screen.getByText('Agent brain · Q-values (softmax)')).toBeInTheDocument()
     expect(screen.getByText(/Q 1\.50 · 73%/)).toBeInTheDocument()
   })
@@ -102,7 +118,11 @@ describe('BrainPanel', () => {
   it('shows the mean and spread of a Gaussian policy', () => {
     const store = new StudioStore()
     store.applyFrame(frame({ kind: 'gaussian', mean: [0.5], std: [0.2], executed: [0.4] }))
-    render(<BrainPanel store={store} renderer={null} />)
+    render(
+      <I18nextProvider i18n={i18n}>
+        <BrainPanel store={store} renderer={null} />
+      </I18nextProvider>
+    )
     expect(screen.getByText(/μ 0\.500 · σ 0\.200/)).toBeInTheDocument()
   })
 })
