@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import type { Evaluation } from '../../schemas/evaluation'
 import type { ServiceQueryState } from '../../hooks/useServiceQuery'
@@ -158,5 +158,73 @@ describe('EvaluationPanel — loaded record', () => {
     expect(screen.getByText(/Episode count: not recorded/)).toBeInTheDocument()
     expect(screen.getByText(/Seeds: none recorded/)).toBeInTheDocument()
     expect(screen.getByText(/Warning: Recovered episodes had one timeout/)).toBeInTheDocument()
+  })
+})
+
+describe('EvaluationPanel dashboard presentation', () => {
+  it('adds metric cards built only from the record, and leaves the default presentation unchanged', () => {
+    const { unmount } = render(
+      <EvaluationPanel evaluation={ok(evaluation())} presentation="dashboard" />,
+    )
+    const group = screen.getByRole('group', { name: 'Evaluation metrics' })
+    const recovered = within(group).getByRole('article', { name: 'Recovered metrics' })
+    expect(recovered).toHaveTextContent('94.25')
+    expect(recovered).toHaveTextContent('85.2%')
+    expect(
+      within(group).getByRole('article', { name: 'Healthy baseline metrics' }),
+    ).toHaveTextContent('95.50')
+    expect(within(group).getByRole('article', { name: 'Evaluation scope' })).toHaveTextContent('20')
+    // a delta the record does not supply is "Not computed", never derived from the two means shown
+    expect(
+      within(group).getByRole('article', { name: /Success-rate improvement/ }),
+    ).toHaveTextContent('Not computed')
+    expect(
+      within(group).getByRole('article', { name: /Mean reward improvement/ }),
+    ).toHaveTextContent('-1.2500')
+    // no faulty baseline was supplied, so no faulty card is drawn
+    expect(
+      within(group).queryByRole('article', { name: 'Faulty baseline metrics' }),
+    ).not.toBeInTheDocument()
+    // the existing sections are all still present
+    expect(screen.getByRole('region', { name: 'Baseline comparison' })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Acceptance criteria' })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Evaluation context' })).toBeInTheDocument()
+    expect(screen.getByText('Recovery verified by evaluation')).toBeInTheDocument()
+    unmount()
+
+    render(<EvaluationPanel evaluation={ok(evaluation())} />)
+    expect(screen.queryByRole('group', { name: 'Evaluation metrics' })).not.toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Baseline comparison' })).toBeInTheDocument()
+  })
+
+  it('shows missing measurements as Not available, never as zero', () => {
+    render(
+      <EvaluationPanel
+        evaluation={ok(
+          evaluation({
+            recovered_mean_reward: null,
+            recovered_success_rate: null,
+            episode_count: null,
+            seeds: [],
+          }),
+        )}
+        presentation="dashboard"
+      />,
+    )
+    const recovered = screen.getByRole('article', { name: 'Recovered metrics' })
+    expect(recovered).toHaveTextContent('Not available')
+    expect(recovered).not.toHaveTextContent('0.00')
+    expect(screen.getByRole('article', { name: 'Evaluation scope' })).toHaveTextContent(
+      'Not recorded',
+    )
+  })
+
+  it('keeps loading and error states in the dashboard presentation', () => {
+    const { rerender } = render(<EvaluationPanel evaluation={loading()} presentation="dashboard" />)
+    expect(screen.queryByRole('group', { name: 'Evaluation metrics' })).not.toBeInTheDocument()
+    rerender(
+      <EvaluationPanel evaluation={errorState()} onReload={vi.fn()} presentation="dashboard" />,
+    )
+    expect(screen.getByText('The evaluation record could not be loaded')).toBeInTheDocument()
   })
 })
