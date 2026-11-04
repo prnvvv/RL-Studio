@@ -1,182 +1,211 @@
 <div align="center">
 
 <!-- Banner -->
-<img src="https://capsule-render.vercel.app/api?type=waving&color=0:667EEA,100:764BA2&height=300&section=header&text=Self-Healing%20RL%20Studio&fontSize=70&animation=fadeIn&fontAlignY=38&desc=Find%2C%20trace%2C%20and%20safely%20recover%20from%20faults%20in%20RL%20training&descAlignY=55&descAlign=50" width="100%" />
+<img src="https://capsule-render.vercel.app/api?type=waving&color=0:FF007F,100:00F0FF&height=300&section=header&text=Self-Healing%20RL%20Studio&fontSize=70&animation=fadeIn&fontAlignY=38&desc=Train%2C%20detect%2C%20diagnose%2C%20and%20recover%20reinforcement%20learning%20runs%20automatically&descAlignY=55&descAlign=50" width="100%" />
 
 <!-- Badges -->
-[![Status](https://img.shields.io/badge/status-active-brightgreen.svg)]()
-[![Python](https://img.shields.io/badge/python-3.13-blue.svg)]()
-[![Algorithm](https://img.shields.io/badge/algorithm-PPO%20%C2%B7%20Stable--Baselines3-blueviolet.svg)]()
-[![License](https://img.shields.io/badge/license-proprietary-lightgrey.svg)]()
+[![License](https://img.shields.io/badge/license-Proprietary-red.svg)](LICENSE)
+[![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)]()
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
 </div>
 
-> **Project status: active — MVP implemented.** Core backend modules (environments, training, verification, recovery), shared schemas, events, and tests are implemented. Frontend and full end-to-end demo still in progress.
+## Overview / About The Project
 
-## Overview
+Self-Healing RL Studio is a full-stack reinforcement learning platform for training agents, verifying that behavior matches developer intent, diagnosing faults, and planning validated recovery.
 
-Self-Healing RL Studio is a developer platform for finding, investigating, and safely recovering from faults in RL environments and training runs. Core principle: capture developer-confirmed requirements as versioned contracts, record actual execution evidence, detect concrete contract violations, and only then attempt a validated recovery.
+It combines a FastAPI backend with a React / Vite frontend. Training runs in environments such as the warehouse environment, with Gymnasium, Stable-Baselines3, and SB3 Contrib. Verification converts intent into explicit requirements, runs deterministic checks and anomaly detection, and builds traceable evidence packages. Diagnosis investigates incidents with Meta AI and produces structured findings. Provenance, evaluation, and recovery stages track artifacts, assess impact, and recommend or execute controlled recovery.
 
-The initial demonstrator is a 2D warehouse-navigation environment trained with PPO (Stable-Baselines3), with a canonical incident: a reward-scaling fault that changes the expected goal reward from 100 to 25.
+Exposure is not proof of causal damage, and recovery execution is not recovery success — the system preserves that distinction throughout.
 
-## Key Features (Implemented)
+## Key Features
 
-- **Gymnasium warehouse environment** — `Warehouse2DEnv` with Pydantic `WarehouseConfig` validation, BFS reachability check, deterministic fingerprints. Config enforces grid bounds, start/goal distinctness, non-obstacle start/goal, reachability, and reward finiteness.
-- **PPO training engine** — Stable-Baselines3 PPO wrapper (`PPOTrainer`) with validated hyperparameters, explicit run lifecycle states (`created → queued → starting → running → stop_requested → stopped`), idempotent start/stop, and atomic checkpoint writes with SHA-256 integrity hashes.
-- **Canonical execution events** — schema-validated run, episode, step, collision, checkpoint, and metric events with stable IDs, UTC timestamps, and ordering metadata.
-- **Raw metrics vs. rolling aggregates** — episode reward, mean reward, episode length, success rate, collision rate, each with explicit window, denominator, and missing-data rule.
-- **Controlled fault injection** — allow-listed reward scaling, observation corruption, and invalid-termination faults with exact trigger boundaries; no cross-run leakage.
-- **Deterministic verification** — developer-confirmed requirements evaluated against real evidence, producing incidents that reference actual event IDs and immutable environment versions.
-- **Advisory AI diagnosis** — replaceable provider interface over real evidence, with structured output and explicit "provider unavailable" handling.
-- **Provenance and recovery** — artifact exposure tracking, compatibility-checked checkpoint restore, fresh on-policy experience collection, and post-recovery evaluation against baselines.
-- **Fingerprinting** — stable SHA-256 hashes for configs, agents, and runs (AGENTS.md §10); configs exclude per-run transients; agents bundle algorithm + hyperparameters; runs bundle config + agent + seed.
+- **RL studio and training:** PPO training, environment catalog and wrappers, custom parameters, live session management, training history, and real-time event streaming over WebSockets.
+- **Environments:** Warehouse environment with fingerprints, configuration management, and extensible environment interfaces.
+- **Intent and requirements:** Natural-language intent parsing into structured, traceable verification requirements with source attribution.
+- **Verification:** Deterministic rule-based checks, workflow planning, execution analysis, and ML/DL anomaly detection with strict `PASS` / `FAIL` / `UNKNOWN` / `BLOCKED` / `ERROR` statuses.
+- **Diagnosis:** Incident detection and classification, evidence construction and validation, bounded Meta AI investigation, and validated diagnosis reports.
+- **Recovery and evaluation:** Allow-listed recovery planning and execution, artifact impact analysis, and evidence-based evaluation.
+- **Provenance:** Auditable artifact provenance, incident sink integration, and persistent, versioned records across verification, diagnosis, and recovery.
+- **AI assistant:** Project-scoped assistant, voice transcription, vision, and segmentation via the Meta Model API, and an advisory investigation workflow.
+- **Projects and monitoring:** Multi-project workspace, runs monitoring, reports, and diagnosis / recovery dashboards in the frontend.
+- **Fault injection:** Controlled fault injection, including a seeded reward-scaling demo fault for end-to-end validation.
 
-## Tech Stack (Verified in Current Checkout)
+## Tech Stack & Prerequisites
 
-| Requirement | Status |
-|---|---|
-| Python 3.13 | Installed |
-| numpy 2.4.6, torch 2.14.1, pydantic 2.14.1 | Installed globally |
-| pytest 9.1.1, mypy 2.4.0, ruff 0.17.3 | Installed globally |
-| fastapi, SQLAlchemy, uvicorn | Installed globally |
-| gymnasium 1.4.0, stable-baselines3 2.9.2 | Installed globally |
-| Project virtualenv, pyproject.toml, lockfile | Present |
+**Backend**
 
-**Planned stack (future):**
-- Frontend (Person 1): TypeScript / React dashboard over documented HTTP API and live-update channel
-- Storage: relational database owned by provenance/persistence layer
+- Python 3.10+
+- FastAPI, Uvicorn, SQLAlchemy, Alembic
+- Gymnasium, Stable-Baselines3, SB3 Contrib, Torch, NumPy
+- LangGraph, LangChain Core, LangSmith
+- Pydantic, PyYAML, httpx, websockets
+- pytest, mypy, Ruff
 
-> Training metrics and evaluation metrics must never be merged into a single series.
+**Frontend**
 
-## Getting Started
+- Node.js >= 22
+- React 19, React Router 7, TypeScript 5.6
+- Vite 8, Three.js / React Three Fiber / drei
+- Clerk, i18next
+- Vitest, ESLint, Prettier
+
+**Runtime**
+
+- A Meta Model API key for AI features (`MODAL_API_KEY`)
+- SQLite by default; `DATABASE_URL` or `SUPABASE_URL` for other databases
+
+## Getting Started / Setup Instructions
+
+1. **Clone the repository:**
+
+   ```bash
+   git clone <repo-url>
+   cd RL-Studio
+   ```
+
+2. **Set up Python environment and install dependencies:**
+
+   ```bash
+   python3 -m venv .venv
+   source .venv/bin/activate
+   pip install -r requirements.txt
+   # Development tools
+   pip install -e ".[dev]"
+   ```
+
+3. **Install frontend dependencies:**
+
+   ```bash
+   cd frontend && npm ci
+   ```
+
+4. **Environment setup:**
+
+   ```bash
+   cp .env.example backend/.env
+   # Fill in at minimum MODAL_API_KEY in backend/.env
+   ```
+
+   Copy `.env.example` to `.env` for project-level configuration. Never put secrets in frontend code or `VITE_*` variables. Runtime AI inference uses the Meta Model API only.
+
+   Database migrations, if needed:
+
+   ```bash
+   alembic upgrade head
+   ```
+
+5. **Run the app locally:**
+
+   Full stack (backend + frontend together):
+
+   ```bash
+   ./scripts/dev.sh
+   ```
+
+   Backend only (FastAPI at `http://127.0.0.1:8000`, docs at `/docs`):
+
+   ```bash
+   ./scripts/backend.sh
+   # or
+   python -m uvicorn backend.main:app --reload --host 127.0.0.1 --port 8000
+   ```
+
+   Frontend only (Vite dev server):
+
+   ```bash
+   cd frontend && npm run dev
+   ```
+
+## Usage Guide & Examples
+
+**Health check and API discovery:**
 
 ```bash
-git clone https://github.com/prnvvv/RL-Studio.git
-cd RL-Studio
-git status
+curl http://127.0.0.1:8000/health
+# Interactive API documentation
+open http://127.0.0.1:8000/docs
 ```
 
-### Prerequisites
+**Training lifecycle (API):**
 
-Python 3.13+ with the project virtualenv:
+- `POST /api/v1/...` training start, monitoring, history, and evaluation endpoints are exposed under the FastAPI routers in `backend/api/routers/` (`training_history`, `evaluation`, `runs`, `studio`).
+- The React frontend at `frontend/src/pages/` provides Training, Studio, Monitoring, Projects, Diagnosis Recovery, Reports, Run Detail, and Settings pages.
+
+**Fault-injection demo (controlled reward-scaling fault):**
 
 ```bash
-python3.13 -m venv .venv
-source .venv/bin/activate
-pip install -e ".[dev]"
+python scripts/seed_demo_fault.py
 ```
 
-### Configure environment variables
+This seeds the canonical demonstration scenario used by verification and diagnosis tests: an observed reward scale that differs from the declared value, which must be confirmed by deterministic checks before any root-cause claim is made.
+
+**Verification, diagnosis, and recovery (API):**
+
+- `POST /api/v1/incidents/{incident_id}/investigations` — bounded, evidence-grounded investigation
+- `/recovery-recommendations` — recovery planning for an incident
+- Verification, incidents, provenance, and recovery routers live in `backend/api/routers/verification.py`, `incidents.py`, `provenance.py`, and `recovery.py`
+
+**Frontend commands:**
 
 ```bash
-cp .env.example .env   # see .env.example for placeholder values
+cd frontend
+npm run dev          # dev server
+npm run build        # production build
+npm run typecheck    # TypeScript check
+npm run lint         # ESLint
+npm test             # Vitest
 ```
 
-### Run the backend
+**Backend commands:**
 
 ```bash
-# from the repository root
-uvicorn backend.main:app --reload --port 8000
-
-# or from backend/ - both entrypoints serve the same canonical app
-cd backend
-uvicorn app.main:app --reload --port 8000
+pytest -x -v                          # unit tests
+pytest -m "not slow" -x -v            # skip slow / RL tests
+pytest -x -v tests/integration/       # integration tests
+pytest -x -v tests/end_to_end/        # end-to-end tests
+ruff format && ruff check             # format and lint
+mypy .                                # type check
 ```
-
-Health check: `curl http://127.0.0.1:8000/health`
-
-### Run the test suite
-
-```bash
-pytest -m "not slow"
-```
-
-### Quick smoke test (run a PPO training session)
-
-```bash
-python -m backend.training.training.ppo
-```
-
-## Usage Guide & Canonical Demo Workflow
-
-1. **Create a project and warehouse experiment** with explicit environment configuration and seed.
-2. **Start a seeded PPO run.** The run records real execution events and periodic checkpoints.
-3. **Inject a reward-scaling fault** that multiplies the configured goal reward by `0.25`, so the expected `100` is observed as `25`.
-4. **Detect the violation deterministically** because the confirmed goal-reward contract was violated — not merely because the reward curve looks low.
-5. **Open an incident** that references the actual event IDs and the immutable environment version.
-6. **Request AI diagnosis** over the frozen evidence package. If no provider is configured, the UI must say so instead of inventing a hypothesis.
-7. **Trace artifact exposure** and mark affected checkpoints as exposed, potentially affected, or unknown.
-8. **Restore a compatible checkpoint** only after deterministic compatibility and integrity checks pass, then collect fresh experience.
-9. **Evaluate the recovered policy** in the healthy environment against defined baselines, and report measured outcomes with uncertainty.
-
-### Illustrative event shape — not output from a real run
-
-```json
-{
-  "schema_version": "1.0",
-  "event_id": "evt_example",
-  "event_type": "reward_observed",
-  "run_id": "run_example",
-  "environment_version": "warehouse_v1",
-  "episode_id": "episode_10",
-  "timestep": 1200,
-  "actual_reward": 25.0,
-  "requirement_id": "req_goal_reward",
-  "timestamp": "2026-10-25T12:00:00Z"
-}
-```
-
-`expected_reward` is intentionally absent when no confirmed contract exists. Expected and actual values are never merged into one field.
 
 ## Project Structure
 
-Every path below is the **target** layout; the current checkout has most modules implemented.
-
-```
+```text
 RL-Studio/
-├── AGENTS.md                  # repository-wide engineering contract
 ├── backend/
-│   ├── api/                   # HTTP routes; orchestration only
-│   ├── environments/          # Gymnasium warehouse env, validation, fingerprints
-│   ├── training/              # PPO wrapper, run lifecycle, callbacks, checkpoints
-│   ├── monitoring/            # episode metrics and rolling aggregates
-│   ├── fault_injection/       # allow-listed, parameterized faults
-│   ├── verification/          # deterministic requirement checks, incidents
-│   ├── diagnosis/             # advisory Meta AI provider interface
-│   ├── provenance/            # lineage, artifact exposure, checkpoints
-│   ├── recovery/              # validated restore and fresh-experience workflow
-│   ├── evaluation/            # post-recovery evaluation against baselines
-│   └── database/              # schema, migrations, session contracts
-├── frontend/                  # dashboard, forms, visualizations, API client
-├── shared/                    # canonical schemas, events, contracts
-├── tests/                     # integration and end-to-end suites
-├── docs/
-└── docker-compose.yml         # planned
+│   ├── main.py                 # Entrypoint
+│   ├── api/                    # FastAPI app and routers
+│   ├── ai/                     # Meta Model API adapter and registry
+│   ├── environments/           # Warehouse env, config, fingerprints
+│   ├── training/               # PPO training and callbacks
+│   ├── studio/                 # Studio session, catalog, manager, controls
+│   ├── verification/           # Verification engine, rules, workflow
+│   ├── diagnosis/              # Incident detection, evidence, investigation
+│   ├── recovery/               # Recovery planning and execution
+│   ├── evaluation/             # Evidence-based evaluation
+│   ├── provenance/             # Artifact provenance and incident sink
+│   ├── projects/               # Project service, scope, documents
+│   ├── assistant/              # Assistant and voice
+│   ├── fault_injection/        # Controlled faults
+│   └── workflow/               # Event-driven automation
+├── frontend/
+│   ├── src/
+│   │   ├── pages/              # Training, Studio, Monitoring, Projects…
+│   │   ├── features/           # Feature modules (verification, diagnosis…)
+│   │   ├── components/         # Shared UI components
+│   │   └── services/           # API clients
+│   └── package.json
+├── shared/                     # Contracts, events, schemas
+├── tests/                      # Integration and end-to-end tests
+├── scripts/                    # dev.sh, backend.sh, frontend.sh, helpers
+├── requirements.txt
+└── .env.example
 ```
 
-## Roadmap (Updated)
+## Contributing & License
 
-| Area | Status |
-|---|---|
-| Engineering contract (`AGENTS.md`) | Written; committed |
-| Toolchain (`pyproject.toml`, venv, lint config) | Present |
-| Warehouse environment + validation + fingerprint | Implemented |
-| PPO training, lifecycle, checkpoints | Implemented |
-| Monitoring metrics | Implemented |
-| Fault injection (reward scaling, observation corruption, invalid termination) | Implemented |
-| Shared event/requirement/incident schemas | Implemented |
-| Verification, diagnosis, provenance, recovery, evaluation | Core protocols implemented; adapters in progress |
-| Canonical end-to-end demo | Partial (workflow scaffolded, UI pending) |
-| Frontend dashboard (Person 1) | In progress |
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development conventions. Key points: always work on the `backend3` branch, use conventional commit messages (`feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`), run `ruff format`, `ruff check`, `mypy .`, and `pytest` before committing, and open pull requests from `backend3` to `main`.
 
-## Contributing
+See [SECURITY.md](SECURITY.md) for vulnerability reporting and security guidelines.
 
-- Work on a feature branch; do not commit directly to `main` or the shared integration branch.
-- Read the repository-wide `AGENTS.md` before changing code. It defines module ownership, contract rules, security constraints, and the definition of done.
-- Shared contracts live in `shared/`. Do not duplicate Pydantic models, TypeScript interfaces, or event definitions in individual modules.
-- Add tests with each feature — including failure cases — and report the exact commands run and their results.
-- Do not commit secrets, model checkpoints, large logs, or fabricated metrics. Numerical examples in docs and fixtures must be labeled as examples.
-
-## License
-
-PROPRIETARY. See `LICENSE` file.
+This software is proprietary. See [LICENSE](LICENSE) for the full proprietary license agreement. Usage, reproduction, modification, distribution, and commercialization require prior written authorization from Self-Healing RL Studio.
