@@ -1,3 +1,5 @@
+import { I18nextProvider } from 'react-i18next'
+import { i18n } from '../i18n'
 import { describe, expect, it } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
@@ -7,9 +9,11 @@ import { AppRouter } from './router'
 function renderRoute(path: string) {
   render(
     <ThemeProvider>
-      <MemoryRouter initialEntries={[path]}>
-        <AppRouter />
-      </MemoryRouter>
+      <I18nextProvider i18n={i18n}>
+        <MemoryRouter initialEntries={[path]}>
+          <AppRouter />
+        </MemoryRouter>
+      </I18nextProvider>
     </ThemeProvider>,
   )
 }
