@@ -170,24 +170,6 @@ export function ParticleScene() {
           <path d="M5 26V2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
           <path d="M5 3h14l-3.2 4.4L19 12H5z" fill="currentColor" />
         </svg>
-
-        <div
-          className="ls-marker ls-marker--hazard"
-          style={{ left: pct(layout.hazard.x), top: pct(layout.hazard.y) }}
-          onPointerEnter={() => rendererRef.current?.setHazardHover(true)}
-          onPointerLeave={() => rendererRef.current?.setHazardHover(false)}
-        >
-          <svg viewBox="0 0 24 24" width="26" height="26" fill="none">
-            <path
-              d="M12 3.5 22 20.5H2z"
-              stroke="currentColor"
-              strokeWidth="1.4"
-              strokeLinejoin="round"
-            />
-            <path d="M12 10v5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-            <circle cx="12" cy="17.6" r="0.9" fill="currentColor" />
-          </svg>
-        </div>
       </div>
 
       {showStats && (

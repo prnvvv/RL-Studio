@@ -379,16 +379,6 @@
   animation: ls-glow 3.2s ease-in-out infinite;
 }
 
-.ls-marker--hazard {
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  transform: translate(-50%, -50%);
-  cursor: crosshair;
-  animation: ls-flicker 3.6s ease-in-out infinite;
-}
-
 @keyframes ls-glow {
   0%,
   100% {
@@ -398,25 +388,6 @@
   50% {
     opacity: 1;
     filter: drop-shadow(0 0 14px rgba(255, 255, 255, 0.7));
-  }
-}
-
-@keyframes ls-flicker {
-  0%,
-  100% {
-    opacity: 0.9;
-  }
-  41% {
-    opacity: 0.55;
-  }
-  44% {
-    opacity: 1;
-  }
-  47% {
-    opacity: 0.6;
-  }
-  50% {
-    opacity: 1;
   }
 }
 
@@ -631,8 +602,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .ls-first-screen::before,
-  .ls-marker--goal,
-  .ls-marker--hazard {
+  .ls-marker--goal {
     animation: none;
   }
 
