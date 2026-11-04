@@ -5,7 +5,10 @@ export function ThemeToggle() {
 
   return (
     <button
-      onClick={toggleTheme}
+      onClick={(event) => {
+        const rect = event.currentTarget.getBoundingClientRect()
+        toggleTheme({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 })
+      }}
       aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
       style={{
         padding: '6px 12px',
