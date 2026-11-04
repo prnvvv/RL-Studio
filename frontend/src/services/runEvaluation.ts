@@ -145,7 +145,10 @@ const SLOW_MS = 180_000
 export function createRunEvaluationService(): RunEvaluationService {
   return {
     evaluateRun: (runId, request) =>
-      api.post<RunEvaluation>(`/api/v1/runs/${seg(runId)}/evaluations`, { jsonBody: request, timeoutMs: SLOW_MS }),
+      api.post<RunEvaluation>(`/api/v1/runs/${seg(runId)}/evaluations`, {
+        jsonBody: request,
+        timeoutMs: SLOW_MS,
+      }),
     async listRunEvaluations(runId, signal) {
       const result = await api.get<{ evaluations: RunEvaluation[] }>(
         `/api/v1/runs/${seg(runId)}/evaluations`,
