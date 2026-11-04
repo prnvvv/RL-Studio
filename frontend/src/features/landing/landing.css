@@ -32,7 +32,7 @@
   --ls-text: #171717;
   --ls-dim: #666666;
   --ls-faint: #808080;
-  --ls-line: rgba(0, 0, 0, 0.10);
+  --ls-line: rgba(0, 0, 0, 0.1);
   --ls-line-faint: rgba(0, 0, 0, 0.07);
   --ls-solid: #171717;
   --ls-solid-text: #f5f5f5;
@@ -41,7 +41,7 @@
   --ls-hair-strong: rgba(0, 0, 0, 0.42);
   --ls-wash: rgba(0, 0, 0, 0.04);
   --ls-grid: rgba(0, 0, 0, 0.05);
-  --ls-dust: rgba(0, 0, 0, 0.30);
+  --ls-dust: rgba(0, 0, 0, 0.3);
 }
 
 .ls-root a,
