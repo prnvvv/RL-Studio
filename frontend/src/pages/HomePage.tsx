@@ -9,8 +9,11 @@ import { LandingNavbar } from '../features/landing/LandingNavbar'
 import { TechStrip } from '../features/landing/TechStrip'
 import { TelemetrySection } from '../features/landing/TelemetrySection'
 import { useReveal } from '../features/landing/useReveal'
+import { useTranslation } from 'react-i18next'
 import '../features/landing/landing.css'
 import '../features/landing/landing.sections.css'
+
+const { t } = useTranslation()
 
 // The landing page is intentionally a standalone dark surface: it does not use
 // ApplicationShell or the app theme tokens, and it makes no run-data claims.
@@ -24,24 +27,24 @@ interface Pillar {
 
 const pillars: Pillar[] = [
   {
-    title: 'Fault detection',
+    title: 'landing.features.fault_detection',
     body: 'Compare execution against developer-confirmed contracts and flag violations with evidence.',
     to: '/monitoring',
-    cta: 'Open monitoring',
+    cta: 'landing.features.open_monitoring',
     Icon: PulseIcon,
   },
   {
-    title: 'Experience provenance',
+    title: 'landing.features.experience_provenance',
     body: 'Trace which experiences, updates and checkpoints a fault may have touched, and where lineage is unknown.',
     to: '/diagnosis-recovery',
-    cta: 'Open diagnosis',
+    cta: 'landing.features.open_diagnosis',
     Icon: CubeIcon,
   },
   {
-    title: 'Adaptive recovery',
+    title: 'landing.features.adaptive_recovery',
     body: 'Validate a supported recovery action, then evaluate the result before calling it a success.',
     to: '/reports',
-    cta: 'Open reports',
+    cta: 'landing.features.open_reports',
     Icon: CycleIcon,
   },
 ]
@@ -60,10 +63,10 @@ function PillarCard({ pillar, index }: { pillar: Pillar; index: number }) {
       <span className="ls-overview__icon" aria-hidden="true">
         <Icon width={20} height={20} />
       </span>
-      <h3>{pillar.title}</h3>
+      <h3>{t(`landing.features.${pillar.title}`)}</h3>
       <p>{pillar.body}</p>
       <Link to={pillar.to} className="ls-overview__link">
-        {pillar.cta}
+        {t(pillar.cta)}
         <span className="ls-overview__arrow" aria-hidden="true">
           →
         </span>
@@ -91,7 +94,7 @@ export function HomePage() {
 
       <section id="overview" className="ls-overview" aria-labelledby="ls-overview-title">
         <h2 id="ls-overview-title" className="ls-overview__title">
-          From fault to verified recovery
+          {t('landing.hero.title')}
         </h2>
         <div className="ls-overview__grid">
           {pillars.map((pillar, index) => (
