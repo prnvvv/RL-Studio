@@ -96,3 +96,6 @@ opencode.md
 *.db
 var/studio/
 *.sqlite3
+
+CLAUDE.md
+.claude/
