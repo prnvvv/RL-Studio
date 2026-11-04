@@ -96,12 +96,17 @@ class RunBridge:
         environment_version: str | None,
         agent_id: str,
         config: dict[str, Any],
+        database: Database | None = None,
     ) -> None:
         self.run_id = run_id
         self.environment_id = environment_id
         self.environment_version = environment_version
         self.agent_id = agent_id
         self.config = config
+        # Resolve once, at session start. Re-reading the environment on every hook would
+        # let a finishing training thread write into whatever data root the process has
+        # since switched to (tests) instead of the one this run belongs to.
+        self._database = database if database is not None else _db()
         self.healthy = True
         self.last_error: str | None = None
 
@@ -118,12 +123,13 @@ class RunBridge:
             environment_id=self.environment_id,
             environment_version=self.environment_version,
             agent_id=self.agent_id,
+            database=self._database,
             **kwargs,
         )
 
     def run_started(self, *, timestep: int = 0, resumed: bool = False) -> None:
         try:
-            ProvenanceService(_db()).register_run(
+            ProvenanceService(self._database).register_run(
                 RunRegistration(
                     run_id=self.run_id,
                     environment_id=self.environment_id,
@@ -164,7 +170,7 @@ class RunBridge:
     def checkpoint_saved(self, record: dict[str, Any], source_file: Path) -> None:
         """Register a checkpoint as a provenance artifact (hash-verified) and emit an event."""
         try:
-            database = _db()
+            database = self._database
             rel = f"checkpoints/{self.run_id}/{record['checkpoint_id']}.zip"
             target = database.config.artifact_root / rel
             target.parent.mkdir(parents=True, exist_ok=True)

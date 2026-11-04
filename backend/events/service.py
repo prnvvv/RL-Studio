@@ -46,7 +46,9 @@ ON execution_events (idempotency_key) WHERE idempotency_key IS NOT NULL
 
 _db: Database | None = None
 _explicit = False
-_schema_ready = False
+#: Handle whose schema has already been created. Tracked by identity so a new
+#: handle (new test root, new deployment path) is never assumed to be initialised.
+_schema_ready_for: Database | None = None
 _schema_lock = threading.Lock()
 
 
@@ -56,24 +58,24 @@ def _database() -> Database:
     Unless explicitly configured, the handle follows the environment-derived config so a changed
     ``RL_STUDIO_DATA_ROOT`` (tests, deployments) is honoured instead of a stale cached path.
     """
-    global _db, _schema_ready
+    global _db, _schema_ready_for
     if _explicit and _db is not None:
         return _db
     config = DatabaseConfig.from_env()
     if _db is None or _db.config != config:
         with _schema_lock:
             _db = Database(config)
-            _schema_ready = False
+            _schema_ready_for = None
     return _db
 
 
 def _ensure_schema(database: Database) -> None:
-    """Create the event table on first use (idempotent)."""
-    global _schema_ready
-    if _schema_ready:
+    """Create the event table on first use (idempotent per database handle)."""
+    global _schema_ready_for
+    if _schema_ready_for is database:
         return
     with _schema_lock:
-        if _schema_ready:
+        if _schema_ready_for is database:
             return
         with database.write() as conn:
             conn.execute(_CREATE_TABLE_SQL)
@@ -83,16 +85,16 @@ def _ensure_schema(database: Database) -> None:
                 if name not in existing:
                     conn.execute(f"ALTER TABLE execution_events ADD COLUMN {name} {decl}")
             conn.execute(_CREATE_IDEMPOTENCY_INDEX_SQL)
-        _schema_ready = True
+        _schema_ready_for = database
 
 
 def configure(database: Database | None) -> None:
     """Point the event store at ``database`` (tests / app wiring); ``None`` resets to env defaults."""
-    global _db, _schema_ready, _explicit
+    global _db, _schema_ready_for, _explicit
     with _schema_lock:
         _db = database
         _explicit = database is not None
-        _schema_ready = False
+        _schema_ready_for = None
 
 
 def _parse_timestamp(value: Any) -> datetime | None:
@@ -229,13 +231,16 @@ class EventPublisher:
         metrics: dict[str, Any] | None = None,
         metadata: dict[str, Any] | None = None,
         timestamp: str | None = None,
+        database: Database | None = None,
     ) -> str:
         """Persist one event and return its id.
 
         With an ``idempotency_key`` the id is deterministic and re-publishing the
-        same key is a no-op that returns the original event id.
+        same key is a no-op that returns the original event id. A caller that owns
+        a specific handle (a training run) passes ``database`` so writes never
+        follow a later environment change.
         """
-        database = _database()
+        database = database if database is not None else _database()
         _ensure_schema(database)
         event_id = stable_event_id(idempotency_key) if idempotency_key else str(uuid4())
         ts = timestamp or datetime.now(timezone.utc).isoformat()
