@@ -109,12 +109,17 @@ const MAX_DETAIL = 300
 export function backendErrorDetail(text: string): { code?: string; detail?: string } {
   try {
     const body = JSON.parse(text) as { error?: unknown; detail?: { error?: unknown } }
-    const error = (body.error ?? body.detail?.error) as { code?: unknown; message?: unknown } | undefined
+    const error = (body.error ?? body.detail?.error) as
+      { code?: unknown; message?: unknown } | undefined
     if (typeof error !== 'object' || error === null) return {}
     const out: { code?: string; detail?: string } = {}
     if (typeof error.code === 'string' && error.code.length <= 64) out.code = error.code
     // The message is only surfaced alongside a stable code: an uncoded body is never shown.
-    if (out.code !== undefined && typeof error.message === 'string' && error.message.trim() !== '') {
+    if (
+      out.code !== undefined &&
+      typeof error.message === 'string' &&
+      error.message.trim() !== ''
+    ) {
       out.detail = error.message.slice(0, MAX_DETAIL)
     }
     return out
@@ -182,7 +187,11 @@ export function createApiClient(config: ApiClientConfig = {}) {
 
       if (!response.ok) {
         const body = await response.text().catch(() => '')
-        return errorResult(kindForStatus(response.status), response.status, backendErrorDetail(body))
+        return errorResult(
+          kindForStatus(response.status),
+          response.status,
+          backendErrorDetail(body),
+        )
       }
 
       if (response.status === 204) {
