@@ -1,5 +1,6 @@
 import { BrowserRouter } from 'react-router-dom'
 import { ClerkProvider } from '@clerk/react'
+import { ActiveProjectProvider } from '../contexts/ActiveProjectContext'
 import { ThemeProvider } from '../contexts/ThemeContext'
 import { AppRouter } from './router'
 
@@ -8,7 +9,9 @@ function App() {
     <BrowserRouter>
       <ClerkProvider>
         <ThemeProvider>
-          <AppRouter />
+          <ActiveProjectProvider>
+            <AppRouter />
+          </ActiveProjectProvider>
         </ThemeProvider>
       </ClerkProvider>
     </BrowserRouter>

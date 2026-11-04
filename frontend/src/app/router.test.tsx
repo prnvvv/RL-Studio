@@ -10,6 +10,10 @@ vi.mock('../pages/StudioPage', () => ({
   },
 }))
 vi.mock('../pages/HomePage', () => ({ HomePage: () => <div data-testid="landing" /> }))
+vi.mock('../pages/ProjectsPage', () => ({ ProjectsPage: () => <div data-testid="projects" /> }))
+vi.mock('../pages/ProjectWorkspacePage', () => ({
+  ProjectWorkspacePage: () => <div data-testid="workspace" />,
+}))
 
 import { AppRouter } from './router'
 
@@ -27,6 +31,16 @@ describe('AppRouter', () => {
   it('serves the landing page at / and the Studio at /studio', () => {
     renderAt('/')
     expect(screen.getByTestId('landing')).toBeInTheDocument()
+  })
+
+  it('serves the project dashboard and a project workspace by direct route', () => {
+    renderAt('/projects')
+    expect(screen.getByTestId('projects')).toBeInTheDocument()
+  })
+
+  it('opens a project workspace from a direct link', () => {
+    renderAt('/projects/prj_0123456789abcdef')
+    expect(screen.getByTestId('workspace')).toBeInTheDocument()
   })
 
   it('redirects the retired /training page into the Studio training view', () => {

@@ -3,6 +3,7 @@ import type { CSSProperties } from 'react'
 import { Link, NavLink, useLocation } from 'react-router-dom'
 import { ThemeToggle } from '../ThemeToggle'
 import { LogoMark } from '../../features/landing/icons'
+import { ActiveProjectChip } from '../../features/projects/ActiveProjectChip'
 import { useMediaQuery } from '../../hooks/useMediaQuery'
 import { useUser, SignOutButton } from '@clerk/react'
 
@@ -23,6 +24,7 @@ const STUDIO_PATH = '/studio'
 const TRAINING_VIEW = 'training'
 
 const primaryNavItems: NavItem[] = [
+  { to: '/projects', label: 'Projects' },
   { to: STUDIO_PATH, label: 'Home' },
   { to: `${STUDIO_PATH}?view=${TRAINING_VIEW}`, label: 'Training' },
   { to: '/environments', label: 'Environments' },
@@ -153,6 +155,7 @@ export function TopNavigation() {
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)' }}>
         {!isNarrow && secondaryNavItems.map((item) => renderItem(item))}
+        <ActiveProjectChip />
         <ThemeToggle />
         {user?.isSignedIn ? (
           <SignOutButton />

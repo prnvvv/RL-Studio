@@ -5,6 +5,7 @@ import { ThemeProvider } from '../../contexts/ThemeContext'
 import { TopNavigation } from './TopNavigation'
 
 const ALL_DESTINATIONS = [
+  'Projects',
   'Home',
   'Training',
   'Environments',

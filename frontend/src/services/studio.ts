@@ -25,6 +25,8 @@ const BASE = '/api/v1/studio'
 
 export interface CreateSessionRequest extends SessionConfig {
   name?: string
+  /** The project this training belongs to (omitted outside a project). */
+  project_id?: string
 }
 
 export interface ChaosPatch {
