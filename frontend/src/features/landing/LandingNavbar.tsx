@@ -1,40 +1,43 @@
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { ArrowIcon, LogoMark } from './icons'
+
+const { t } = useTranslation()
 
 // Platform and Research point at existing app pages; Team has no page yet, so
 // it scrolls to the overview section rather than linking to a dead route.
 const navLinks: Array<{ label: string; to?: string; href?: string }> = [
-  { to: '/environments', label: 'Platform' },
-  { to: '/reports', label: 'Research' },
-  { href: '#overview', label: 'Team' },
+  { to: '/environments', label: 'landing.navbar.platform' },
+  { to: '/reports', label: 'landing.navbar.research' },
+  { href: '#overview', label: 'landing.navbar.team' },
 ]
 
 export function LandingNavbar() {
   return (
     <header className="ls-nav ls-enter" style={{ ['--d' as string]: '0ms' }}>
       <div className="ls-nav__brand">
-        <Link to="/" className="ls-nav__logo" aria-label="RL Studio home">
+        <Link to="/" className="ls-nav__logo" aria-label={t('landingnavbar.rl_studio')}>
           <LogoMark />
-          <span>RL Studio</span>
+          <span>{t('landingnavbar.rl_studio')}</span>
         </Link>
         <span className="ls-nav__divider" aria-hidden="true" />
-        <span className="ls-nav__tagline">Self-healing reinforcement learning</span>
+        <span className="ls-nav__tagline">{t('landing.navbar.tagline')}</span>
       </div>
 
       <nav className="ls-nav__links" aria-label="Primary">
         {navLinks.map((link) =>
           link.to ? (
             <Link key={link.label} to={link.to} className="ls-nav__link">
-              {link.label}
+              {t(link.label)}
             </Link>
           ) : (
             <a key={link.label} href={link.href} className="ls-nav__link">
-              {link.label}
+              {t(link.label)}
             </a>
           ),
         )}
         <Link to="/studio" className="ls-pill ls-pill--solid ls-pill--sm">
-          Open Studio
+          {t('landing.navbar.open_studio')}
           <ArrowIcon className="ls-pill__arrow" />
         </Link>
       </nav>
