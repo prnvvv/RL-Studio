@@ -72,7 +72,8 @@ export function createCanvas2DBackend(
       const moved = field.step(dt, state.mouse, state.mouseAmt, layout.aspect)
       this.lastStepMs = moved ? performance.now() - t0 : 0
 
-      const light = typeof document !== 'undefined' &&
+      const light =
+        typeof document !== 'undefined' &&
         document.documentElement.getAttribute('data-theme') === 'light'
       g.setTransform(dpr, 0, 0, dpr, 0, 0)
       g.clearRect(0, 0, cssWidth, cssHeight)
