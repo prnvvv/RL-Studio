@@ -104,4 +104,25 @@ describe('ReportsPage', () => {
     // The empty-state claim no longer applies while a record is connected.
     expect(within(summary).queryByText('No evaluation records')).not.toBeInTheDocument()
   })
+  it('presents the redesigned header and marks Reports as the active destination', () => {
+    renderPage()
+    expect(screen.getByText('Training analytics')).toBeInTheDocument()
+    const nav = screen.getByRole('navigation', { name: 'Primary' })
+    expect(within(nav).getByRole('link', { name: 'Reports' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    )
+    expect(within(nav).getAllByRole('link', { current: 'page' })).toHaveLength(1)
+  })
+
+  it('uses a purposeful empty state with no decorative image role or fabricated rows', () => {
+    renderPage()
+    const history = screen.getByRole('region', { name: 'Run History' })
+    expect(within(history).getByText('No run records')).toBeInTheDocument()
+    expect(
+      within(history).getByText('Training history appears here once the backend records runs.'),
+    ).toBeInTheDocument()
+    expect(within(history).queryByRole('img')).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /run_/ })).not.toBeInTheDocument()
+  })
 })

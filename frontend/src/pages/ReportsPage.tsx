@@ -1,16 +1,18 @@
 import { useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { ApplicationShell } from '../components/layout/ApplicationShell'
-import { Panel } from '../components/ui/Panel'
-import { DataTable, DataTableColumn } from '../components/ui/DataTable'
-import { EmptyState } from '../components/ui/EmptyState'
-import { FilterBar } from '../components/ui/FilterBar'
+import type { DataTableColumn } from '../components/ui/DataTable'
 import { StatusBadge } from '../components/ui/StatusBadge'
-import { UnavailableState } from '../components/ui/UnavailableState'
 import { filterRuns, runDetailPath, RunSummary } from '../features/reports/runHistory'
 import { useServiceQuery } from '../hooks/useServiceQuery'
 import { createEvaluationService, type EvaluationService } from '../services/evaluation'
 import { EvaluationPanel } from '../features/evaluation/EvaluationPanel'
+import { MonitoringPanel } from '../features/monitoring/MonitoringPanel'
+import { ArchiveArt, CompareArt } from '../features/reports/ReportsIcons'
+import { RunFilter } from '../features/reports/RunFilter'
+import { RunHistoryTable } from '../features/reports/RunHistoryTable'
+import '../features/monitoring/monitoring.css'
+import '../features/reports/reports.css'
 
 // No run-history endpoint is connected, so this is an empty page of records
 // rather than example runs. Every column below renders only what a record
@@ -51,7 +53,9 @@ const columns: DataTableColumn<RunSummary>[] = [
   {
     id: 'status',
     header: 'Status',
-    render: (run) => run.status ?? <NotAvailable />,
+    // Rendered exactly as the backend reports it; the badge styling carries no meaning of its own.
+    render: (run) =>
+      run.status ? <span className="rp-status">{run.status}</span> : <NotAvailable />,
   },
   {
     id: 'date',
@@ -62,13 +66,7 @@ const columns: DataTableColumn<RunSummary>[] = [
 ]
 
 function NotAvailable() {
-  return (
-    <span
-      style={{ fontStyle: 'italic', color: 'var(--text-muted)', fontFamily: 'var(--font-sans)' }}
-    >
-      Not available
-    </span>
-  )
+  return <span className="rp-na">Not available</span>
 }
 
 /**
@@ -88,7 +86,13 @@ function ConnectedEvaluationSummary({
     () => services.getEvaluation(incidentId, evaluationId),
     [services, incidentId, evaluationId],
   )
-  return <EvaluationPanel evaluation={evaluation.state} onReload={evaluation.reload} />
+  return (
+    <EvaluationPanel
+      evaluation={evaluation.state}
+      onReload={evaluation.reload}
+      presentation="dashboard"
+    />
+  )
 }
 
 function EvaluationSummarySection({
@@ -102,11 +106,18 @@ function EvaluationSummarySection({
     return <ConnectedEvaluationSummary incidentId={incidentId} evaluationId={evaluationId} />
   }
   return (
-    <UnavailableState
-      title="No evaluation records"
-      description="An evaluation summary shows the evaluation identifier, policy fingerprint, environment version, episode count, seeds, per-metric results, baseline identities, and variability. None of that is available, so no comparison is drawn. Open this page with ?incidentId=<incident>&evaluationId=<record> to display a recorded evaluation from the evaluation service."
-      owner="Person 4 — evaluation records"
-    />
+    <div role="status" className="rp-empty">
+      <CompareArt />
+      <span className="rp-empty__title">No evaluation records</span>
+      <span className="rp-empty__text">
+        An evaluation summary shows the evaluation identifier, policy fingerprint, environment
+        version, episode count, seeds, per-metric results, baseline identities, and variability.
+        None of that is available, so no comparison is drawn. Open this page with
+        ?incidentId=&lt;incident&gt;&amp;evaluationId=&lt;record&gt; to display a recorded
+        evaluation from the evaluation service.
+      </span>
+      <span className="rp-empty__meta">Required from: Person 4 — evaluation records</span>
+    </div>
   )
 }
 
@@ -124,40 +135,25 @@ export function ReportsPage() {
 
   return (
     <ApplicationShell>
-      <div className="page-stack">
-        <div className="page-header">
-          <div>
-            <h1
-              style={{
-                fontSize: 'var(--text-2xl)',
-                fontWeight: 600,
-                margin: 0,
-                color: 'var(--text-primary)',
-                fontFamily: 'var(--font-sans)',
-              }}
-            >
-              Reports
-            </h1>
-            <p
-              style={{
-                fontSize: 'var(--text-base)',
-                color: 'var(--text-secondary)',
-                margin: '4px 0 0 0',
-                fontFamily: 'var(--font-sans)',
-                maxWidth: '78ch',
-              }}
-            >
+      <div className="mon-page">
+        <div className="rp-head">
+          <header className="mon-header">
+            <p className="mon-eyebrow">Training analytics</p>
+            <h1 className="mon-title">Reports</h1>
+            <p className="mon-subtitle">
               Review historical runs and compare recorded training and evaluation outcomes.
             </p>
+          </header>
+          <div className="rp-source">
+            <StatusBadge
+              label="No data source"
+              tone="quiet"
+              note={evaluationConnected ? 'run history' : undefined}
+            />
           </div>
-          <StatusBadge
-            label="No data source"
-            tone="quiet"
-            note={evaluationConnected ? 'run history' : undefined}
-          />
         </div>
 
-        <FilterBar
+        <RunFilter
           label="Filter runs"
           value={query}
           onChange={setQuery}
@@ -169,43 +165,46 @@ export function ReportsPage() {
           disabledReason="No run records are loaded, so there is nothing to filter."
         />
 
-        <Panel
+        <MonitoringPanel
           title="Run History"
-          description="Recorded runs. Status labels are taken from the backend and are never inferred from metrics."
+          icon="history"
+          description="Recorded runs and their training outcomes. Status labels are taken from the backend and are never inferred from metrics."
+          footer={
+            <span>
+              Final reward and per-row actions are not shown: neither is supported yet, and an
+              action that cannot run is never rendered. Export is unavailable until a real export
+              capability exists and is tested.
+            </span>
+          }
         >
-          <DataTable
+          <RunHistoryTable
             caption="Recorded runs with environment, steps, success rate, backend-reported status, and date."
             columns={columns}
             rows={runs}
             getRowId={(run) => run.id}
             empty={
-              <EmptyState
-                title="No run records"
-                description="Training history appears here once the backend records runs. Nothing on this page is live, historical, or demonstration data while the history source is disconnected."
-              />
+              <div role="status" className="rp-empty">
+                <ArchiveArt />
+                <span className="rp-empty__title">No run records</span>
+                <span className="rp-empty__text">
+                  Training history appears here once the backend records runs.
+                </span>
+                <span className="rp-empty__meta">
+                  Nothing on this page is live, historical, or demonstration data while the history
+                  source is disconnected.
+                </span>
+              </div>
             }
           />
+        </MonitoringPanel>
 
-          <p
-            style={{
-              margin: 'var(--space-3) 0 0 0',
-              fontSize: 'var(--text-xs)',
-              color: 'var(--text-muted)',
-              fontFamily: 'var(--font-sans)',
-            }}
-          >
-            Final reward and per-row actions are not shown: neither is supported yet, and an action
-            that cannot run is never rendered. Export is unavailable until a real export capability
-            exists and is tested.
-          </p>
-        </Panel>
-
-        <Panel
+        <MonitoringPanel
           title="Evaluation Summary"
+          icon="compare"
           description="Baseline versus recovered comparison for a completed evaluation."
         >
           <EvaluationSummarySection incidentId={incidentId} evaluationId={evaluationId} />
-        </Panel>
+        </MonitoringPanel>
       </div>
     </ApplicationShell>
   )
