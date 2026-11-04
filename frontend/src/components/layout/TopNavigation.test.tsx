@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
+import { ActiveProjectProvider } from '../../contexts/ActiveProjectContext'
 import { ThemeProvider } from '../../contexts/ThemeContext'
 import { TopNavigation } from './TopNavigation'
 
@@ -169,5 +170,55 @@ describe('TopNavigation routing', () => {
     renderNav('/reports/run-1')
     expect(link('Reports')).toHaveAttribute('aria-current', 'page')
     expect(link('Home')).not.toHaveAttribute('aria-current')
+  })
+
+  it('marks Projects active on the dashboard and on a project workspace, and nothing else', () => {
+    stubViewport(false)
+    renderNav('/projects')
+    expect(link('Projects')).toHaveAttribute('aria-current', 'page')
+    expect(link('Projects')).toHaveAttribute('href', '/projects')
+    expect(link('Home')).not.toHaveAttribute('aria-current')
+  })
+
+  it('keeps Projects active on a project workspace route', () => {
+    stubViewport(false)
+    renderNav('/projects/prj_0123456789abcdef')
+    expect(link('Projects')).toHaveAttribute('aria-current', 'page')
+    expect(link('Training')).not.toHaveAttribute('aria-current')
+  })
+
+  it('does not mark Projects active on other pages', () => {
+    stubViewport(false)
+    renderNav('/monitoring')
+    expect(link('Projects')).not.toHaveAttribute('aria-current')
+  })
+
+  it('shows the active project chip with a link to its workspace, on any page, in both layouts', async () => {
+    window.localStorage.setItem('rl-studio.activeProject', 'prj_0123456789abcdef')
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(JSON.stringify({ project_id: 'prj_0123456789abcdef', name: 'Alpha' }), {
+            status: 200,
+          }),
+      ),
+    )
+    for (const narrow of [false, true]) {
+      stubViewport(narrow)
+      const view = render(
+        <ThemeProvider>
+          <ActiveProjectProvider>
+            <MemoryRouter initialEntries={['/monitoring']}>
+              <TopNavigation />
+            </MemoryRouter>
+          </ActiveProjectProvider>
+        </ThemeProvider>,
+      )
+      const chip = await screen.findByRole('link', { name: 'Active project: Alpha' })
+      expect(chip).toHaveAttribute('href', '/projects/prj_0123456789abcdef')
+      view.unmount()
+    }
+    window.localStorage.clear()
   })
 })
