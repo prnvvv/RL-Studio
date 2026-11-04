@@ -26,10 +26,8 @@ from . import rollout as rl
 from .metrics import summarize_episodes
 from .models import (
     AcceptanceCriteria,
-    EpisodeEvaluation,
     Evaluation,
     EvaluationCreateRequest,
-    EvaluationStatus,
 )
 from .service import EvaluationService
 
@@ -107,7 +105,7 @@ class RunEvaluationService:
                              max_bytes=self.database.config.max_artifact_bytes)
         except IntegrityFailure as exc:
             raise rl.RolloutError(f"The checkpoint failed integrity verification: {exc.message}") from exc
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             raise rl.RolloutError("The checkpoint file could not be read.") from exc
         return rl.load_policy(resolve_artifact_path(root, artifact["artifact_path"]), algorithm)
 
