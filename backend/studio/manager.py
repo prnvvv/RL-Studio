@@ -27,12 +27,13 @@ class SessionManager:
         self._sessions: dict[str, TrainingSession] = {}
         self._battles: dict[str, dict[str, str]] = {}
 
-    def create(self, raw: dict[str, Any], name: str | None = None, project_id: str | None = None) -> TrainingSession:
+    def create(self, raw: dict[str, Any], name: str | None = None, project_id: str | None = None,
+               refs: dict[str, str | None] | None = None) -> TrainingSession:
         config = validate_config(raw)
         clean_name = (name or "").strip()[:80] or None
         with self._lock:
             self._evict_if_full()
-            session = TrainingSession(f"ses_{uuid.uuid4().hex[:8]}", config, clean_name, project_id=project_id)
+            session = TrainingSession(f"ses_{uuid.uuid4().hex[:8]}", config, clean_name, project_id=project_id, refs=refs)
             self._sessions[session.session_id] = session
             return session
 
@@ -153,6 +154,11 @@ class SessionManager:
         del self._sessions[victim.session_id]
         if victim.battle_id:
             self._battles.pop(victim.battle_id, None)
+
+    def active_run_ids(self) -> set[str]:
+        """Run ids of sessions that are alive in this process (used to tell a live run from an abandoned one)."""
+        with self._lock:
+            return {s.run_id for s in self._sessions.values() if s.status in ACTIVE}
 
     def history(self) -> list[dict[str, Any]]:
         """Persisted experiment records, newest first (summary only)."""

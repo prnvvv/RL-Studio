@@ -30,6 +30,7 @@ from backend.provenance.models import (
     RunRegistration,
 )
 from backend.provenance.service import ProvenanceService
+from backend.training_history import TrainingHistory
 
 logger = logging.getLogger(__name__)
 
@@ -98,8 +99,10 @@ class RunBridge:
         config: dict[str, Any],
         database: Database | None = None,
         project_id: str | None = None,
+        refs: dict[str, str | None] | None = None,
     ) -> None:
         self.run_id = run_id
+        self.refs = refs or {}
         self.project_id = project_id
         self.environment_id = environment_id
         self.environment_version = environment_version
@@ -128,6 +131,38 @@ class RunBridge:
             database=self._database,
             **kwargs,
         )
+
+    # ---- training-history catalog (authoritative run record; never breaks training) ----------------
+    def history_started(self, *, session_id: str, name: str | None, started_at: str | None) -> None:
+        try:
+            TrainingHistory(self._database).register_run(
+                run_id=self.run_id, project_id=self.project_id, session_id=session_id, name=name, config=self.config,
+                started_at=started_at, experiment_id=self.refs.get("experiment_id"), agent_id=self.refs.get("agent_id"),
+                environment_config_id=self.refs.get("environment_config_id"),
+                continues_run_id=self.refs.get("continues_run_id"))
+        except Exception as exc:  # noqa: BLE001 - never break training
+            self._fail("history_started", exc)
+
+    def history_status(self, status: str) -> None:
+        try:
+            TrainingHistory(self._database).set_status(self.run_id, status)
+        except Exception as exc:  # noqa: BLE001
+            self._fail("history_status", exc)
+
+    def history_progress(self, *, timestep: int, episodes: int, metrics: dict[str, Any]) -> None:
+        try:
+            TrainingHistory(self._database).progress(self.run_id, timestep=timestep, episodes=episodes, metrics=metrics)
+        except Exception as exc:  # noqa: BLE001
+            self._fail("history_progress", exc)
+
+    def history_finished(self, *, status: str, reason: str, finished_at: str, duration_seconds: float | None,
+                         timestep: int, episodes: int, metrics: dict[str, Any], error: str | None) -> None:
+        try:
+            TrainingHistory(self._database).finish(
+                self.run_id, status=status, reason=reason, finished_at=finished_at, duration_seconds=duration_seconds,
+                timestep=timestep, episodes=episodes, metrics=metrics, error=error)
+        except Exception as exc:  # noqa: BLE001
+            self._fail("history_finished", exc)
 
     def run_started(self, *, timestep: int = 0, resumed: bool = False) -> None:
         try:

@@ -20,12 +20,26 @@ from .routers import (
     recovery,
     runs,
     studio,
+    training_history,
     verification,
     voice,
 )
 from .routers.ws_events import router as ws_router
 
 logger = logging.getLogger(__name__)
+
+
+def _reconcile_training_history(database: Database) -> None:
+    """A run still marked active that is not alive in this process was abandoned: record it as interrupted."""
+    try:
+        from backend.studio.manager import manager
+        from backend.training_history import TrainingHistory
+
+        fixed = TrainingHistory(database).reconcile(manager.active_run_ids())
+        if fixed:
+            logger.warning("marked %d abandoned training run(s) as interrupted", len(fixed))
+    except Exception:
+        logger.exception("training history reconciliation failed")
 
 
 def create_app(config: DatabaseConfig | None = None) -> FastAPI:
@@ -42,6 +56,7 @@ def create_app(config: DatabaseConfig | None = None) -> FastAPI:
         database.initialize()
         app.state.database = database
         app.state.services = build_services(database)
+        _reconcile_training_history(database)
         yield
 
     app = FastAPI(
@@ -84,6 +99,8 @@ def create_app(config: DatabaseConfig | None = None) -> FastAPI:
     app.include_router(ws_router, include_in_schema=False, dependencies=scoped)
     app.include_router(studio.router, include_in_schema=False, dependencies=scoped)
     app.include_router(projects.router, include_in_schema=False)
+    # Authorised by the project id in the path (existing, non-deleted, and any scope header must match it).
+    app.include_router(training_history.router, include_in_schema=False)
     app.include_router(voice.router, include_in_schema=False)
     return app
 

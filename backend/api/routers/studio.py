@@ -24,6 +24,8 @@ from backend.studio.catalog import build_catalog
 from backend.studio.manager import manager
 from backend.studio.session import store_path
 from backend.studio.store import MAX_PAGE, TrajectoryReader
+from backend.training_history import TrainingHistory
+from backend.training_history.service import HistoryError
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +45,12 @@ class SessionRequest(BaseModel):
     training: dict[str, Any] = Field(default_factory=dict)
     # Optional: the project this training belongs to. Omitted for sessions created outside a project.
     project_id: str | None = Field(default=None, pattern=r"^prj_[0-9a-f]{16}$")
+    # Optional training-history references (all must belong to the project): group runs into an experiment, train an
+    # existing agent / environment configuration, or continue a finished run (the original run is never overwritten).
+    experiment_id: str | None = Field(default=None, pattern=r"^exp_[0-9a-f]{12}$")
+    agent_id: str | None = Field(default=None, pattern=r"^agt_[0-9a-f]{12}$")
+    environment_config_id: str | None = Field(default=None, pattern=r"^env_[0-9a-f]{12}$")
+    continues_run_id: str | None = Field(default=None, pattern=r"^ses_[0-9a-f]{8}_r[0-9]{1,4}$")
 
 
 class ControlRequest(BaseModel):
@@ -197,8 +205,17 @@ def create_session(request: SessionRequest, http: Request) -> dict[str, Any]:
         project = None if database is None else ProjectRepository(database).get_project(project_id)
         if project is None:
             raise NotFoundError("Project not found", details={"project_id": project_id})
-    payload = request.model_dump(exclude={"name", "project_id"})
-    session = manager.create(payload, request.name, project_id)
+    refs = {"experiment_id": request.experiment_id, "agent_id": request.agent_id,
+            "environment_config_id": request.environment_config_id, "continues_run_id": request.continues_run_id}
+    if any(refs.values()):
+        if project_id is None:
+            raise ConflictError("Training-history references require a project")
+        try:
+            TrainingHistory(http.app.state.database).validate_refs(project_id, **refs)
+        except HistoryError as exc:
+            raise (NotFoundError if exc.status == 404 else ConflictError)(exc.message) from exc
+    payload = request.model_dump(exclude={"name", "project_id", *refs})
+    session = manager.create(payload, request.name, project_id, refs)
     return session.snapshot()
 
 

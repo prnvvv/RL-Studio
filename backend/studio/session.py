@@ -64,6 +64,7 @@ MAX_EPISODES_KEPT = 5000
 MAX_UPDATES_KEPT = 2000
 RECENT_WINDOW = 20
 CHAOS_LOG_INTERVAL_S = 0.5
+HISTORY_WRITE_INTERVAL_S = 2.0
 
 
 class Status(str, Enum):
@@ -77,6 +78,22 @@ class Status(str, Enum):
 
 
 ACTIVE = {Status.RUNNING, Status.PAUSED, Status.STOPPING}
+
+#: why a run ended, recorded with it. A stop the user asked for is never reported as a natural completion.
+TERMINATION_REASON = {
+    Status.COMPLETED: "natural_completion",
+    Status.STOPPED: "user_requested_stop",
+    Status.FAILED: "training_failure",
+}
+_CATALOG_METRIC_KEYS = (
+    "mean_reward", "current_reward_avg", "best_reward", "reward_per_step", "success_rate", "collisions",
+    "disturbances", "steps_per_second", "last_termination", "fraction",
+)
+
+
+def _catalog_metrics(progress: dict[str, Any]) -> dict[str, Any]:
+    """The reward/throughput summary kept on the run catalog row (scalars only; None stays None, never 0)."""
+    return {k: progress.get(k) for k in _CATALOG_METRIC_KEYS}
 RESETTABLE = {Status.INITIALIZED, Status.STOPPED, Status.COMPLETED, Status.FAILED}
 
 _UPDATE_KEYS = {
@@ -396,8 +413,12 @@ class TrainingSession:
         battle_id: str | None = None,
         battle_side: str | None = None,
         project_id: str | None = None,
+        refs: dict[str, str | None] | None = None,
     ) -> None:
         self.session_id = session_id
+        # Optional training-history references (experiment/agent/environment entities, continued run), validated by the API.
+        self.refs = refs or {}
+        self._last_history_write = 0.0
         # Association only (kept out of ``config`` so config fingerprints and stored configs are unchanged).
         self.project_id = project_id
         self.battle_id = battle_id
@@ -647,6 +668,8 @@ class TrainingSession:
             previous = self._status
             self._status = status
             self._pending = None
+        if self._bridge is not None and status in (Status.RUNNING, Status.PAUSED):
+            self._bridge.history_status(status.value)
         self.hub.publish("lifecycle", {"status": status.value, "previous": previous.value, "run_id": self.run_id, **extra})
 
     # --------------------------------------------------------------- commands
@@ -683,8 +706,10 @@ class TrainingSession:
                 agent_id=self.config["agent"],
                 config=self.config,
                 project_id=self.project_id,
+                refs=self.refs,
             )
             self._bridge.run_started()
+            self._bridge.history_started(session_id=self.session_id, name=self.name, started_at=self.started_at)
             self._thread = threading.Thread(target=self._run, name=f"studio-{self.session_id}", daemon=True)
             self._status = Status.RUNNING
         self.hub.publish("lifecycle", {"status": "running", "previous": "initialized", "run_id": self.run_id})
@@ -728,6 +753,8 @@ class TrainingSession:
             self._pending = None
             self._stop.set()
             self._resume.set()
+            if self._bridge is not None:
+                self._bridge.history_status("stopping")
         self.hub.publish("lifecycle", {"status": "stopping", "previous": "running", "run_id": self.run_id})
         return self.command_result()
 
@@ -884,6 +911,10 @@ class TrainingSession:
                 self.log("ERROR", "TRAINING", "Trajectory data could not be fully saved", {"detail": self._recorder.last_error})
         if self._bridge is not None:
             self._bridge.run_finished(status=status.value, timestep=self._timestep, error=self.error)
+            self._bridge.history_finished(
+                status=status.value, reason=TERMINATION_REASON[status], finished_at=self.finished_at,
+                duration_seconds=self._elapsed(), timestep=self._timestep, episodes=self._episode_count,
+                metrics=_catalog_metrics(self._progress_payload(self._timestep)), error=self.error)
         self._set_status(status, error=self.error)
         level = "ERROR" if status == Status.FAILED else "INFO"
         self.log(level, "TRAINING", f"Training {status.value}", {"timestep": self._timestep, "episodes": self._episode_count})
@@ -1004,7 +1035,11 @@ class TrainingSession:
             return
         self._last_progress = now
         self._flush_episodes(force=force)
-        self.hub.publish("progress", self._progress_payload(timestep))
+        payload = self._progress_payload(timestep)
+        self.hub.publish("progress", payload)
+        if self._bridge is not None and (force or now - self._last_history_write >= HISTORY_WRITE_INTERVAL_S):
+            self._last_history_write = now
+            self._bridge.history_progress(timestep=timestep, episodes=self._episode_count, metrics=_catalog_metrics(payload))
 
     def _on_algorithm_stats(self, key_values: dict[str, Any], step: int) -> None:
         stats: dict[str, float] = {}
