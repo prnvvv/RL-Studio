@@ -40,7 +40,10 @@ function load(projectId: string | null): Message[] {
 
 function save(projectId: string | null, messages: Message[]): void {
   try {
-    window.sessionStorage.setItem(storageKey(projectId), JSON.stringify(messages.slice(-MAX_STORED)))
+    window.sessionStorage.setItem(
+      storageKey(projectId),
+      JSON.stringify(messages.slice(-MAX_STORED)),
+    )
   } catch {
     // not persisted; the conversation still works for this view
   }
@@ -187,8 +190,8 @@ export function AssistantPanel({ projectId, runId, incidentId, service }: Assist
         {messages.length === 0 ? (
           <div className="sh-stack">
             <p className="sh-text">
-              Ask anything about reinforcement learning, PPO, hyperparameters, metrics, verification,
-              evaluation, diagnosis or recovery. No incident is needed.
+              Ask anything about reinforcement learning, PPO, hyperparameters, metrics,
+              verification, evaluation, diagnosis or recovery. No incident is needed.
               {runId
                 ? ' Questions about your run use its recorded data.'
                 : ' Select a run to ask about your own results.'}
@@ -281,8 +284,8 @@ export function AssistantPanel({ projectId, runId, incidentId, service }: Assist
         </button>
       </div>
       <p className="sh-muted">
-        Answers are advisory. Verification verdicts come from the deterministic engine, and nothing the
-        assistant says is executed.
+        Answers are advisory. Verification verdicts come from the deterministic engine, and nothing
+        the assistant says is executed.
       </p>
     </div>
   )
