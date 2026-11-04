@@ -1,6 +1,8 @@
 import '@testing-library/jest-dom/vitest'
 import { afterEach, vi } from 'vitest'
 import { cleanup } from '@testing-library/react'
+import i18n from '../i18n'
+import { I18nextProvider } from 'react-i18next'
 
 // Unit tests exercise pages in isolation, not Clerk. Provide a signed-out,
 // loaded session so components that read auth state do not need a real
@@ -12,6 +14,17 @@ vi.mock('@clerk/react', () => ({
   SignIn: () => null,
   SignOutButton: () => null,
 }))
+
+// Provide i18next context for tests using useTranslation()
+const i18nextProvider = (
+  children: React.ReactNode,
+) => <I18nextProvider i18n={i18n}>{children}</I18nextProvider>
+
+afterEach(() => {
+  cleanup()
+  window.localStorage.clear()
+  document.documentElement.removeAttribute('data-theme')
+})
 
 // jsdom does not implement matchMedia. Default to "does not match" (a desktop
 // viewport never matches a narrow-width query) so components using
