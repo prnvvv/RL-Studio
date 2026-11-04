@@ -1,11 +1,11 @@
 import type { ComponentType, SVGProps } from 'react'
 import { Link } from 'react-router-dom'
+import { TopNavigation } from '../components/layout/TopNavigation'
 import { WakeGlyph } from '../components/ui/background-ascii-wake'
 import { AmbientWaves } from '../features/landing/AmbientWaves'
 import { FeatureStrip } from '../features/landing/FeatureStrip'
 import { CubeIcon, CycleIcon, PulseIcon } from '../features/landing/icons'
 import { LandingHero } from '../features/landing/LandingHero'
-import { LandingNavbar } from '../features/landing/LandingNavbar'
 import { TechStrip } from '../features/landing/TechStrip'
 import { TelemetrySection } from '../features/landing/TelemetrySection'
 import { useReveal } from '../features/landing/useReveal'
@@ -13,8 +13,8 @@ import { useTranslation } from 'react-i18next'
 import '../features/landing/landing.css'
 import '../features/landing/landing.sections.css'
 
-// The landing page is intentionally a standalone dark surface: it does not use
-// ApplicationShell or the app theme tokens, and it makes no run-data claims.
+// The landing page shares the application's TopNavigation; its hero, "Open Studio" included,
+// links straight to /studio. It makes no run-data claims.
 interface Pillar {
   title: string
   body: string
@@ -81,7 +81,7 @@ export function HomePage() {
       <div className="ls-first-screen">
         <WakeGlyph className="ls-wake" cellSize={16} />
         <AmbientWaves />
-        <LandingNavbar />
+        <TopNavigation />
         <main className="ls-main">
           <LandingHero />
         </main>

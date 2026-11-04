@@ -1,7 +1,6 @@
-import { Routes, Route } from 'react-router-dom'
+import { Navigate, Routes, Route } from 'react-router-dom'
 import { RouteErrorBoundary } from '../components/feedback/RouteErrorBoundary'
 import { HomePage } from '../pages/HomePage'
-import { TrainingPage } from '../pages/TrainingPage'
 import { StudioPage } from '../pages/StudioPage'
 import { EnvironmentsPage } from '../pages/EnvironmentsPage'
 import { MonitoringPage } from '../pages/MonitoringPage'
@@ -19,7 +18,8 @@ export function AppRouter() {
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/studio" element={<StudioPage />} />
-        <Route path="/training" element={<TrainingPage />} />
+        {/* The old standalone training page is retired; the Studio workspace is where training runs. */}
+        <Route path="/training" element={<Navigate to="/studio?view=training" replace />} />
         <Route path="/environments" element={<EnvironmentsPage />} />
         <Route path="/monitoring" element={<MonitoringPage />} />
         <Route path="/diagnosis-recovery" element={<DiagnosisRecoveryPage />} />

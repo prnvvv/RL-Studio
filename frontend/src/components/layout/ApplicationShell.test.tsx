@@ -16,7 +16,7 @@ describe('ApplicationShell', () => {
       </ThemeProvider>,
     )
 
-    expect(screen.getByText('Self-Healing RL Studio')).toBeInTheDocument()
+    expect(screen.getByText('RL Studio')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Home' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Training' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Environments' })).toBeInTheDocument()

@@ -133,3 +133,40 @@ describe('TopNavigation at narrow width', () => {
     ).toBeInTheDocument()
   })
 })
+
+describe('TopNavigation routing', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  const link = (name: string) => screen.getByRole('link', { name })
+
+  it('Home goes to the Studio (not the landing page) and Training to its Configure view', () => {
+    stubViewport(false)
+    renderNav('/monitoring')
+
+    expect(link('Home')).toHaveAttribute('href', '/studio')
+    expect(link('Training')).toHaveAttribute('href', '/studio?view=training')
+  })
+
+  it('marks exactly one Studio view active', () => {
+    stubViewport(false)
+    renderNav('/studio')
+    expect(link('Home')).toHaveAttribute('aria-current', 'page')
+    expect(link('Training')).not.toHaveAttribute('aria-current')
+  })
+
+  it('marks Training active only on the training view', () => {
+    stubViewport(false)
+    renderNav('/studio?view=training')
+    expect(link('Training')).toHaveAttribute('aria-current', 'page')
+    expect(link('Home')).not.toHaveAttribute('aria-current')
+  })
+
+  it('keeps Monitoring active on nested paths and nothing active on the landing page', () => {
+    stubViewport(false)
+    renderNav('/reports/run-1')
+    expect(link('Reports')).toHaveAttribute('aria-current', 'page')
+    expect(link('Home')).not.toHaveAttribute('aria-current')
+  })
+})

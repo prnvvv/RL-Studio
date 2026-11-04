@@ -7,8 +7,8 @@ import {
   type KeyboardEvent,
   type PointerEvent,
 } from 'react'
-import { Link } from 'react-router-dom'
-import { ThemeToggle } from '../../components/ThemeToggle'
+import { Link, useSearchParams } from 'react-router-dom'
+import { TopNavigation } from '../../components/layout/TopNavigation'
 import { ChaosPanel } from './ChaosPanel'
 import { CompareMetrics } from './CompareMetrics'
 import { ComparePanes } from './ComparePanes'
@@ -49,7 +49,6 @@ import './studio.css'
 import './studio.ux.css'
 import './studio.redesign.css'
 import './studio.metrics.css'
-import { LogoMark } from './libraryVisuals'
 import {
   MIN_DOCK,
   clampLayout,
@@ -117,7 +116,11 @@ function WorkspaceBody({ catalog, session }: { catalog: Catalog; session: Sessio
   const previousConnection = useRef(state.connection)
   const syncedSession = useRef<string | null>(null)
   const [draft, setDraft] = useState<Draft>(() => emptyDraft(catalog))
-  const [leftTab, setLeftTab] = useState<LeftTab>('library')
+  // Home opens the library; the nav's Training link (?view=training) opens the Configure tab.
+  const [searchParams] = useSearchParams()
+  const [leftTab, setLeftTab] = useState<LeftTab>(() =>
+    searchParams.get('view') === 'training' ? 'configure' : 'library',
+  )
   const [dockTab, setDockTab] = useState<DockTab>('logs')
   const [viewMode, setViewMode] = useState<ViewMode>('3d')
   const [cameraNonce, setCameraNonce] = useState(0)
@@ -503,17 +506,13 @@ function WorkspaceBody({ catalog, session }: { catalog: Catalog; session: Sessio
 
   return (
     <div className="studio">
+      <TopNavigation />
       <header className="studio-header">
         <div className="studio-header__left">
-          <Link to="/" className="studio-header__brand">
-            <LogoMark />
-            <span>RL Studio</span>
-          </Link>
-          <span className="studio-header__sep" aria-hidden="true" />
           <span className="studio-header__session">{headerInfo}</span>
           <ConnectionLabel connection={state.connection} />
         </div>
-        <nav className="studio-header__right" aria-label="Studio navigation">
+        <div className="studio-header__right">
           <button
             type="button"
             className="studio-metrics-toggle"
@@ -523,11 +522,7 @@ function WorkspaceBody({ catalog, session }: { catalog: Catalog; session: Sessio
           >
             Metrics
           </button>
-          <Link to="/monitoring">Monitoring</Link>
-          <Link to="/diagnosis-recovery">Diagnosis &amp; Recovery</Link>
-          <Link to="/reports">Reports</Link>
-          <ThemeToggle />
-        </nav>
+        </div>
       </header>
 
       <div className="studio-body">
@@ -796,6 +791,7 @@ function StudioWorkspaceContent() {
   if (session.catalog.state === 'loading') {
     return (
       <div className="studio" role="status" aria-busy="true">
+        <TopNavigation />
         <div className="empty" style={{ margin: 'auto' }}>
           Loading agents and environments from the backend…
         </div>
@@ -805,6 +801,7 @@ function StudioWorkspaceContent() {
   if (session.catalog.state === 'error') {
     return (
       <div className="studio">
+        <TopNavigation />
         <div className="empty" style={{ margin: 'auto', maxWidth: 420 }} role="alert">
           <h2 style={{ color: 'var(--text-primary)' }}>The studio backend is unavailable</h2>
           <p>
