@@ -15,7 +15,7 @@ from typing import Any, TypeVar
 
 from pydantic import BaseModel, ValidationError
 
-from .clients import GroqClient, HuggingFaceClient
+from .clients import GroqClient, HuggingFaceClient, KeyPool
 from .errors import (
     AIConfigurationError,
     AIError,
@@ -112,7 +112,11 @@ class AIService:
     ) -> None:
         self.settings = settings
         self.registry = build_registry(settings)
-        self.groq = groq or GroqClient(settings.groq_base_url, settings.groq_api_key, timeout=settings.timeout_seconds)
+        self.groq = groq or GroqClient(
+            settings.groq_base_url,
+            KeyPool(settings.groq_api_keys, call_limit=settings.groq_key_call_limit),
+            timeout=settings.timeout_seconds,
+        )
         self.hf = hf or HuggingFaceClient(
             settings.hf_router_base_url, settings.hf_token, timeout=settings.timeout_seconds
         )
@@ -122,7 +126,7 @@ class AIService:
         """Per-task availability. Never contains credentials."""
         tasks = {}
         for t, s in self.registry.items():
-            has_key = bool(self.settings.groq_api_key if s.provider is Provider.GROQ else self.settings.hf_token)
+            has_key = bool(self.settings.groq_api_keys if s.provider is Provider.GROQ else self.settings.hf_token)
             if not s.enabled:
                 state, reason = "disabled", s.disabled_reason
             elif not has_key:
@@ -134,7 +138,7 @@ class AIService:
                 "state": state, "reason": reason or None,
                 "fallback": s.fallback.value if s.fallback else None,
             }
-        return {"config": self.settings.public(), "tasks": tasks}
+        return {"config": self.settings.public(), "tasks": tasks, "groq_keys": self.groq.keys.stats()}
 
     def verify_groq_models(self) -> dict[str, bool]:
         """Check configured Groq model ids against the account's live catalogue."""

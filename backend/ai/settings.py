@@ -24,9 +24,17 @@ def _str(env: Mapping[str, str], name: str, default: str = "") -> str:
     return (env.get(name) or default).strip()
 
 
+def _keys(env: Mapping[str, str]) -> tuple[str, ...]:
+    """GROQ_API_KEY first, then the comma-separated GROQ_API_KEYS (deduplicated)."""
+    raw = [_str(env, "GROQ_API_KEY"), *_str(env, "GROQ_API_KEYS").split(",")]
+    return tuple(dict.fromkeys(k.strip() for k in raw if k.strip()))
+
+
 @dataclass(frozen=True)
 class AISettings:
     groq_api_key: str
+    groq_api_keys: tuple[str, ...]
+    groq_key_call_limit: int
     hf_token: str
     groq_base_url: str
     hf_router_base_url: str
@@ -66,6 +74,8 @@ class AISettings:
         e = os.environ if env is None else env
         return cls(
             groq_api_key=_str(e, "GROQ_API_KEY"),
+            groq_api_keys=_keys(e),
+            groq_key_call_limit=max(0, _int(e.get("GROQ_KEY_CALL_LIMIT"), 0)),
             hf_token=_str(e, "HF_TOKEN"),
             groq_base_url=_str(e, "GROQ_BASE_URL", "https://api.groq.com/openai/v1").rstrip("/"),
             hf_router_base_url=_str(e, "HF_INFERENCE_BASE_URL", "https://router.huggingface.co/v1").rstrip("/"),
@@ -95,7 +105,8 @@ class AISettings:
     def public(self) -> dict[str, object]:
         """Configuration safe to return from an API: booleans instead of secrets."""
         return {
-            "groq_configured": bool(self.groq_api_key),
+            "groq_configured": bool(self.groq_api_keys),
+            "groq_key_count": len(self.groq_api_keys),
             "huggingface_configured": bool(self.hf_token),
             "fallback_enabled": self.enable_fallback,
             "voice_enabled": self.enable_voice,
