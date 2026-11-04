@@ -495,11 +495,35 @@ MIGRATION_4_STATEMENTS: tuple[str, ...] = (
 )
 
 
+#: Advisory incident investigations (root-cause analysis and recovery recommendations). One additive, append-only
+#: table; rows are never updated, so earlier model output and the evidence it was allowed to cite stay auditable.
+MIGRATION_5_STATEMENTS: tuple[str, ...] = (
+    """
+    CREATE TABLE IF NOT EXISTS incident_investigations (
+        investigation_id TEXT PRIMARY KEY,
+        incident_id TEXT NOT NULL,
+        run_id TEXT NOT NULL,
+        kind TEXT NOT NULL,
+        status TEXT NOT NULL,
+        context_hash TEXT NOT NULL,
+        based_on_investigation_id TEXT,
+        evidence_index_json TEXT NOT NULL DEFAULT '{}',
+        result_json TEXT NOT NULL DEFAULT '{}',
+        ai_json TEXT NOT NULL DEFAULT '{}',
+        warnings_json TEXT NOT NULL DEFAULT '[]',
+        created_at TEXT NOT NULL
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_incident_investigations_incident ON incident_investigations(incident_id, kind, created_at)",
+)
+
+
 MIGRATIONS: tuple[Migration, ...] = (
     Migration(version=1, name="initial_person4_schema", statements=MIGRATION_1_STATEMENTS),
     Migration(version=2, name="person3_verification_lifecycle", statements=MIGRATION_2_STATEMENTS),
     Migration(version=3, name="project_management", statements=MIGRATION_3_STATEMENTS),
     Migration(version=4, name="project_requirement_policies", statements=MIGRATION_4_STATEMENTS),
+    Migration(version=5, name="incident_investigations", statements=MIGRATION_5_STATEMENTS),
 )
 
 
