@@ -16,7 +16,12 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from backend.ai.errors import AIError
 from backend.ai.service import AIService, get_ai_service
-from backend.assistant.service import MAX_HISTORY, MAX_MESSAGE_CHARS, AssistantError, AssistantService
+from backend.assistant.service import (
+    MAX_HISTORY,
+    MAX_MESSAGE_CHARS,
+    AssistantError,
+    AssistantService,
+)
 from backend.projects.scope import Denied, authorize, scope_of
 from backend.projects.service import ProjectService
 from backend.studio.session import store_path
