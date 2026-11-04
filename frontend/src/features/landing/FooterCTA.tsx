@@ -12,7 +12,8 @@ export function FooterCTA() {
           Train with a <em>safety net</em> under every run.
         </h2>
         <p className="ls-footer__sub">
-          Create a project, confirm the contract, run seeded PPO, and let the evidence do the talking.
+          Create a project, confirm the contract, run seeded PPO, and let the evidence do the
+          talking.
         </p>
         <div className="ls-footer__cta">
           <Link to="/projects" className="ls-pill ls-pill--solid">
