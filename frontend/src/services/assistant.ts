@@ -50,7 +50,11 @@ export function createAssistantService(): AssistantService {
       const body: Record<string, unknown> = { message: request.message, history: request.history }
       if (request.run_id) body.run_id = request.run_id
       if (request.incident_id) body.incident_id = request.incident_id
-      return api.post<ChatResponse>('/api/v1/assistant/chat', { jsonBody: body, signal, timeoutMs: SLOW_MS })
+      return api.post<ChatResponse>('/api/v1/assistant/chat', {
+        jsonBody: body,
+        signal,
+        timeoutMs: SLOW_MS,
+      })
     },
   }
 }
