@@ -40,7 +40,9 @@ function RootCause({ record }: { record: InvestigationRecord<RootCauseResult> })
     <div className="sh-stack">
       <div className="sh-row">
         <StatusBadge
-          label={r.root_cause_status === 'probable' ? 'Probable cause (inference)' : 'Cause unresolved'}
+          label={
+            r.root_cause_status === 'probable' ? 'Probable cause (inference)' : 'Cause unresolved'
+          }
           tone="neutral"
           glyph="none"
         />
@@ -73,7 +75,9 @@ function RootCause({ record }: { record: InvestigationRecord<RootCauseResult> })
             <div className="sh-card__head">
               <StatusBadge label={h.component} tone="neutral" glyph="none" />
               <span className="sh-muted">
-                {h.confidence === null ? 'No confidence given' : `Confidence ${(h.confidence * 100).toFixed(0)}% (capped)`}
+                {h.confidence === null
+                  ? 'No confidence given'
+                  : `Confidence ${(h.confidence * 100).toFixed(0)}% (capped)`}
                 {' · '}
                 {h.evidence_support}
               </span>
@@ -137,8 +141,8 @@ function Options({
   return (
     <div className="sh-stack">
       <p className="sh-note">
-        These are recommendations only. Nothing below has been executed, and any state-changing action needs
-        your authorization in the recovery workflow.
+        These are recommendations only. Nothing below has been executed, and any state-changing
+        action needs your authorization in the recovery workflow.
       </p>
       <p className="sh-text">{r.summary}</p>
       {r.options.length === 0 ? (
@@ -150,17 +154,27 @@ function Options({
               <div className="sh-row">
                 <StatusBadge label={o.action.replace(/_/g, ' ')} tone="neutral" glyph="none" />
                 <StatusBadge
-                  label={o.executor_supported === false ? 'Cannot be executed here' : 'Executable after authorization'}
+                  label={
+                    o.executor_supported === false
+                      ? 'Cannot be executed here'
+                      : 'Executable after authorization'
+                  }
                   tone="quiet"
                   glyph="none"
                 />
               </div>
-              {o.target_checkpoint_id ? <span className="sh-chip">{o.target_checkpoint_id}</span> : null}
+              {o.target_checkpoint_id ? (
+                <span className="sh-chip">{o.target_checkpoint_id}</span>
+              ) : null}
             </div>
             <p className="sh-text">{o.reason}</p>
-            {o.expected_impact ? <p className="sh-muted">Expected impact: {o.expected_impact}</p> : null}
+            {o.expected_impact ? (
+              <p className="sh-muted">Expected impact: {o.expected_impact}</p>
+            ) : null}
             {o.risks.length > 0 ? <p className="sh-muted">Risks: {o.risks.join('; ')}</p> : null}
-            {o.preconditions.length > 0 ? <p className="sh-muted">Preconditions: {o.preconditions.join('; ')}</p> : null}
+            {o.preconditions.length > 0 ? (
+              <p className="sh-muted">Preconditions: {o.preconditions.join('; ')}</p>
+            ) : null}
             {(o.warnings ?? []).map((w) => (
               <p key={w} className="sh-note">
                 {w}
@@ -212,7 +226,9 @@ export function AiDiagnosisPanel({ incidentId, onUseOption, service }: AiDiagnos
   const [records, setRecords] = useState<Array<InvestigationRecord<unknown>> | null>(null)
   const [loadError, setLoadError] = useState<ServiceError | null>(null)
   const [pending, setPending] = useState<'investigate' | 'recommend' | null>(null)
-  const [actionError, setActionError] = useState<{ title: string; error: ServiceError } | null>(null)
+  const [actionError, setActionError] = useState<{ title: string; error: ServiceError } | null>(
+    null,
+  )
   const [note, setNote] = useState<string | null>(null)
 
   const load = useCallback(
@@ -242,29 +258,39 @@ export function AiDiagnosisPanel({ incidentId, onUseOption, service }: AiDiagnos
     setPending(kind)
     setActionError(null)
     setNote(null)
-    const result = kind === 'investigate' ? await api.investigate(incidentId, force) : await api.recommend(incidentId, force)
+    const result =
+      kind === 'investigate'
+        ? await api.investigate(incidentId, force)
+        : await api.recommend(incidentId, force)
     if (result.state === 'ok') {
-      setNote(result.data.reused ? 'The stored analysis of identical evidence was reused; no model call was made.' : null)
+      setNote(
+        result.data.reused
+          ? 'The stored analysis of identical evidence was reused; no model call was made.'
+          : null,
+      )
       await load()
     } else {
       setActionError({
-        title: kind === 'investigate' ? 'The diagnosis could not be completed.' : 'The recovery plan could not be generated.',
+        title:
+          kind === 'investigate'
+            ? 'The diagnosis could not be completed.'
+            : 'The recovery plan could not be generated.',
         error: result.error,
       })
     }
     setPending(null)
   }
 
-  const latestRoot = records?.find((r) => r.kind === 'root_cause') as InvestigationRecord<RootCauseResult> | undefined
+  const latestRoot = records?.find((r) => r.kind === 'root_cause') as
+    InvestigationRecord<RootCauseResult> | undefined
   const latestPlan = records?.find((r) => r.kind === 'recovery_plan') as
-    | InvestigationRecord<RecoveryRecommendationResult>
-    | undefined
+    InvestigationRecord<RecoveryRecommendationResult> | undefined
 
   return (
     <div className="sh-stack">
       <p className="sh-muted">
-        The analysis reads only this incident&apos;s persisted evidence. It is advisory: it never decides a
-        verification verdict, never confirms a root cause and never executes a recovery.
+        The analysis reads only this incident&apos;s persisted evidence. It is advisory: it never
+        decides a verification verdict, never confirms a root cause and never executes a recovery.
       </p>
       <div className="sh-row">
         <button
@@ -273,7 +299,11 @@ export function AiDiagnosisPanel({ incidentId, onUseOption, service }: AiDiagnos
           disabled={pending !== null}
           onClick={() => void run('investigate', false)}
         >
-          {pending === 'investigate' ? 'Investigating…' : latestRoot ? 'Run diagnosis again' : 'Run AI diagnosis'}
+          {pending === 'investigate'
+            ? 'Investigating…'
+            : latestRoot
+              ? 'Run diagnosis again'
+              : 'Run AI diagnosis'}
         </button>
         <button
           type="button"
@@ -302,15 +332,18 @@ export function AiDiagnosisPanel({ incidentId, onUseOption, service }: AiDiagnos
       ) : null}
       {note ? <p className="sh-note">{note}</p> : null}
       {actionError ? <ErrorNote title={actionError.title} error={actionError.error} /> : null}
-      {loadError ? <ErrorNote title="Stored analyses could not be loaded." error={loadError} /> : null}
+      {loadError ? (
+        <ErrorNote title="Stored analyses could not be loaded." error={loadError} />
+      ) : null}
 
       {records === null && !loadError ? <p className="sh-muted">Loading stored analyses…</p> : null}
       {records !== null && !latestRoot && !latestPlan ? (
         <div className="sh-empty" role="status">
           <span className="sh-empty__title">No analysis yet</span>
           <p className="sh-muted">
-            Nothing has been analysed for this incident, so no cause or plan is shown. Requesting one is
-            explicit and per incident; nothing requests it automatically unless automation is enabled.
+            Nothing has been analysed for this incident, so no cause or plan is shown. Requesting
+            one is explicit and per incident; nothing requests it automatically unless automation is
+            enabled.
           </p>
         </div>
       ) : null}
