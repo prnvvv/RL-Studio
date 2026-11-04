@@ -17,14 +17,20 @@ interface IncidentSelectorProps {
  * failing final verification); an incident id never has to be typed. With none, the page still works: the assistant
  * is available and the empty state says how an incident arises.
  */
-export function IncidentSelector({ runId, incidents, error, selectedId, onSelect }: IncidentSelectorProps) {
+export function IncidentSelector({
+  runId,
+  incidents,
+  error,
+  selectedId,
+  onSelect,
+}: IncidentSelectorProps) {
   if (runId === null) {
     return (
       <div className="sh-empty" role="status">
         <span className="sh-empty__title">No run selected</span>
         <p className="sh-muted">
-          Incidents belong to a training run. Pick a run above to see its incidents. The assistant below
-          works without one.
+          Incidents belong to a training run. Pick a run above to see its incidents. The assistant
+          below works without one.
         </p>
       </div>
     )
@@ -48,9 +54,10 @@ export function IncidentSelector({ runId, incidents, error, selectedId, onSelect
       <div className="sh-empty" role="status">
         <span className="sh-empty__title">No incidents for this run</span>
         <p className="sh-muted">
-          An incident is recorded when a confirmed requirement fails final deterministic verification
-          against this run. None has, so there is nothing to diagnose or recover. You can still ask the
-          assistant questions, or add and verify a requirement from the project workspace.
+          An incident is recorded when a confirmed requirement fails final deterministic
+          verification against this run. None has, so there is nothing to diagnose or recover. You
+          can still ask the assistant questions, or add and verify a requirement from the project
+          workspace.
         </p>
       </div>
     )
@@ -77,7 +84,13 @@ export function IncidentSelector({ runId, incidents, error, selectedId, onSelect
                 <span className="sh-mono">{incident.incident_id}</span>
               </div>
               <div className="sh-row">
-                {incident.severity ? <StatusBadge label={`severity ${incident.severity}`} tone="neutral" glyph="none" /> : null}
+                {incident.severity ? (
+                  <StatusBadge
+                    label={`severity ${incident.severity}`}
+                    tone="neutral"
+                    glyph="none"
+                  />
+                ) : null}
                 <StatusBadge label={incident.status} tone="quiet" glyph="none" />
               </div>
             </div>
