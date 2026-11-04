@@ -206,6 +206,15 @@ def test_websocket_events_are_scoped(world: World) -> None:
             pass
 
 
+def test_the_studio_live_stream_is_scoped(world: World) -> None:
+    c = world.client
+    for headers in (h(world.p2), {}):
+        with pytest.raises(WebSocketDisconnect), c.websocket_connect(f"{BASE}/sessions/{world.sid1}/stream", headers=headers):
+            pass
+    with c.websocket_connect(f"{BASE}/sessions/{world.sid1}/stream?project_id={world.p1}") as ws:
+        assert ws.receive_json()["type"] == "snapshot"
+
+
 def test_a_session_is_created_in_exactly_one_project(world: World) -> None:
     c = world.client
     body = {"agent": "PPO", "environment": "cartpole", "training": TRAINING}
