@@ -56,7 +56,7 @@ def load_policy(path: Path, algorithm: str) -> Any:
         raise RolloutError(f"Algorithm {algorithm!r} is not available in this deployment.") from exc
     try:
         return cls.load(str(path), device="cpu")
-    except Exception as exc:  # noqa: BLE001 - SB3 raises many types for a bad archive; report, never hide
+    except Exception as exc:
         logger.warning("checkpoint load failed (%s)", type(exc).__name__)
         raise RolloutError(f"The checkpoint could not be loaded as a {algorithm} policy ({type(exc).__name__}).") from exc
 
