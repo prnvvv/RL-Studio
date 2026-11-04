@@ -28,6 +28,8 @@ const UNEXPECTED = 'The service returned an unexpected response.'
 const UPLOAD_TIMEOUT_MS = 60_000
 
 const seg = encodeURIComponent
+/** Model interpretation and verification take longer than the default request timeout. */
+const SLOW_MS = 120_000
 
 export interface VerifyRequest {
   run_id: string
@@ -140,7 +142,7 @@ export function createProjectService(): ProjectService {
       mapped(api.get<unknown>(`${BASE}/${seg(id)}`, { signal }), expectProject),
 
     createProject: (request) =>
-      mapped(api.post<unknown>(BASE, { jsonBody: request }), (d) =>
+      mapped(api.post<unknown>(BASE, { jsonBody: request, timeoutMs: SLOW_MS }), (d) =>
         hasString(d, 'project_id')
           ? { state: 'ok', data: d as unknown as ProjectSummary & { intent?: unknown } }
           : unexpected(),
@@ -213,7 +215,7 @@ export function createProjectService(): ProjectService {
       ),
 
     submitIntent: (id, request) =>
-      mapped(api.post<unknown>(`${BASE}/${seg(id)}/intents`, { jsonBody: request }), (d) =>
+      mapped(api.post<unknown>(`${BASE}/${seg(id)}/intents`, { jsonBody: request, timeoutMs: SLOW_MS }), (d) =>
         isRecord(d) && Array.isArray(d.intents)
           ? { state: 'ok', data: d as unknown as IntentSubmitResult }
           : unexpected(),
@@ -262,7 +264,7 @@ export function createProjectService(): ProjectService {
       ),
 
     verify: (id, request) =>
-      mapped(api.post<unknown>(`${BASE}/${seg(id)}/verifications`, { jsonBody: request }), (d) =>
+      mapped(api.post<unknown>(`${BASE}/${seg(id)}/verifications`, { jsonBody: request, timeoutMs: SLOW_MS }), (d) =>
         isRecord(d) && (d.state === 'evaluated' || d.state === 'waiting_for_evidence')
           ? { state: 'ok', data: d as unknown as VerifyResult }
           : unexpected(),
