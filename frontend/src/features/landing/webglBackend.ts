@@ -420,13 +420,17 @@ export function createWebGLBackend(
       const moved = field.step(dt, state.mouse, state.mouseAmt, layout.aspect)
       this.lastStepMs = moved ? performance.now() - t0 : 0
 
-      const light = typeof document !== 'undefined' &&
+      const light =
+        typeof document !== 'undefined' &&
         document.documentElement.getAttribute('data-theme') === 'light'
       context.viewport(0, 0, context.drawingBufferWidth, context.drawingBufferHeight)
       context.clearColor(0, 0, 0, 0)
       context.clear(context.COLOR_BUFFER_BIT)
       context.enable(context.BLEND)
-      context.blendFunc(light ? context.SRC_ALPHA : context.ONE, light ? context.ONE_MINUS_SRC_ALPHA : context.ONE)
+      context.blendFunc(
+        light ? context.SRC_ALPHA : context.ONE,
+        light ? context.ONE_MINUS_SRC_ALPHA : context.ONE,
+      )
 
       const agent = state.agentPoint()
       const [cr, cg, cb] = light ? [0.07, 0.07, 0.07] : [0.94, 0.94, 0.94]
