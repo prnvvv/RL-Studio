@@ -409,7 +409,11 @@ export function RunDetailPage() {
       <div className="page-stack">
         <PageHeader
           eyebrow="Run report"
-          title={<>Run <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.7em' }}>{runId}</span></>}
+          title={
+            <>
+              Run <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.7em' }}>{runId}</span>
+            </>
+          }
           description="Unified diagnostic report: every section loads independently, so one section's gap or failure never blocks the rest."
           actions={
             <StatusBadge
