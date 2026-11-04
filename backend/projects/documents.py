@@ -93,9 +93,9 @@ def validate_upload(filename: str, content_type: str | None, data: bytes) -> str
         raise DocumentError("The file is not a PDF (signature mismatch)")
     if fmt == "docx" and not data.startswith(b"PK\x03\x04"):
         raise DocumentError("The file is not a DOCX (signature mismatch)")
-    if fmt in ("text", "markdown"):
-        if b"\x00" in data[:8192] or data.startswith((b"%PDF-", b"PK\x03\x04", b"\x7fELF", b"MZ")):
-            raise DocumentError("The file is not plain text (binary content detected)")
+    is_binary = b"\x00" in data[:8192] or data.startswith((b"%PDF-", b"PK\x03\x04", b"\x7fELF", b"MZ"))
+    if fmt in ("text", "markdown") and is_binary:
+        raise DocumentError("The file is not plain text (binary content detected)")
     return fmt
 
 
@@ -147,7 +147,7 @@ def _docx_text(data: bytes) -> str:
     return "\n".join(paragraphs)
 
 
-_STREAM = re.compile(rb"stream\r?\n(.*?)\r?\nendstream", re.S)
+_STREAM = re.compile(rb"stream\r?\n(.*?)\r?\nendstream", re.DOTALL)
 _PAREN = re.compile(rb"\(((?:\\.|[^\\)])*)\)")
 _ESCAPES = {b"n": b"\n", b"r": b"\r", b"t": b"\t", b"b": b"\b", b"f": b"\f", b"(": b"(", b")": b")", b"\\": b"\\"}
 
@@ -189,9 +189,9 @@ def _pdf_text(data: bytes) -> str:
             content = body  # not Flate-compressed
         if b"BT" not in content or b"ET" not in content:
             continue
-        for block in re.findall(rb"BT(.*?)ET", content, re.S):
+        for block in re.findall(rb"BT(.*?)ET", content, re.DOTALL):
             line_parts: list[str] = []
-            for match in re.finditer(rb"\[(.*?)\]\s*TJ|\(((?:\\.|[^\\)])*)\)\s*(?:Tj|'|\")", block, re.S):
+            for match in re.finditer(rb"\[(.*?)\]\s*TJ|\(((?:\\.|[^\\)])*)\)\s*(?:Tj|'|\")", block, re.DOTALL):
                 if match.group(1) is not None:
                     line_parts.append("".join(_unescape(p) for p in _PAREN.findall(match.group(1))))
                 else:
