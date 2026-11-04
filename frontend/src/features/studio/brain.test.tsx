@@ -7,7 +7,7 @@ import { GridMaze2D } from './renderers/GridMaze2D'
 import type { ScenePalette } from './renderers/palette'
 import { StudioStore } from './studioStore'
 import type { BrainPayload, FramePayload } from './studioTypes'
-import { i18n } from '../../i18n'
+import i18n from '../../i18n'
 import { I18nextProvider } from 'react-i18next'
 
 const frame = (brain?: BrainPayload, extra: Partial<FramePayload> = {}): FramePayload => ({
