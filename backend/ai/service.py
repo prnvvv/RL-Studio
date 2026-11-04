@@ -120,13 +120,29 @@ class AIService:
         self.hf = hf or HuggingFaceClient(
             settings.hf_router_base_url, settings.hf_token, timeout=settings.timeout_seconds
         )
+        # injected clients (tests) serve every task; otherwise each model with a dedicated
+        # credential gets its own client whose key pool is: dedicated key first, shared keys after.
+        self._injected = groq is not None or hf is not None
+        self._task_clients: dict[str, GroqClient | HuggingFaceClient] = {}
+
+    def _keys_for(self, spec: TaskSpec) -> tuple[str, ...]:
+        shared = self.settings.groq_api_keys if spec.provider is Provider.GROQ else (
+            (self.settings.hf_token,) if self.settings.hf_token else ())
+        own = self.settings.dedicated_keys.get(spec.key_env, "")
+        return tuple(dict.fromkeys(k for k in (own, *shared) if k))
+
+    def key_source(self, spec: TaskSpec) -> str:
+        """'dedicated' (its own variable is set), 'shared', or 'none'. Never the key itself."""
+        if spec.key_env and self.settings.dedicated_keys.get(spec.key_env):
+            return "dedicated"
+        return "shared" if self._keys_for(spec) else "none"
 
     # -- status -----------------------------------------------------------
     def status(self) -> dict[str, Any]:
         """Per-task availability. Never contains credentials."""
         tasks = {}
         for t, s in self.registry.items():
-            has_key = bool(self.settings.groq_api_keys if s.provider is Provider.GROQ else self.settings.hf_token)
+            has_key = bool(self._keys_for(s))
             if not s.enabled:
                 state, reason = "disabled", s.disabled_reason
             elif not has_key:
@@ -137,6 +153,7 @@ class AIService:
                 "provider": s.provider.value, "model": s.model or None, "modality": s.modality.value,
                 "state": state, "reason": reason or None,
                 "fallback": s.fallback.value if s.fallback else None,
+                "api_key_variable": s.key_env or None, "api_key_source": self.key_source(s),
             }
         return {"config": self.settings.public(), "tasks": tasks, "groq_keys": self.groq.keys.stats()}
 
@@ -154,7 +171,19 @@ class AIService:
         return spec
 
     def _client(self, spec: TaskSpec) -> GroqClient | HuggingFaceClient:
-        return self.groq if spec.provider is Provider.GROQ else self.hf
+        """The client holding the credential configured for this task's model."""
+        shared = self.groq if spec.provider is Provider.GROQ else self.hf
+        if self._injected or not self.settings.dedicated_keys.get(spec.key_env):
+            return shared
+        cached = self._task_clients.get(spec.key_env)
+        if cached is None:
+            pool = KeyPool(self._keys_for(spec), call_limit=self.settings.groq_key_call_limit
+                           if spec.provider is Provider.GROQ else 0)
+            cached = (GroqClient(self.settings.groq_base_url, pool, timeout=self.settings.timeout_seconds)
+                      if spec.provider is Provider.GROQ else
+                      HuggingFaceClient(self.settings.hf_router_base_url, pool, timeout=self.settings.timeout_seconds))
+            self._task_clients[spec.key_env] = cached
+        return cached
 
     def _with_fallback(self, spec: TaskSpec, call: Any) -> AIResult:
         try:
@@ -196,7 +225,7 @@ class AIService:
         """Transcribe audio with the registered Whisper model. Audio is never persisted."""
         spec = self._spec(Task.TRANSCRIPTION, Modality.AUDIO)
         mime = validate_audio(content, content_type, self.settings.max_audio_bytes)
-        out = self.groq.transcribe(
+        out = self._client(spec).transcribe(
             spec.model, filename or "recording", content, mime,
             retries=spec.max_retries, timeout=spec.timeout_seconds, language=language,
         )
@@ -215,10 +244,10 @@ class AIService:
             url = f"data:{mime};base64,{base64.b64encode(image).decode()}"
             messages = [{"role": "user", "content": [
                 {"type": "text", "text": prompt}, {"type": "image_url", "image_url": {"url": url}}]}]
-            out = self.groq.chat(spec.model, messages, retries=spec.max_retries,
-                                 timeout=spec.timeout_seconds, max_tokens=spec.max_tokens)
+            out = self._client(spec).chat(spec.model, messages, retries=spec.max_retries,
+                                          timeout=spec.timeout_seconds, max_tokens=spec.max_tokens)
         else:
-            out = self.hf.vision_chat(spec.model, prompt, image, mime, retries=spec.max_retries,
+            out = self._client(spec).vision_chat(spec.model, prompt, image, mime, retries=spec.max_retries,
                                       timeout=spec.timeout_seconds, max_tokens=spec.max_tokens)
         return AIResult(spec.task.value, spec.provider.value, out["model"], False,
                         out["request_id"], out["usage"], text=out["text"])
@@ -227,7 +256,7 @@ class AIService:
         spec = self._spec(Task.SEGMENTATION, Modality.SEGMENTATION)
         mime = validate_image(image, content_type, self.settings.max_image_bytes)
         url = spec.endpoint or f"https://api-inference.huggingface.co/models/{spec.model}"
-        masks = self.hf.segment(url, image, mime, model=spec.model or None,
+        masks = self._client(spec).segment(url, image, mime, model=spec.model or None,
                                 retries=spec.max_retries, timeout=spec.timeout_seconds)
         return {"task": spec.task.value, "provider": spec.provider.value, "model": spec.model or None, "masks": masks}
 

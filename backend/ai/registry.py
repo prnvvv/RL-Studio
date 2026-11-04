@@ -50,38 +50,40 @@ class TaskSpec:
     fallback: Task | None = None
     endpoint: str = ""
     output_schema: str = ""
+    #: name of the env var holding this model's dedicated credential (falls back to the shared one)
+    key_env: str = ""
 
 
 def build_registry(s: AISettings) -> dict[Task, TaskSpec]:
     common = {"timeout_seconds": s.timeout_seconds, "max_retries": s.max_retries}
     groq = Provider.GROQ
 
-    def text(task: Task, model: str, schema: str, fallback: Task | None = None) -> TaskSpec:
+    def text(task: Task, model: str, schema: str, key_env: str, fallback: Task | None = None) -> TaskSpec:
         return TaskSpec(
             task, groq, model, Modality.TEXT, enabled=bool(model), max_tokens=4096,
             disabled_reason="" if model else "model id not configured",
-            fallback=fallback if s.enable_fallback else None, output_schema=schema, **common,
+            fallback=fallback if s.enable_fallback else None, output_schema=schema, key_env=key_env, **common,
         )
 
     # Original design: Meta Muse Spark for intent interpretation. Replaced with Groq-hosted
     # GPT-OSS 20B because Meta API access/free credits were unavailable.
-    intent = text(Task.INTENT, s.intent_model, "IntentInterpretation")
+    intent = text(Task.INTENT, s.intent_model, "IntentInterpretation", "GROQ_INTENT_API_KEY")
     # Original design: Meta Muse Spark for structured requirement extraction. Replaced with
     # Groq-hosted GPT-OSS 20B because Meta API access/free credits were unavailable.
-    reqs = text(Task.REQUIREMENTS, s.requirements_model, "RequirementSet")
+    reqs = text(Task.REQUIREMENTS, s.requirements_model, "RequirementSet", "GROQ_REQUIREMENTS_API_KEY")
     # Original design: Meta Muse Wonder for investigation assistance. Replaced with
     # Groq-hosted GPT-OSS 120B because Meta API access/free credits were unavailable.
-    invest = text(Task.INVESTIGATION, s.investigation_model, "InvestigationNotes", Task.INTENT)
+    invest = text(Task.INVESTIGATION, s.investigation_model, "InvestigationNotes", "GROQ_INVESTIGATION_API_KEY", Task.INTENT)
     # Original design: Meta Muse Wonder for root-cause investigation. Replaced with
     # Groq-hosted GPT-OSS 120B because Meta API access/free credits were unavailable.
-    root = text(Task.ROOT_CAUSE, s.root_cause_model, "RootCauseAnalysis", Task.INTENT)
+    root = text(Task.ROOT_CAUSE, s.root_cause_model, "RootCauseAnalysis", "GROQ_ROOT_CAUSE_API_KEY", Task.INTENT)
 
     # Original design: Meta Muse Image for visual environment debugging. Replaced with a hosted
     # vision-capable model because Meta API access/free credits were unavailable.
     if s.vision_provider == "groq":
-        v_provider, v_model = Provider.GROQ, s.groq_vision_model
+        v_provider, v_model, v_key = Provider.GROQ, s.groq_vision_model, "GROQ_VISION_API_KEY"
     else:
-        v_provider, v_model = Provider.HUGGINGFACE, s.vision_model
+        v_provider, v_model, v_key = Provider.HUGGINGFACE, s.vision_model, "HF_VISION_API_KEY"
     vision = TaskSpec(
         Task.VISION, v_provider, v_model, Modality.VISION,
         enabled=s.enable_visual and bool(v_model),
@@ -89,7 +91,7 @@ def build_registry(s: AISettings) -> dict[Task, TaskSpec]:
             "visual investigation disabled" if not s.enable_visual
             else "no verified vision model configured (set VISION_MODEL or GROQ_VISION_MODEL)"
         ),
-        max_tokens=2048, output_schema="VisualObservations", **common,
+        max_tokens=2048, output_schema="VisualObservations", key_env=v_key, **common,
     )
 
     # Original design: Meta SAM 3.1 for visual segmentation. Using a hosted Hugging Face API
@@ -102,7 +104,8 @@ def build_registry(s: AISettings) -> dict[Task, TaskSpec]:
             "segmentation disabled" if not s.enable_segmentation
             else "no hosted segmentation model/endpoint configured"
         ),
-        endpoint=s.hf_segmentation_endpoint, output_schema="SegmentationMasks", **common,
+        endpoint=s.hf_segmentation_endpoint, output_schema="SegmentationMasks",
+        key_env="HF_SEGMENTATION_API_KEY", **common,
     )
 
     # Original design: Meta Muse Voice Transcribe for voice input. Replaced with Groq Whisper
@@ -111,7 +114,7 @@ def build_registry(s: AISettings) -> dict[Task, TaskSpec]:
         Task.TRANSCRIPTION, groq, s.transcription_model, Modality.AUDIO,
         enabled=s.enable_voice and bool(s.transcription_model),
         disabled_reason="voice transcription disabled" if not s.enable_voice else "model id not configured",
-        output_schema="Transcription", **common,
+        output_schema="Transcription", key_env="GROQ_TRANSCRIPTION_API_KEY", **common,
     )
 
     # Muse Glimmer / Muse Spark Open (open-weight evaluation) have no runtime task: the original
