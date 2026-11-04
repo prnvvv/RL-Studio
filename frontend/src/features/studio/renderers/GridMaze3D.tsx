@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import {
   BufferGeometry,
@@ -10,6 +10,7 @@ import {
   type Mesh,
   type MeshStandardMaterial,
 } from 'three'
+import { makeGridTexture } from './groundGrid'
 import {
   adaptGridAgent,
   adaptGridObstacles,
@@ -89,6 +90,12 @@ export function GridMaze3D({ scene, store, palette }: RendererProps) {
     [],
   )
 
+  const gridTexture = useMemo(
+    () => (grid ? makeGridTexture(palette.grid, grid.cols, grid.rows) : null),
+    [grid, palette.grid],
+  )
+  useEffect(() => () => gridTexture?.dispose(), [gridTexture])
+
   const world = useMemo(
     () => (grid ? { goal: cellToWorld(grid, grid.goal[0], grid.goal[1]) } : null),
     [grid],
@@ -137,20 +144,19 @@ export function GridMaze3D({ scene, store, palette }: RendererProps) {
         <boxGeometry args={[grid.cols, 0.1, grid.rows]} />
         <meshStandardMaterial color={palette.floor} />
       </mesh>
-      <gridHelper
-        args={[
-          Math.max(grid.rows, grid.cols),
-          Math.max(grid.rows, grid.cols),
-          palette.grid,
-          palette.grid,
-        ]}
-        position={[0, 0.001, 0]}
-        scale={[
-          grid.cols / Math.max(grid.rows, grid.cols),
-          1,
-          grid.rows / Math.max(grid.rows, grid.cols),
-        ]}
-      />
+      {gridTexture && (
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.012, 0]}>
+          <planeGeometry args={[grid.cols, grid.rows]} />
+          <meshBasicMaterial
+            map={gridTexture}
+            transparent
+            depthWrite={false}
+            toneMapped={false}
+            polygonOffset
+            polygonOffsetFactor={-2}
+          />
+        </mesh>
+      )}
       <Obstacles3D grid={grid} store={store} palette={palette} />
       <mesh position={[gx, 0.02, gz]} rotation={[-Math.PI / 2, 0, 0]}>
         <ringGeometry args={[0.3, 0.42, 32]} />

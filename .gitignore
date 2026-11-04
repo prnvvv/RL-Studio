@@ -95,3 +95,4 @@ opencode.md
 **/opencode.md
 *.db
 var/studio/
+*.sqlite3

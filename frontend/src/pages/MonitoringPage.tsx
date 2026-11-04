@@ -1,13 +1,14 @@
 import { useCallback, useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { ApplicationShell } from '../components/layout/ApplicationShell'
-import { Panel } from '../components/ui/Panel'
 import { EmptyState } from '../components/ui/EmptyState'
 import { UnavailableState } from '../components/ui/UnavailableState'
 import { LineChart } from '../components/charts/LineChart'
 import { EventTimeline } from '../features/monitoring/EventTimeline'
 import { LiveStatsPanel, LiveStatRow } from '../features/monitoring/LiveStatsPanel'
 import { LiveConnectionStatus } from '../features/monitoring/LiveConnectionStatus'
+import { MonitoringIcon, MonitoringPanel } from '../features/monitoring/MonitoringPanel'
+import { NoRunSelected } from '../features/monitoring/NoRunSelected'
 import { RunScopeField } from '../features/monitoring/RunScopeField'
 import { RunLifecycleStatus } from '../features/monitoring/RunLifecycleStatus'
 import { liveEventsToTimeline } from '../features/monitoring/eventPresentation'
@@ -15,6 +16,7 @@ import { LiveEventsProvider, useLiveEventsContext } from '../contexts/LiveEvents
 import { useRunStatus } from '../hooks/useRunStatus'
 import { createRunService } from '../services/runs'
 import { formatUtcDate, formatUtcTime } from '../utils/datetime'
+import '../features/monitoring/monitoring.css'
 
 const MONITOR_SCOPE_FORM_ID = 'monitor-run-scope'
 
@@ -37,8 +39,9 @@ function RunLifecycleSection({ runId }: { runId: string }) {
   const status = useRunStatus(runId, runService)
 
   return (
-    <Panel
+    <MonitoringPanel
       title="Run lifecycle"
+      icon="lifecycle"
       description="Read from the run status endpoint. A failed read keeps the last recorded state and marks it stale."
     >
       <RunLifecycleStatus
@@ -46,7 +49,7 @@ function RunLifecycleSection({ runId }: { runId: string }) {
         snapshotAsOf={status.lastUpdated}
         onRefresh={status.reload}
       />
-    </Panel>
+    </MonitoringPanel>
   )
 }
 
@@ -71,140 +74,85 @@ function MonitoringContent({ runId, incidentId, onScope, onClearScope }: Monitor
           .filter((part): part is string => part !== null)
           .join(' ')
 
-  const retryButton = (
-    <button
-      type="button"
-      onClick={live.retry}
-      style={{
-        padding: '4px 12px',
-        background: 'transparent',
-        color: 'var(--text-primary)',
-        border: '1px solid var(--border-primary)',
-        borderRadius: 'var(--radius-sm)',
-        fontSize: 'var(--text-xs)',
-        fontFamily: 'var(--font-sans)',
-        cursor: 'pointer',
-      }}
-    >
-      Reconnect
-    </button>
-  )
-
   return (
-    <div className="page-stack">
-      <div className="page-header">
-        <div>
-          <h1
-            style={{
-              fontSize: 'var(--text-2xl)',
-              fontWeight: 600,
-              margin: 0,
-              color: 'var(--text-primary)',
-              fontFamily: 'var(--font-sans)',
-            }}
-          >
-            Monitoring
-          </h1>
-          <p
-            style={{
-              fontSize: 'var(--text-base)',
-              color: 'var(--text-secondary)',
-              margin: '4px 0 0 0',
-              fontFamily: 'var(--font-sans)',
-            }}
-          >
-            Observe training behaviour and recorded execution events
-          </p>
-        </div>
-      </div>
+    <div className="mon-page">
+      <header className="mon-header">
+        <p className="mon-eyebrow">System monitoring</p>
+        <h1 className="mon-title">Monitoring</h1>
+        <p className="mon-subtitle">Observe training behaviour and recorded execution events</p>
+      </header>
 
-      <Panel
-        title="Run scope"
-        description="The page shows one run at a time. Events and lifecycle are only read for the selected identifier."
-        actions={
-          runId === null ? undefined : (
-            <button
-              type="button"
-              onClick={onClearScope}
-              style={{
-                padding: '4px 12px',
-                background: 'transparent',
-                color: 'var(--text-primary)',
-                border: '1px solid var(--border-primary)',
-                borderRadius: 'var(--radius-sm)',
-                fontSize: 'var(--text-xs)',
-                fontFamily: 'var(--font-sans)',
-                cursor: 'pointer',
-              }}
-            >
-              Clear run scope
-            </button>
-          )
-        }
-      >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-          <RunScopeField
-            formId={MONITOR_SCOPE_FORM_ID}
-            value={runId ?? ''}
-            onSubmit={onScope}
-            label="Run identifier"
-            hint="Subscribes this page to the run's live event stream and status endpoint."
-          />
+      <section className="mon-run" aria-label="Run scope and identifier">
+        <div className="mon-run__cell">
+          <div className="mon-run__lead">
+            <MonitoringIcon name="target" />
+            <div className="mon-panel__titles">
+              <h2 className="mon-panel__title">Run scope</h2>
+              <p className="mon-panel__description">
+                The page shows one run at a time. Events and lifecycle are only read for the
+                selected identifier.
+              </p>
+            </div>
+          </div>
+          {runId === null ? null : (
+            <div className="mon-run__actions">
+              <button type="button" className="mon-button" onClick={onClearScope}>
+                Clear run scope
+              </button>
+            </div>
+          )}
+        </div>
+
+        <div className="mon-run__divider" aria-hidden="true" />
+
+        <div className="mon-run__cell">
+          <div className="mon-run__lead">
+            <MonitoringIcon name="layers" />
+            <div className="mon-panel__titles">
+              <h2 className="mon-panel__title">Run identifier</h2>
+              <p className="mon-panel__description">
+                Subscribes this page to the run&apos;s live event stream and status endpoint.
+              </p>
+            </div>
+          </div>
+          <div className="mon-runid">
+            <RunScopeField
+              formId={MONITOR_SCOPE_FORM_ID}
+              value={runId ?? ''}
+              onSubmit={onScope}
+              label="Run identifier"
+            />
+          </div>
           {incidentId !== null ? (
-            <p
-              style={{
-                margin: 0,
-                fontSize: 'var(--text-xs)',
-                color: 'var(--text-secondary)',
-                fontFamily: 'var(--font-sans)',
-              }}
-            >
+            <p className="mon-incident">
               Incident scope <code>{incidentId}</code> is carried from the link that opened this
               page. Incident records are not loaded here;{' '}
-              <Link
-                to={`/diagnosis-recovery${incidentSuffix}`}
-                style={{ color: 'var(--text-primary)' }}
-              >
-                open the incident record
-              </Link>
-              .
+              <Link to={`/diagnosis-recovery${incidentSuffix}`}>open the incident record</Link>.
             </p>
           ) : null}
         </div>
-      </Panel>
+      </section>
 
       <LiveConnectionStatus state={live.connection} />
 
       {live.connection === 'disconnected' ? (
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 'var(--space-3)',
-            flexWrap: 'wrap',
-          }}
-        >
-          <p
-            role="status"
-            style={{
-              margin: 0,
-              fontSize: 'var(--text-xs)',
-              color: 'var(--text-secondary)',
-              fontFamily: 'var(--font-sans)',
-            }}
-          >
+        <div className="mon-reconnect">
+          <p role="status">
             {live.transportError ??
               'The live connection stopped after its bounded retry budget. Training status is unchanged; recorded values may be stale.'}
           </p>
-          {retryButton}
+          <button type="button" className="mon-button" onClick={live.retry}>
+            Reconnect
+          </button>
         </div>
       ) : null}
 
       {runId === null ? null : <RunLifecycleSection runId={runId} />}
 
-      <div className="monitor-layout">
-        <Panel
+      <div className="mon-main">
+        <MonitoringPanel
           title="Recent Events"
+          icon="layers"
           description="Recorded execution events. Event types are shown exactly as recorded and are not classified in the interface yet."
           footer={
             runId === null ? undefined : (
@@ -217,10 +165,7 @@ function MonitoringContent({ runId, incidentId, onScope, onClearScope }: Monitor
           }
         >
           {runId === null ? (
-            <EmptyState
-              title="No run selected"
-              description="Enter a run identifier to subscribe to that run's recorded events. Nothing is inferred for an unscoped page."
-            />
+            <NoRunSelected />
           ) : events.length === 0 ? (
             <EmptyState
               title="No events recorded for this scope"
@@ -229,76 +174,40 @@ function MonitoringContent({ runId, incidentId, onScope, onClearScope }: Monitor
           ) : (
             <EventTimeline events={events} />
           )}
-        </Panel>
+        </MonitoringPanel>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-          <Panel
+        <div className="mon-side">
+          <MonitoringPanel
             title="Live Stats"
+            icon="chart"
             description="Training metrics, not held-out evaluation metrics."
           >
             <LiveStatsPanel rows={liveStats} />
-            <p
-              style={{
-                margin: 'var(--space-3) 0 0 0',
-                fontSize: 'var(--text-xs)',
-                color: 'var(--text-muted)',
-                fontFamily: 'var(--font-sans)',
-              }}
-            >
-              No run-metrics endpoint is available yet, so these values stay explicitly unavailable
-              rather than being estimated from events.
+            <p className="mon-note">
+              <MonitoringIcon name="info" className="" />
+              <span>
+                No run-metrics endpoint is available yet, so these values stay explicitly
+                unavailable rather than being estimated from events.
+              </span>
             </p>
-          </Panel>
+          </MonitoringPanel>
 
-          <Panel title="Related views">
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-              <Link
-                to={`/training${runSuffix}`}
-                style={{
-                  fontSize: 'var(--text-sm)',
-                  color: 'var(--text-primary)',
-                  fontFamily: 'var(--font-sans)',
-                }}
-              >
-                Training dashboard
-              </Link>
-              <Link
-                to={`/diagnosis-recovery${incidentSuffix}`}
-                style={{
-                  fontSize: 'var(--text-sm)',
-                  color: 'var(--text-primary)',
-                  fontFamily: 'var(--font-sans)',
-                }}
-              >
-                Diagnosis &amp; Recovery
-              </Link>
-              <Link
-                to={`/reports${incidentSuffix}`}
-                style={{
-                  fontSize: 'var(--text-sm)',
-                  color: 'var(--text-primary)',
-                  fontFamily: 'var(--font-sans)',
-                }}
-              >
-                Reports
-              </Link>
-            </div>
-            <p
-              style={{
-                margin: 'var(--space-3) 0 0 0',
-                fontSize: 'var(--text-xs)',
-                color: 'var(--text-muted)',
-                fontFamily: 'var(--font-sans)',
-              }}
-            >
+          <MonitoringPanel title="Related views" icon="link">
+            <nav className="mon-links" aria-label="Related views">
+              <Link to={`/training${runSuffix}`}>Training dashboard</Link>
+              <Link to={`/diagnosis-recovery${incidentSuffix}`}>Diagnosis &amp; Recovery</Link>
+              <Link to={`/reports${incidentSuffix}`}>Reports</Link>
+            </nav>
+            <p className="mon-hint">
               Links carry the selected run or incident scope to the destination page.
             </p>
-          </Panel>
+          </MonitoringPanel>
         </div>
       </div>
 
-      <Panel
+      <MonitoringPanel
         title="Comparison Charts"
+        icon="pulse"
         description="Reward trend against healthy, faulty, and recovered baselines. Secondary to the areas above."
       >
         <LineChart
@@ -314,7 +223,7 @@ function MonitoringContent({ runId, incidentId, onScope, onClearScope }: Monitor
             owner="Person 2 — RL engine (metrics) · Person 4 — evaluation records"
           />
         </div>
-      </Panel>
+      </MonitoringPanel>
     </div>
   )
 }

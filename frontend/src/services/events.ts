@@ -19,6 +19,7 @@
  *   stopped or failed.
  */
 import { decodeLiveEventFrame, type LiveEventPayload } from '../schemas/events'
+import { withProjectScope } from './projectScope'
 
 export type LiveTransportState = 'connecting' | 'connected' | 'reconnecting' | 'disconnected'
 
@@ -107,7 +108,7 @@ export function createLiveEventStream(options: LiveEventStreamOptions): LiveEven
     maxDelayMs = DEFAULT_MAX_DELAY_MS,
   } = options
 
-  const url = buildEventStreamUrl(baseUrl, runId, origin)
+  const url = withProjectScope(buildEventStreamUrl(baseUrl, runId, origin))
 
   let closed = false
   let generation = 0

@@ -11,18 +11,8 @@ export interface LiveStatRow {
 }
 
 function StatIcon({ kind }: { kind: StatKind }) {
-  const common = {
-    width: '12px',
-    height: '12px',
-    fill: 'none',
-    stroke: 'var(--icon-secondary)',
-    strokeWidth: 1.4,
-    strokeLinecap: 'round' as const,
-    strokeLinejoin: 'round' as const,
-  }
-
   return (
-    <svg viewBox="0 0 16 16" aria-hidden="true" style={{ flexShrink: 0 }} {...common}>
+    <svg viewBox="0 0 16 16" aria-hidden="true" className="mon-stat__icon">
       {kind === 'episode' && <circle cx="8" cy="8" r="5" />}
       {kind === 'steps' && (
         <>
@@ -44,56 +34,36 @@ function StatIcon({ kind }: { kind: StatKind }) {
   )
 }
 
+/** A fixed, decorative waveform. It is not derived from data and encodes nothing. */
+function DecorativeWave() {
+  return (
+    <svg viewBox="0 0 56 16" aria-hidden="true" className="mon-stat__wave">
+      <path d="M1 9c4-7 7-7 11 0s7 7 11 0 7-7 11 0 7 7 11 0" />
+    </svg>
+  )
+}
+
 interface LiveStatsPanelProps {
   rows: LiveStatRow[]
 }
 
 export function LiveStatsPanel({ rows }: LiveStatsPanelProps) {
   return (
-    <dl style={{ margin: 0, display: 'flex', flexDirection: 'column' }}>
-      {rows.map((row, index) => (
-        <div
-          key={row.id}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 'var(--space-3)',
-            padding: 'var(--space-3) 0',
-            borderTop: index === 0 ? 'none' : '1px solid var(--border-secondary)',
-          }}
-        >
-          <dt
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 'var(--space-2)',
-              margin: 0,
-              fontSize: 'var(--text-sm)',
-              color: 'var(--text-secondary)',
-              fontFamily: 'var(--font-sans)',
-            }}
-          >
+    <dl className="mon-stats">
+      {rows.map((row) => (
+        <div key={row.id} className="mon-stat">
+          <dt className="mon-stat__label">
             <StatIcon kind={row.kind} />
             {row.label}
           </dt>
-          <dd
-            style={{
-              margin: 0,
-              fontSize: 'var(--text-sm)',
-              fontFamily: row.value === null ? 'var(--font-sans)' : 'var(--font-mono)',
-              fontStyle: row.value === null ? 'italic' : 'normal',
-              fontVariantNumeric: 'tabular-nums',
-              color: row.value === null ? 'var(--text-muted)' : 'var(--text-primary)',
-              textAlign: 'right',
-            }}
-          >
+          <DecorativeWave />
+          <dd className="mon-stat__value">
             {row.value === null ? (
-              'Not available'
+              <span className="mon-badge">Not available</span>
             ) : (
               <>
                 {row.value}
-                {row.unit ? <span style={{ color: 'var(--text-muted)' }}> {row.unit}</span> : null}
+                {row.unit ? <span className="mon-stat__unit"> {row.unit}</span> : null}
               </>
             )}
           </dd>

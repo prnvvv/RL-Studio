@@ -6,6 +6,7 @@ import {
   type SessionCommand,
   type StudioService,
 } from '../../services/studio'
+import { useActiveProject } from '../../contexts/ActiveProjectContext'
 import type { ServiceError } from '../../services/types'
 import { connectSession } from './studioConnection'
 import { StudioStore } from './studioStore'
@@ -43,6 +44,7 @@ function describeFailure(action: string, error: ServiceError): string {
  */
 export function useStudioSession(service: StudioService = defaultService) {
   const store = useMemo(() => new StudioStore(), [])
+  const { activeProjectId } = useActiveProject()
   const state = useSyncExternalStore(store.subscribe, store.getState)
   const [catalog, setCatalog] = useState<CatalogState>({ state: 'loading' })
   const [busy, setBusy] = useState<string | null>(null)
@@ -124,7 +126,12 @@ export function useStudioSession(service: StudioService = defaultService) {
       busyRef.current = 'initialize'
       setBusy('initialize')
       setNotice(null)
-      const result = await service.createSession({ ...config, ...(name ? { name } : {}) })
+      // Training started inside a project is recorded against it; with no active project nothing changes.
+      const result = await service.createSession({
+        ...config,
+        ...(name ? { name } : {}),
+        ...(activeProjectId ? { project_id: activeProjectId } : {}),
+      })
       busyRef.current = null
       setBusy(null)
       if (result.state === 'error') {
@@ -137,7 +144,7 @@ export function useStudioSession(service: StudioService = defaultService) {
       attach(result.data.session_id)
       return true
     },
-    [attach, service, store],
+    [activeProjectId, attach, service, store],
   )
 
   const command = useCallback(

@@ -152,6 +152,23 @@ def build_incident_draft(
     }
     if verification_id:
         details["verification_id"] = verification_id
+    definitions = {
+        d.get("id"): d for d in (output.get("requirement_definitions") or []) if isinstance(d, Mapping)
+    }
+    # Every failed requirement is carried (the registry's single ``requirement_id`` column only holds
+    # the first), each with its own expected/actual values and evidence references.
+    details["failed_requirements"] = [
+        {
+            "requirement_id": rid,
+            "description": (definitions.get(rid) or {}).get("description"),
+            "status": result.get("status"),
+            "expected": result.get("expected"),
+            "actual": result.get("actual"),
+            "evidence_refs": [r for r in (result.get("evidence_refs") or []) if isinstance(r, str)],
+            "note": (result.get("details") or {}).get("note") if isinstance(result.get("details"), Mapping) else None,
+        }
+        for rid, result in failed
+    ]
     consistency = output.get("consistency")
     if isinstance(consistency, Mapping):
         details["consistency_status"] = consistency.get("status")

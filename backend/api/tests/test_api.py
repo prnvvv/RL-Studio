@@ -121,6 +121,17 @@ class ApiTests(unittest.TestCase):
             "/api/v1/incidents/{incident_id}/evaluations/{evaluation_id}": "get",
             "/api/v1/verification/status": "get",
             "/api/v1/verification/verify": "post",
+            # Phase 3 intent-to-verification lifecycle
+            "/api/v1/verification/runs/{run_id}/intents": "post",
+            "/api/v1/verification/intents/{intent_id}": "get",
+            "/api/v1/verification/runs/{run_id}/requirements": "get",
+            "/api/v1/verification/requirements/{requirement_id}": "get",
+            "/api/v1/verification/requirements/{requirement_id}/confirm": "post",
+            "/api/v1/verification/requirements/{requirement_id}/reject": "post",
+            "/api/v1/verification/runs/{run_id}/verifications": "post",
+            "/api/v1/verification/verifications/{verification_id}": "get",
+            "/api/v1/verification/verifications/{verification_id}/results": "get",
+            "/api/v1/verification/verifications/{verification_id}/incident/retry": "post",
         }
         self.assertEqual(set(paths), set(expected))
         for path, method in expected.items():

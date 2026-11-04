@@ -15,6 +15,7 @@
  * UI: raw response bodies, headers, stack traces, and backend internals are
  * never surfaced (frontend/AGENTS.md §10.4, §19).
  */
+import { projectScopeHeaders } from './projectScope'
 import type { ServiceErrorKind, ServiceResult } from './types'
 
 const DEFAULT_TIMEOUT_MS = 10_000
@@ -124,6 +125,10 @@ export function createApiClient(config: ApiClientConfig = {}) {
     signal?.addEventListener('abort', onExternalAbort)
 
     const requestHeaders = new Headers(headers)
+    // The open project travels with every request; the backend enforces the isolation.
+    for (const [name, value] of Object.entries(projectScopeHeaders())) {
+      if (!requestHeaders.has(name)) requestHeaders.set(name, value)
+    }
     if (jsonBody !== undefined && !requestHeaders.has('Content-Type')) {
       requestHeaders.set('Content-Type', 'application/json')
     }

@@ -33,7 +33,7 @@ export function BrainPanel({ store, renderer }: Props) {
         <strong>{t('studio.brainpanel.gaussian_policy')}</strong>
         {(brain.mean ?? []).map((mean, i) => (
           <div key={i} className="brain-panel__row">
-            <span>{t('action.' + i)}</span>
+            <span>{t('action.' + i, { defaultValue: 'Action ' + i })}</span>
             <span>
               μ {mean.toFixed(3)} · σ {(brain.std?.[i] ?? 0).toFixed(3)}
             </span>

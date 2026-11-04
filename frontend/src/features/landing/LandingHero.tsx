@@ -24,7 +24,7 @@ export function LandingHero() {
         </h1>
 
         <div className="ls-cta ls-enter" style={delay(750)}>
-          <Link to="/studio" className="ls-pill ls-pill--solid">
+          <Link to="/projects" className="ls-pill ls-pill--solid">
             Open Studio
             <ArrowIcon className="ls-pill__arrow" />
           </Link>

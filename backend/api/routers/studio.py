@@ -17,6 +17,8 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field, StrictBool
 
 from backend.database.exceptions import ConflictError, NotFoundError, StudioError
+from backend.projects.repository import ProjectRepository
+from backend.projects.scope import run_owners, scope_of
 from backend.studio import custom
 from backend.studio.catalog import build_catalog
 from backend.studio.manager import manager
@@ -39,6 +41,8 @@ class SessionRequest(BaseModel):
     agent_params: dict[str, Any] = Field(default_factory=dict)
     env_params: dict[str, Any] = Field(default_factory=dict)
     training: dict[str, Any] = Field(default_factory=dict)
+    # Optional: the project this training belongs to. Omitted for sessions created outside a project.
+    project_id: str | None = Field(default=None, pattern=r"^prj_[0-9a-f]{16}$")
 
 
 class ControlRequest(BaseModel):
@@ -181,9 +185,20 @@ def delete_environment(env_id: str) -> dict[str, Any]:
 
 
 @router.post("/sessions", status_code=201)
-def create_session(request: SessionRequest) -> dict[str, Any]:
-    payload = request.model_dump(exclude={"name"})
-    session = manager.create(payload, request.name)
+def create_session(request: SessionRequest, http: Request) -> dict[str, Any]:
+    # The request scope (already validated) and the body must agree: a session is created in exactly one project.
+    scope = scope_of(http)
+    if request.project_id is not None and request.project_id != scope:
+        raise ConflictError("The session's project does not match the request's project scope",
+                            details={"project_id": request.project_id})
+    project_id = scope
+    if project_id is not None:
+        database = getattr(http.app.state, "database", None)
+        project = None if database is None else ProjectRepository(database).get_project(project_id)
+        if project is None:
+            raise NotFoundError("Project not found", details={"project_id": project_id})
+    payload = request.model_dump(exclude={"name", "project_id"})
+    session = manager.create(payload, request.name, project_id)
     return session.snapshot()
 
 
@@ -229,13 +244,18 @@ def set_battle_speed(battle_id: str, request: SpeedRequest) -> dict[str, Any]:
 
 
 @router.get("/sessions")
-def list_sessions() -> dict[str, Any]:
-    return {"sessions": manager.list()}
+def list_sessions(http: Request) -> dict[str, Any]:
+    # Only the caller's project (or, with no project scope, only unassigned/legacy sessions).
+    scope = scope_of(http)
+    return {"sessions": [s for s in manager.list() if s.get("project_id") == scope]}
 
 
 @router.get("/history")
-def list_history() -> dict[str, Any]:
-    return {"experiments": manager.history()}
+def list_history(http: Request) -> dict[str, Any]:
+    scope = scope_of(http)
+    database = getattr(http.app.state, "database", None)
+    owners = run_owners(database) if database is not None else {}
+    return {"experiments": [e for e in manager.history() if owners.get(e.get("run_id")) == scope]}
 
 
 @router.get("/history/{run_id}")

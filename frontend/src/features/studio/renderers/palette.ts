@@ -15,7 +15,7 @@ export interface ScenePalette {
 const DARK: ScenePalette = {
   background: '#050505',
   floor: '#101010',
-  grid: '#2a2a2a',
+  grid: '#9a9a9a',
   structure: '#5a5a5a',
   agent: '#f2f2f2',
   accent: '#bdbdbd',
@@ -27,7 +27,7 @@ const DARK: ScenePalette = {
 const LIGHT: ScenePalette = {
   background: '#f2f2f2',
   floor: '#e4e4e4',
-  grid: '#c8c8c8',
+  grid: '#8a8a8a',
   structure: '#8a8a8a',
   agent: '#141414',
   accent: '#555555',

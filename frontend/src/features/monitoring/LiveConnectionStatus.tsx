@@ -59,44 +59,15 @@ export function LiveConnectionStatus({ state, lastUpdated }: LiveConnectionStatu
     <div
       role="status"
       aria-label="Live update connection status"
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 'var(--space-2)',
-        flexWrap: 'wrap',
-        padding: 'var(--space-2) var(--space-3)',
-        border: `1px ${isLive ? 'solid' : 'dashed'} var(--border-primary)`,
-        borderRadius: 'var(--radius-sm)',
-        background: 'var(--bg-panel)',
-        fontFamily: 'var(--font-sans)',
-      }}
+      className="mon-status"
+      data-live={isLive}
     >
-      <span
-        aria-hidden="true"
-        style={{
-          width: '7px',
-          height: '7px',
-          borderRadius: '50%',
-          border: '1px solid var(--text-primary)',
-          background: isLive ? 'var(--text-primary)' : 'transparent',
-          flexShrink: 0,
-        }}
-      />
-      <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-primary)' }}>{view.label}</span>
-      <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
-        {view.description}
-      </span>
+      <span aria-hidden="true" className="mon-status__dot" />
+      <span className="mon-status__label">{view.label}</span>
+      <span aria-hidden="true" className="mon-status__sep" />
+      <span className="mon-status__description">{view.description}</span>
       {lastUpdated ? (
-        <span
-          style={{
-            marginLeft: 'auto',
-            fontSize: 'var(--text-xs)',
-            fontFamily: 'var(--font-mono)',
-            color: 'var(--text-muted)',
-          }}
-        >
-          Last snapshot {lastUpdated}
-        </span>
+        <span className="mon-status__snapshot">Last snapshot {lastUpdated}</span>
       ) : null}
     </div>
   )

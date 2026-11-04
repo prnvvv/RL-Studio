@@ -281,8 +281,225 @@ MIGRATION_1_STATEMENTS: tuple[str, ...] = (
 )
 
 
+#: Phase 3 (Person 3): intent interpretation, requirement lifecycle, persisted verifications and the
+#: verification -> incident association. Additive only; no Person 4 table is altered. Incidents are
+#: still written through ``ProvenanceService.register_incident`` - ``verification_incident_links`` only
+#: records which incident a verification produced (and the handoff outcome).
+MIGRATION_2_STATEMENTS: tuple[str, ...] = (
+    """
+    CREATE TABLE IF NOT EXISTS verification_intents (
+        intent_id TEXT PRIMARY KEY,
+        run_id TEXT NOT NULL,
+        environment_id TEXT,
+        environment_version TEXT,
+        original_text TEXT NOT NULL,
+        context_json TEXT NOT NULL DEFAULT '{}',
+        status TEXT NOT NULL,
+        status_reason TEXT,
+        interpretation_json TEXT NOT NULL DEFAULT '{}',
+        ai_json TEXT NOT NULL DEFAULT '{}',
+        source_refs_json TEXT NOT NULL DEFAULT '{}',
+        idempotency_key TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_vintents_run ON verification_intents(run_id, created_at)",
+    "CREATE INDEX IF NOT EXISTS idx_vintents_key ON verification_intents(idempotency_key)",
+    """
+    CREATE TABLE IF NOT EXISTS verification_requirements (
+        requirement_id TEXT PRIMARY KEY,
+        intent_id TEXT NOT NULL,
+        run_id TEXT NOT NULL,
+        environment_id TEXT,
+        environment_version TEXT,
+        category TEXT NOT NULL,
+        source_statement TEXT NOT NULL,
+        description TEXT NOT NULL,
+        criterion TEXT,
+        comparison_operator TEXT,
+        expected_value_json TEXT,
+        tolerance REAL,
+        evidence_required_json TEXT NOT NULL DEFAULT '[]',
+        lifecycle_status TEXT NOT NULL,
+        validation_status TEXT NOT NULL,
+        validation_json TEXT NOT NULL DEFAULT '{}',
+        requirement_json TEXT NOT NULL,
+        last_verification_id TEXT,
+        last_result_status TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        confirmed_at TEXT
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_vreq_intent ON verification_requirements(intent_id)",
+    "CREATE INDEX IF NOT EXISTS idx_vreq_run ON verification_requirements(run_id, created_at)",
+    """
+    CREATE TABLE IF NOT EXISTS verifications (
+        verification_id TEXT PRIMARY KEY,
+        run_id TEXT NOT NULL,
+        intent_id TEXT,
+        environment_id TEXT,
+        environment_version TEXT,
+        overall_status TEXT NOT NULL,
+        contract_status TEXT,
+        idempotency_key TEXT NOT NULL UNIQUE,
+        requirement_ids_json TEXT NOT NULL DEFAULT '[]',
+        traceability_json TEXT NOT NULL DEFAULT '{}',
+        output_json TEXT NOT NULL,
+        created_at TEXT NOT NULL
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_verifications_run ON verifications(run_id, created_at)",
+    """
+    CREATE TABLE IF NOT EXISTS verification_results (
+        verification_id TEXT NOT NULL,
+        requirement_id TEXT NOT NULL,
+        status TEXT NOT NULL,
+        contract_status TEXT,
+        expected_json TEXT,
+        actual_json TEXT,
+        tolerance REAL,
+        evidence_refs_json TEXT NOT NULL DEFAULT '[]',
+        details_json TEXT NOT NULL DEFAULT '{}',
+        is_mandatory INTEGER NOT NULL DEFAULT 1,
+        created_at TEXT NOT NULL,
+        PRIMARY KEY (verification_id, requirement_id)
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS verification_incident_links (
+        verification_id TEXT PRIMARY KEY,
+        run_id TEXT NOT NULL,
+        incident_id TEXT,
+        handoff_status TEXT NOT NULL,
+        failed_requirement_ids_json TEXT NOT NULL DEFAULT '[]',
+        error_code TEXT,
+        attempts INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_vlinks_incident ON verification_incident_links(incident_id)",
+)
+
+
+#: Project management. Additive only: ``runs.project_id`` (migration 1) is the run -> project association,
+#: and every project requirement/intent is a normal Phase 3 record in ``verification_intents`` /
+#: ``verification_requirements`` scoped to the pseudo-run ``project:<project_id>``; the tables below only add
+#: the project-level metadata, revision history and the project <-> run verification association.
+#: Deleting a project is a soft delete (``status = 'deleted'``): no run, evidence, incident or verification
+#: record is ever removed.
+MIGRATION_3_STATEMENTS: tuple[str, ...] = (
+    """
+    CREATE TABLE IF NOT EXISTS projects (
+        project_id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        description TEXT,
+        status TEXT NOT NULL DEFAULT 'active',
+        agent_json TEXT NOT NULL DEFAULT '{}',
+        environment_json TEXT NOT NULL DEFAULT '{}',
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        deleted_at TEXT
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_projects_status ON projects(status, updated_at)",
+    "CREATE INDEX IF NOT EXISTS idx_runs_project ON runs(project_id)",
+    """
+    CREATE TABLE IF NOT EXISTS project_documents (
+        document_id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL,
+        filename TEXT NOT NULL,
+        content_type TEXT NOT NULL,
+        size_bytes INTEGER NOT NULL,
+        sha256 TEXT NOT NULL,
+        storage_reference TEXT NOT NULL,
+        extraction_status TEXT NOT NULL,
+        extraction_error TEXT,
+        extracted_text TEXT,
+        text_chars INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_pdocs_project ON project_documents(project_id, created_at)",
+    """
+    CREATE TABLE IF NOT EXISTS project_intent_links (
+        intent_id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL,
+        stage TEXT NOT NULL,
+        run_id TEXT,
+        document_ids_json TEXT NOT NULL DEFAULT '[]',
+        source_json TEXT NOT NULL DEFAULT '{}',
+        created_at TEXT NOT NULL
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_pintents_project ON project_intent_links(project_id, created_at)",
+    """
+    CREATE TABLE IF NOT EXISTS project_requirement_links (
+        requirement_id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL,
+        requirement_key TEXT NOT NULL,
+        requirement_revision INTEGER NOT NULL,
+        supersedes_requirement_id TEXT,
+        stage TEXT NOT NULL,
+        source_json TEXT NOT NULL DEFAULT '{}',
+        created_at TEXT NOT NULL
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_preqs_project ON project_requirement_links(project_id, requirement_key)",
+    """
+    CREATE TABLE IF NOT EXISTS project_run_bindings (
+        requirement_id TEXT NOT NULL,
+        run_id TEXT NOT NULL,
+        project_id TEXT NOT NULL,
+        run_requirement_id TEXT NOT NULL,
+        intent_id TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        PRIMARY KEY (requirement_id, run_id)
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS project_run_verifications (
+        project_id TEXT NOT NULL,
+        run_id TEXT NOT NULL,
+        verification_id TEXT NOT NULL,
+        requirement_id TEXT NOT NULL,
+        requirement_revision INTEGER NOT NULL,
+        run_requirement_id TEXT NOT NULL,
+        evaluation_status TEXT NOT NULL,
+        stage TEXT NOT NULL,
+        run_status TEXT,
+        evidence_references_json TEXT NOT NULL DEFAULT '[]',
+        evaluation_window_json TEXT NOT NULL DEFAULT '{}',
+        created_at TEXT NOT NULL,
+        PRIMARY KEY (verification_id, requirement_id)
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_prv_project_run ON project_run_verifications(project_id, run_id, created_at)",
+)
+
+
+#: Interim-incident policy. One additive table: the user's explicit "critical safety" flag per project requirement.
+#: Only a failed requirement flagged here may raise an incident from an interim (still-training) verification.
+MIGRATION_4_STATEMENTS: tuple[str, ...] = (
+    """
+    CREATE TABLE IF NOT EXISTS project_requirement_policies (
+        requirement_id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL,
+        critical_safety INTEGER NOT NULL DEFAULT 0,
+        updated_at TEXT NOT NULL
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_preqpol_project ON project_requirement_policies(project_id)",
+)
+
+
 MIGRATIONS: tuple[Migration, ...] = (
     Migration(version=1, name="initial_person4_schema", statements=MIGRATION_1_STATEMENTS),
+    Migration(version=2, name="person3_verification_lifecycle", statements=MIGRATION_2_STATEMENTS),
+    Migration(version=3, name="project_management", statements=MIGRATION_3_STATEMENTS),
+    Migration(version=4, name="project_requirement_policies", statements=MIGRATION_4_STATEMENTS),
 )
 
 

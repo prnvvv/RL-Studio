@@ -97,7 +97,14 @@ export function CartPole3D({ scene, store, palette }: RendererProps) {
       {gridTexture && (
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.085, 0]}>
           <planeGeometry args={[18, 18]} />
-          <meshBasicMaterial map={gridTexture} transparent depthWrite={false} />
+          <meshBasicMaterial
+            map={gridTexture}
+            transparent
+            depthWrite={false}
+            toneMapped={false}
+            polygonOffset
+            polygonOffsetFactor={-2}
+          />
         </mesh>
       )}
       <group ref={cart} position={[0, 0.1, 0]}>

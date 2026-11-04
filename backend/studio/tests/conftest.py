@@ -21,4 +21,9 @@ def client(tmp_path, monkeypatch) -> Iterator[TestClient]:
     for session in list(manager._sessions.values()):
         with contextlib.suppress(Exception):
             session.stop()
+        # Wait for the training thread to finish its final writes before the next test
+        # swaps RL_STUDIO_DATA_ROOT; a lingering thread must never touch a later data root.
+        thread = getattr(session, "_thread", None)
+        if thread is not None:
+            thread.join(timeout=10)
     manager._sessions.clear()

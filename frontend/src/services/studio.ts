@@ -20,11 +20,14 @@ import type {
 import type { ServiceResult } from './types'
 import { serviceError } from './types'
 import { api, buildRequestUrl, kindForStatus, MESSAGES } from './client'
+import { projectScopeHeaders, withProjectScope } from './projectScope'
 
 const BASE = '/api/v1/studio'
 
 export interface CreateSessionRequest extends SessionConfig {
   name?: string
+  /** The project this training belongs to (omitted outside a project). */
+  project_id?: string
 }
 
 export interface ChaosPatch {
@@ -97,6 +100,8 @@ function xhrUpload(
     xhr.timeout = UPLOAD_TIMEOUT_MS
     xhr.setRequestHeader('Content-Type', contentType)
     xhr.setRequestHeader('Accept', 'application/json')
+    for (const [name, value] of Object.entries(projectScopeHeaders()))
+      xhr.setRequestHeader(name, value)
     xhr.upload.onprogress = (event) => {
       if (event.lengthComputable && event.total > 0)
         options.onProgress?.(event.loaded / event.total)
@@ -246,7 +251,9 @@ export function sessionStreamUrl(sessionId: string, after = 0): string {
     configured !== ''
       ? configured.replace(/^http/, 'ws')
       : `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}`
-  return `${origin}${BASE}/sessions/${encodeURIComponent(sessionId)}/stream?after=${after}`
+  return withProjectScope(
+    `${origin}${BASE}/sessions/${encodeURIComponent(sessionId)}/stream?after=${after}`,
+  )
 }
 
 export function createStudioService(): StudioService {

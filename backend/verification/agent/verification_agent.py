@@ -131,10 +131,21 @@ def _requirement_args(
         return arguments
 
     if requirement_type == "metric":
+        observations = list(bundle.metrics)
+        refs = list(bundle.metric_evidence_refs)
+        wanted = metadata.get("metric_name")
+        if isinstance(wanted, str) and wanted:
+            # Only observations of the named metric may satisfy (or violate) the requirement.
+            keep = [
+                i for i, m in enumerate(observations)
+                if isinstance(m, dict) and wanted in (m.get("metric_name"), m.get("name"))
+            ]
+            observations = [observations[i] for i in keep]
+            refs = [refs[i] for i in keep if i < len(refs)]
         return {
             "requirement": requirement,
-            "metric_observations": list(bundle.metrics),
-            "evidence_refs": list(bundle.metric_evidence_refs),
+            "metric_observations": observations,
+            "evidence_refs": refs,
         }
 
     # Default: configuration-style comparison against supplied configuration.
@@ -312,6 +323,13 @@ def node_plan(state: VerificationState) -> VerificationState:
         state.step = "complete"
         return state
 
+    raw = state.raw_input if isinstance(state.raw_input, dict) else {}
+    confirmed = raw.get("confirmed_requirements")
+    if isinstance(confirmed, list) and confirmed:
+        # Phase 3: requirements were interpreted, validated and confirmed by the developer before
+        # this run. They are executed as-is; nothing is re-parsed from free text here.
+        return _plan_confirmed(state, confirmed)
+
     developer_intent = state.input.developer_intent or ""
     if not developer_intent.strip():
         state.error = (
@@ -368,6 +386,34 @@ def node_plan(state: VerificationState) -> VerificationState:
     return state
 
 
+def _plan_confirmed(state: VerificationState, confirmed: list[Any]) -> VerificationState:
+    from backend.verification.agent.workflow_planner import plan as plan_checks
+    from backend.verification.tools.tool_registry import is_check_registered
+
+    try:
+        requirements = [
+            item if isinstance(item, VerificationRequirement) else VerificationRequirement.model_validate(item)
+            for item in confirmed
+        ]
+        plan = plan_checks(requirements, state.context)
+    except Exception as exc:  # noqa: BLE001 - boundary
+        state.error = f"Planning failed: {type(exc).__name__}"
+        state.step = "complete"
+        return state
+    blocks = (state.raw_input or {}).get("requirement_blocks") or {}
+    state.requirements = requirements
+    state.registered_checks = {
+        rid: cid for rid, cid in plan.items() if cid in _registered_ids() and rid not in blocks
+    }
+    state.validation_summary = {
+        **(state.validation_summary or {}),
+        "unsupported_requirements": [rid for rid, cid in plan.items() if not is_check_registered(cid)],
+        "planned_checks": dict(state.registered_checks),
+    }
+    state.step = "validating"
+    return state
+
+
 def _registered_ids() -> set[str]:
     from backend.verification.tools.tool_registry import list_checks
 
@@ -412,8 +458,21 @@ def node_check(state: VerificationState) -> VerificationState:
     if bundle is None:
         bundle = extract_evidence(state.context.input.execution_evidence or {})
 
+    raw = state.raw_input if isinstance(state.raw_input, dict) else {}
+    blocks: dict[str, str] = raw.get("requirement_blocks") or {}
+    blockers: dict[str, list[str]] = raw.get("pass_blockers") or {}
+
     state.check_results = {}
     for requirement in state.requirements:
+        if requirement.id in blocks:
+            # Scoped to a different environment version / run: never evaluated, never PASS.
+            state.check_results[requirement.id] = VerificationCheckResult(
+                requirement_id=requirement.id,
+                status=CheckStatus.BLOCKED,
+                details={"note": blocks[requirement.id], "source": "verification_agent"},
+                is_mandatory=requirement.is_mandatory,
+            )
+            continue
         check_id = state.registered_checks.get(requirement.id)
         if check_id is None:
             state.check_results[requirement.id] = _unknown_result(
@@ -425,9 +484,17 @@ def node_check(state: VerificationState) -> VerificationState:
 
         try:
             arguments = _requirement_args(requirement, bundle)
-            state.check_results[requirement.id] = execute_check(
-                check_id, state.context, arguments
-            )
+            result = execute_check(check_id, state.context, arguments)
+            reasons = [*blockers.get("all", []), *blockers.get(requirement.type.value, [])]
+            if result.status is CheckStatus.PASS and reasons:
+                # A PASS needs complete evidence for what this requirement reads. A FAIL on real
+                # observed data stays a FAIL; only an unsupported PASS is withheld.
+                result = result.model_copy(update={
+                    "status": CheckStatus.UNKNOWN,
+                    "details": {**(result.details or {}), "pass_withheld": True,
+                                "note": "PASS withheld because evidence is incomplete: " + ", ".join(reasons)},
+                })
+            state.check_results[requirement.id] = result
         except Exception as exc:  # noqa: BLE001 - boundary: one check must not abort the run
             logger.warning("Check %r failed for requirement %r", check_id, requirement.id)
             state.check_results[requirement.id] = _error_result(

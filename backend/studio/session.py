@@ -50,6 +50,7 @@ from .controls import RuntimeControls, validate_action
 from .envs import EnvDefinition, describe_space, unavailable_reason
 from .hub import SessionHub
 from .params import validate_params
+from .provenance_bridge import RunBridge, resolve_environment_version
 from .store import RunRecorder
 from .wrappers import ChaosEnv, HumanControlEnv
 
@@ -329,6 +330,7 @@ class _StudioCallback(BaseCallback):
 
         if outcome is not None:
             s._record_episode(
+                truncated=bool(truncated),
                 reward=self._episode_reward,
                 length=self._episode_steps,
                 outcome=outcome,
@@ -393,8 +395,11 @@ class TrainingSession:
         name: str | None = None,
         battle_id: str | None = None,
         battle_side: str | None = None,
+        project_id: str | None = None,
     ) -> None:
         self.session_id = session_id
+        # Association only (kept out of ``config`` so config fingerprints and stored configs are unchanged).
+        self.project_id = project_id
         self.battle_id = battle_id
         self.battle_side = battle_side
         self.config = config
@@ -421,6 +426,8 @@ class TrainingSession:
         self._thread: threading.Thread | None = None
         self._model: Any = None
         self._recorder: RunRecorder | None = None
+        self._bridge: RunBridge | None = None
+        self._environment_version: str | None = None
         self.controls = RuntimeControls()
         self._action_space: Any = None
         self._chaos_pending: dict[str, int] = {}
@@ -476,6 +483,7 @@ class TrainingSession:
             self._scene = self.definition.scene(self.config["env_params"], env)
             self._scene["action_space"] = "discrete" if hasattr(env.action_space, "n") else "box"
             self._obs_shape = [int(d) for d in env.observation_space.shape]
+            self._environment_version = resolve_environment_version(env)
             self._action_space = env.action_space
             self.hub.set_frame(
                 {
@@ -668,6 +676,15 @@ class TrainingSession:
                 created_at=self.created_at,
                 started_at=self.started_at,
             )
+            self._bridge = RunBridge(
+                self.run_id,
+                environment_id=self.config["environment"],
+                environment_version=self._environment_version,
+                agent_id=self.config["agent"],
+                config=self.config,
+                project_id=self.project_id,
+            )
+            self._bridge.run_started()
             self._thread = threading.Thread(target=self._run, name=f"studio-{self.session_id}", daemon=True)
             self._status = Status.RUNNING
         self.hub.publish("lifecycle", {"status": "running", "previous": "initialized", "run_id": self.run_id})
@@ -729,6 +746,7 @@ class TrainingSession:
             self._reset_metrics()
             self._model = None
             self._recorder = None
+            self._bridge = None
             self.controls = RuntimeControls()
             self.error = None
             self.started_at = None
@@ -864,6 +882,8 @@ class TrainingSession:
             self._recorder.finish_run(status=status.value, finished_at=self.finished_at, error=self.error)
             if not self._recorder.healthy:
                 self.log("ERROR", "TRAINING", "Trajectory data could not be fully saved", {"detail": self._recorder.last_error})
+        if self._bridge is not None:
+            self._bridge.run_finished(status=status.value, timestep=self._timestep, error=self.error)
         self._set_status(status, error=self.error)
         level = "ERROR" if status == Status.FAILED else "INFO"
         self.log(level, "TRAINING", f"Training {status.value}", {"timestep": self._timestep, "episodes": self._episode_count})
@@ -884,7 +904,7 @@ class TrainingSession:
             },
         )
 
-    def _record_episode(self, *, reward: float, length: int, outcome: dict[str, Any], collisions: int, disturbances: int, timestep: int) -> None:
+    def _record_episode(self, *, truncated: bool | None = None, reward: float, length: int, outcome: dict[str, Any], collisions: int, disturbances: int, timestep: int) -> None:
         with self._lock:
             self._episode_count += 1
             self._timestep = timestep
@@ -911,6 +931,12 @@ class TrainingSession:
             self._unsent.append(record)
         if self._recorder is not None:
             self._recorder.end_episode(end_step=timestep, reward=reward, length=length, success=bool(outcome["success"]), reason=outcome["reason"], collisions=collisions, disturbances=disturbances)
+        if self._bridge is not None:
+            self._bridge.episode_ended(
+                episode=record["episode"], timestep=timestep, reward=reward, length=length,
+                success=bool(outcome["success"]), reason=outcome["reason"], collisions=collisions,
+                disturbances=disturbances, truncated=truncated,
+            )
         if collisions:
             self.log("INFO", "ENVIRONMENT", f"{collisions} collision(s) in episode {record['episode']}", {"collisions": collisions}, record["episode"])
         if disturbances and self.definition.disturbances:
@@ -1074,6 +1100,8 @@ class TrainingSession:
                 self._checkpoints.append(record)
             if self._recorder is not None:
                 self._recorder.add_checkpoint(record, str(final.relative_to(data_dir())))
+            if self._bridge is not None:
+                self._bridge.checkpoint_saved(record, final)
             self.hub.publish("checkpoint", record)
             self.log("INFO", "CHECKPOINT", f"Checkpoint saved at timestep {timestep} ({reason})", {"checkpoint_id": checkpoint_id, "sha256": digest[:12]})
         except OSError:
@@ -1105,6 +1133,7 @@ class TrainingSession:
         return {
             "session_id": self.session_id,
             "run_id": self.run_id,
+            "project_id": self.project_id,
             "name": self.name,
             "status": self._status.value,
             "pending_command": self._pending,

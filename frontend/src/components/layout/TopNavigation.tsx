@@ -1,26 +1,37 @@
 import { useEffect, useId, useState } from 'react'
 import type { CSSProperties } from 'react'
-import { NavLink, useLocation } from 'react-router-dom'
+import { Link, NavLink, useLocation } from 'react-router-dom'
 import { ThemeToggle } from '../ThemeToggle'
+import { LogoMark } from '../../features/landing/icons'
+import { ActiveProjectChip } from '../../features/projects/ActiveProjectChip'
 import { useMediaQuery } from '../../hooks/useMediaQuery'
 import { useUser, SignOutButton } from '@clerk/react'
 
 /** Matches the stacking breakpoint already used for page layouts (`src/styles/layout.css`). */
 const NARROW_QUERY = '(max-width: 960px)'
 
-const primaryNavItems = [
-  { path: '/', label: 'Home' },
-  { path: '/training', label: 'Training' },
-  { path: '/environments', label: 'Environments' },
-  { path: '/monitoring', label: 'Monitoring' },
-  { path: '/reports', label: 'Reports' },
+interface NavItem {
+  to: string
+  label: string
+}
+
+/** Studio is the single workspace entry: it owns the agent/environment library and training. */
+const STUDIO_PATH = '/studio'
+
+const primaryNavItems: NavItem[] = [
+  { to: '/projects', label: 'Projects' },
+  { to: STUDIO_PATH, label: 'Studio' },
+  { to: '/monitoring', label: 'Monitoring' },
+  { to: '/reports', label: 'Reports' },
+  { to: '/diagnosis-recovery', label: 'Diagnosis & Recovery' },
 ]
 
-const secondaryNavItems = [
-  { path: '/diagnosis-recovery', label: 'Diagnosis & Recovery' },
-  { path: '/settings', label: 'Settings' },
-]
+const secondaryNavItems: NavItem[] = [{ to: '/settings', label: 'Settings' }]
 
+/** An item is active on its own path and on any sub-path (so Studio stays active whatever its query). */
+function isItemActive(item: NavItem, pathname: string): boolean {
+  return pathname === item.to || pathname.startsWith(`${item.to}/`)
+}
 function navLinkStyle({ isActive }: { isActive: boolean }): CSSProperties {
   return {
     padding: '6px 12px',
@@ -48,6 +59,21 @@ export function TopNavigation() {
   const location = useLocation()
   const menuId = useId()
   const user = useUser()
+
+  const renderItem = (item: NavItem, onClick?: () => void) => {
+    const active = isItemActive(item, location.pathname)
+    return (
+      <Link
+        key={item.to}
+        to={item.to}
+        style={navLinkStyle({ isActive: active })}
+        aria-current={active ? 'page' : undefined}
+        onClick={onClick}
+      >
+        {item.label}
+      </Link>
+    )
+  }
 
   useEffect(() => {
     setMenuOpen(false)
@@ -80,47 +106,40 @@ export function TopNavigation() {
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-8)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
-          <div
-            style={{
-              width: '24px',
-              height: '24px',
-              border: '2px solid var(--text-primary)',
-              transform: 'rotate(45deg)',
-            }}
-            aria-label="Self-Healing RL Studio logo"
-          />
+        <Link
+          to="/"
+          aria-label="RL Studio"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 'var(--space-3)',
+            textDecoration: 'none',
+            color: 'var(--text-primary)',
+          }}
+        >
+          <LogoMark aria-hidden="true" width={24} height={24} />
           <span
             style={{
               fontSize: 'var(--text-md)',
               fontWeight: 600,
-              color: 'var(--text-primary)',
               fontFamily: 'var(--font-sans)',
             }}
           >
-            Self-Healing RL Studio
+            RL Studio
           </span>
-        </div>
+        </Link>
         {!isNarrow && (
           <nav
             aria-label="Primary"
             style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}
           >
-            {primaryNavItems.map((item) => (
-              <NavLink key={item.path} to={item.path} end={item.path === '/'} style={navLinkStyle}>
-                {item.label}
-              </NavLink>
-            ))}
+            {primaryNavItems.map((item) => renderItem(item))}
           </nav>
         )}
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)' }}>
-        {!isNarrow &&
-          secondaryNavItems.map((item) => (
-            <NavLink key={item.path} to={item.path} style={navLinkStyle}>
-              {item.label}
-            </NavLink>
-          ))}
+        {!isNarrow && secondaryNavItems.map((item) => renderItem(item))}
+        <ActiveProjectChip />
         <ThemeToggle />
         {user?.isSignedIn ? (
           <SignOutButton />
@@ -183,17 +202,9 @@ export function TopNavigation() {
             zIndex: 20,
           }}
         >
-          {[...primaryNavItems, ...secondaryNavItems].map((item) => (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              end={item.path === '/'}
-              style={navLinkStyle}
-              onClick={() => setMenuOpen(false)}
-            >
-              {item.label}
-            </NavLink>
-          ))}
+          {[...primaryNavItems, ...secondaryNavItems].map((item) =>
+            renderItem(item, () => setMenuOpen(false)),
+          )}
         </nav>
       )}
     </header>
