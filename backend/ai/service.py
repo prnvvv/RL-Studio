@@ -1,22 +1,30 @@
-"""Task-routed hosted AI service.
+"""Task-routed hosted AI service (Meta Model API only).
 
-Only the model registered for a task is invoked. A fallback is used only when it
-is registered, enabled, and modality-compatible, and the model actually used is
-always reported. Output is advisory: nothing here decides a verification verdict.
+Only the model registered for a task is invoked. A fallback is used only when it is registered, enabled and
+modality-compatible (Muse Wonder preview tasks -> Muse Spark), and the model actually used is always reported.
+Output is advisory: nothing here decides a verification verdict.
 """
 
 from __future__ import annotations
 
+import hashlib
+import io
 import json
 import logging
+import re
+import threading
+import time
+import wave
+from collections import OrderedDict
 from dataclasses import dataclass
 from functools import lru_cache
 from typing import Any, TypeVar
 
 from pydantic import BaseModel, ValidationError
 
-from .clients import GroqClient, HuggingFaceClient, KeyPool
+from .clients import MetaClient
 from .errors import (
+    AIAuthError,
     AIConfigurationError,
     AIError,
     AIInvalidInputError,
@@ -24,11 +32,13 @@ from .errors import (
     AIModelUnavailableError,
     AIPayloadTooLargeError,
     AIProviderUnavailableError,
+    AIQuotaError,
     AIRateLimitError,
     AITimeoutError,
     AIUnsupportedTaskError,
 )
-from .registry import Modality, Provider, Task, TaskSpec, build_registry
+from .imaging import inspect_image
+from .registry import Modality, Task, TaskSpec, build_registry
 from .settings import AISettings
 
 logger = logging.getLogger(__name__)
@@ -37,57 +47,63 @@ M = TypeVar("M", bound=BaseModel)
 #: errors after which trying the (compatible) fallback model is reasonable
 _FALLBACK_ON = (AIRateLimitError, AITimeoutError, AIProviderUnavailableError, AIModelUnavailableError)
 
-# magic-byte signatures for accepted audio containers
-_AUDIO_SIGNATURES: dict[str, tuple[tuple[int, bytes], ...]] = {
-    "audio/webm": ((0, b"\x1a\x45\xdf\xa3"),),
-    "audio/ogg": ((0, b"OggS"),),
-    "audio/wav": ((0, b"RIFF"), (8, b"WAVE")),
-    "audio/mpeg": ((0, b"ID3"), (0, b"\xff\xfb"), (0, b"\xff\xf3"), (0, b"\xff\xf2")),
-    "audio/mp4": ((4, b"ftyp"),),
-    "audio/flac": ((0, b"fLaC"),),
-}
-_MIME_ALIASES = {
-    "audio/x-wav": "audio/wav", "audio/wave": "audio/wav", "audio/mp3": "audio/mpeg",
-    "audio/x-m4a": "audio/mp4", "audio/m4a": "audio/mp4", "video/webm": "audio/webm",
-    "audio/x-flac": "audio/flac", "video/mp4": "audio/mp4",
-}
-_IMAGE_SIGNATURES = {"image/png": b"\x89PNG\r\n\x1a\n", "image/jpeg": b"\xff\xd8\xff"}
-
-
-def normalize_mime(content_type: str | None) -> str:
-    base = (content_type or "").split(";")[0].strip().lower()
-    return _MIME_ALIASES.get(base, base)
+#: Meta Voice Transcribe accepts mono 16-bit PCM WAV at 16 or 24 kHz, up to 10 minutes / 32 MB
+VOICE_SAMPLE_RATES = (16000, 24000)
+VOICE_MAX_SECONDS = 600
+VOICE_MAX_BYTES = 32 * 1024 * 1024
+_LANGUAGE_NAMES = {"en": "English", "fr": "French", "de": "German", "es": "Spanish", "it": "Italian",
+                   "pt": "Portuguese", "hi": "Hindi", "ja": "Japanese", "zh": "Chinese", "ko": "Korean"}
+SEGMENT_CACHE_SIZE = 32
+_FENCE = re.compile(r"^\s*```(?:json)?\s*(.*?)\s*```\s*$", re.DOTALL | re.IGNORECASE)
 
 
 def validate_audio(content: bytes, content_type: str | None, max_bytes: int) -> str:
-    """Validate size, MIME type and magic bytes; returns the normalized MIME type."""
+    """Validate a WAV recording against Meta's documented constraints; returns ``audio/wav``.
+
+    Meta transcribes only mono, 16-bit PCM WAV at 16 kHz or 24 kHz (<= 10 minutes, <= 32 MB). The browser client
+    encodes to that format; anything else is rejected with an actionable message rather than silently converted.
+    """
     if not content:
         raise AIInvalidInputError("the audio recording is empty")
-    if len(content) > max_bytes:
-        raise AIPayloadTooLargeError(f"the audio file exceeds the {max_bytes // (1024 * 1024)} MB limit")
-    mime = normalize_mime(content_type)
-    sigs = _AUDIO_SIGNATURES.get(mime)
-    if sigs is None:
-        raise AIInvalidInputError("unsupported audio type")
-    if not any(content[off : off + len(sig)] == sig for off, sig in sigs):
+    if len(content) > min(max_bytes, VOICE_MAX_BYTES):
+        raise AIPayloadTooLargeError(f"the audio file exceeds the {min(max_bytes, VOICE_MAX_BYTES) // (1024 * 1024)} MB limit")
+    mime = (content_type or "").split(";")[0].strip().lower()
+    if mime not in {"audio/wav", "audio/x-wav", "audio/wave"}:
+        raise AIInvalidInputError("unsupported audio type: Meta transcription requires a WAV recording")
+    if content[:4] != b"RIFF" or content[8:12] != b"WAVE":
         raise AIInvalidInputError("the audio content does not match its declared type")
-    if mime == "audio/wav" and content[8:12] != b"WAVE":
-        raise AIInvalidInputError("the audio content does not match its declared type")
-    return mime
+    try:
+        with wave.open(io.BytesIO(content), "rb") as wav:
+            channels, width, rate, frames = wav.getnchannels(), wav.getsampwidth(), wav.getframerate(), wav.getnframes()
+    except (wave.Error, EOFError) as exc:
+        raise AIInvalidInputError("the WAV file is not readable PCM audio") from exc
+    if channels != 1 or width != 2 or rate not in VOICE_SAMPLE_RATES:
+        raise AIInvalidInputError("audio must be mono 16-bit PCM WAV at 16 kHz or 24 kHz")
+    if frames == 0:
+        raise AIInvalidInputError("the audio recording is empty")
+    if frames / rate > VOICE_MAX_SECONDS:
+        raise AIPayloadTooLargeError("the recording is longer than the 10 minute limit")
+    return "audio/wav"
 
 
 def validate_image(content: bytes, content_type: str | None, max_bytes: int) -> str:
-    if not content:
-        raise AIInvalidInputError("the image is empty")
-    if len(content) > max_bytes:
-        raise AIPayloadTooLargeError(f"the image exceeds the {max_bytes // (1024 * 1024)} MB limit")
-    mime = (content_type or "").split(";")[0].strip().lower()
-    sig = _IMAGE_SIGNATURES.get(mime)
-    if sig is None:
-        raise AIInvalidInputError("unsupported image type (PNG or JPEG required)")
-    if not content.startswith(sig):
-        raise AIInvalidInputError("the image content does not match its declared type")
-    return mime
+    """Validate size, real format and dimensions; returns the verified MIME type."""
+    return inspect_image(content, max_bytes, declared_type=content_type).mime
+
+
+def extract_json(text: str) -> Any:
+    """Parse a model's JSON reply, tolerating a markdown fence or a short preamble. Raises ``ValueError``."""
+    body = text.strip()
+    fenced = _FENCE.match(body)
+    if fenced:
+        body = fenced.group(1)
+    try:
+        return json.loads(body)
+    except json.JSONDecodeError:
+        start, end = body.find("{"), body.rfind("}")
+        if start == -1 or end <= start:
+            raise
+        return json.loads(body[start : end + 1])
 
 
 @dataclass(frozen=True)
@@ -103,66 +119,57 @@ class AIResult:
 
 
 class AIService:
-    def __init__(
-        self,
-        settings: AISettings,
-        *,
-        groq: GroqClient | None = None,
-        hf: HuggingFaceClient | None = None,
-    ) -> None:
+    def __init__(self, settings: AISettings, *, client: MetaClient | None = None) -> None:
         self.settings = settings
         self.registry = build_registry(settings)
-        self.groq = groq or GroqClient(
-            settings.groq_base_url,
-            KeyPool(settings.groq_api_keys, call_limit=settings.groq_key_call_limit),
-            timeout=settings.timeout_seconds,
-        )
-        self.hf = hf or HuggingFaceClient(
-            settings.hf_router_base_url, settings.hf_token, timeout=settings.timeout_seconds
-        )
-        # injected clients (tests) serve every task; otherwise each model with a dedicated
-        # credential gets its own client whose key pool is: dedicated key first, shared keys after.
-        self._injected = groq is not None or hf is not None
-        self._task_clients: dict[str, GroqClient | HuggingFaceClient] = {}
-        self._vision: Any = None
-        self._segmenter: Any = None
-
-    def _keys_for(self, spec: TaskSpec) -> tuple[str, ...]:
-        shared = self.settings.groq_api_keys if spec.provider is Provider.GROQ else (
-            (self.settings.hf_token,) if self.settings.hf_token else ())
-        own = self.settings.dedicated_keys.get(spec.key_env, "")
-        return tuple(dict.fromkeys(k for k in (own, *shared) if k))
-
-    def key_source(self, spec: TaskSpec) -> str:
-        """'dedicated' (its own variable is set), 'shared', or 'none'. Never the key itself."""
-        if spec.key_env and self.settings.dedicated_keys.get(spec.key_env):
-            return "dedicated"
-        return "shared" if self._keys_for(spec) else "none"
+        self.client = client or MetaClient(
+            settings.base_url, settings.api_key, timeout=settings.timeout_seconds, backoff=settings.retry_backoff_seconds)
+        #: model id -> verification state from the last ``verify_models`` call (never inferred from configuration)
+        self._access: dict[str, dict[str, str]] = {}
+        self._last_check: float | None = None
+        self._segments: OrderedDict[str, dict[str, Any]] = OrderedDict()
+        self._lock = threading.Lock()
 
     # -- status -----------------------------------------------------------
     def status(self) -> dict[str, Any]:
-        """Per-task availability. Never contains credentials."""
+        """Per-task availability. Never contains credentials. 'configured' does not mean 'verified'."""
+        has_key = self.client.configured
         tasks = {}
         for t, s in self.registry.items():
-            has_key = bool(self._keys_for(s))
             if not s.enabled:
                 state, reason = "disabled", s.disabled_reason
             elif not has_key:
-                state, reason = "unconfigured", f"{s.provider.value} credentials are not configured"
+                state, reason = "unconfigured", "MODEL_API_KEY is not configured"
             else:
                 state, reason = "configured", ""
+            access = self._access.get(s.model, {"state": "not_verified", "detail": "run the connectivity check"})
             tasks[t.value] = {
                 "provider": s.provider.value, "model": s.model or None, "modality": s.modality.value,
-                "state": state, "reason": reason or None,
+                "state": state, "reason": reason or None, "preview": s.preview,
                 "fallback": s.fallback.value if s.fallback else None,
-                "api_key_variable": s.key_env or None, "api_key_source": self.key_source(s),
+                "model_access": access["state"], "model_access_detail": access["detail"],
             }
-        return {"config": self.settings.public(), "tasks": tasks, "groq_keys": self.groq.keys.stats()}
+        return {"config": self.settings.public(), "tasks": tasks,
+                "last_connectivity_test": self._last_check}
 
-    def verify_groq_models(self) -> dict[str, bool]:
-        """Check configured Groq model ids against the account's live catalogue."""
-        available = self.groq.list_models()
-        return {s.model: s.model in available for s in self.registry.values() if s.provider is Provider.GROQ and s.model}
+    def verify_models(self) -> dict[str, dict[str, str]]:
+        """Check the configured model ids against the key's live catalogue (``GET /models``).
+
+        Listing a model is evidence of access, not of a working inference call. Failures are recorded by category.
+        """
+        models = {s.model for s in self.registry.values() if s.model and s.enabled}
+        try:
+            available = self.client.list_models()
+        except AIError as exc:
+            state = _error_state(exc)
+            result = {m: {"state": state, "detail": f"{exc.code}: {exc.message}"} for m in models}
+        else:
+            result = {m: ({"state": "listed", "detail": "the model is enabled for this key"} if m in available
+                          else {"state": "not_listed", "detail": "the model is not in this key's catalogue"})
+                      for m in models}
+        self._access.update(result)
+        self._last_check = time.time()
+        return result
 
     def _spec(self, task: Task, modality: Modality) -> TaskSpec:
         spec = self.registry.get(task)
@@ -171,21 +178,6 @@ class AIService:
         if not spec.enabled:
             raise AIUnsupportedTaskError(f"{task.value} is unavailable: {spec.disabled_reason}")
         return spec
-
-    def _client(self, spec: TaskSpec) -> GroqClient | HuggingFaceClient:
-        """The client holding the credential configured for this task's model."""
-        shared = self.groq if spec.provider is Provider.GROQ else self.hf
-        if self._injected or not self.settings.dedicated_keys.get(spec.key_env):
-            return shared
-        cached = self._task_clients.get(spec.key_env)
-        if cached is None:
-            pool = KeyPool(self._keys_for(spec), call_limit=self.settings.groq_key_call_limit
-                           if spec.provider is Provider.GROQ else 0)
-            cached = (GroqClient(self.settings.groq_base_url, pool, timeout=self.settings.timeout_seconds)
-                      if spec.provider is Provider.GROQ else
-                      HuggingFaceClient(self.settings.hf_router_base_url, pool, timeout=self.settings.timeout_seconds))
-            self._task_clients[spec.key_env] = cached
-        return cached
 
     def _with_fallback(self, spec: TaskSpec, call: Any) -> AIResult:
         try:
@@ -198,25 +190,20 @@ class AIService:
             return call(fb, True)
 
     # -- text -------------------------------------------------------------
-    def run_text(
-        self, task: Task, messages: list[dict[str, Any]], schema: type[M] | None = None
-    ) -> AIResult:
+    def run_text(self, task: Task, messages: list[dict[str, Any]], schema: type[M] | None = None) -> AIResult:
         """Run a text task; with ``schema`` the response must parse and validate."""
         spec = self._spec(task, Modality.TEXT)
 
         def call(sp: TaskSpec, used_fb: bool) -> AIResult:
-            out = self._client(sp).chat(
-                sp.model, messages, retries=sp.max_retries, timeout=sp.timeout_seconds,
-                max_tokens=sp.max_tokens, json_mode=schema is not None,
-            )
+            out = self.client.respond(
+                sp.model, messages, retries=sp.max_retries, timeout=sp.timeout_seconds, max_tokens=sp.max_tokens)
             parsed = None
             if schema is not None:
                 try:
-                    parsed = schema.model_validate(json.loads(out["text"]))
-                except (json.JSONDecodeError, ValidationError) as exc:
+                    parsed = schema.model_validate(extract_json(out["text"]))
+                except (ValueError, ValidationError) as exc:
                     raise AIInvalidResponseError(
-                        "model output failed schema validation", provider=sp.provider.value, model=sp.model
-                    ) from exc
+                        "model output failed schema validation", provider=sp.provider.value, model=sp.model) from exc
             return AIResult(task.value, sp.provider.value, out["model"], used_fb, out["request_id"],
                             out["usage"], text=out["text"], parsed=parsed)
 
@@ -224,73 +211,90 @@ class AIService:
 
     # -- audio ------------------------------------------------------------
     def transcribe(self, filename: str, content: bytes, content_type: str | None, language: str | None = None) -> dict[str, Any]:
-        """Transcribe audio with the registered Whisper model. Audio is never persisted."""
+        """Transcribe a WAV recording with Muse Voice Transcribe. Audio is never persisted."""
         spec = self._spec(Task.TRANSCRIPTION, Modality.AUDIO)
-        mime = validate_audio(content, content_type, self.settings.max_audio_bytes)
-        out = self._client(spec).transcribe(
-            spec.model, filename or "recording", content, mime,
-            retries=spec.max_retries, timeout=spec.timeout_seconds, language=language,
-        )
+        validate_audio(content, content_type, self.settings.max_audio_bytes)
+        bias = [_LANGUAGE_NAMES.get(language.lower().split("-")[0], language)] if language else None
+        out = self.client.transcribe(
+            spec.model, filename or "recording.wav", content, retries=spec.max_retries,
+            timeout=spec.timeout_seconds, language_bias=bias)
         if not out["text"]:
             raise AIInvalidInputError("no speech was detected in the recording")
-        return {**out, "provider": spec.provider.value, "task": spec.task.value}
+        return {**out, "language": None, "provider": spec.provider.value, "task": spec.task.value}
 
-    # -- vision / segmentation ---------------------------------------------
+    # -- vision -----------------------------------------------------------
     def analyze_image(self, prompt: str, image: bytes, content_type: str | None) -> AIResult:
-        """Visual investigation; only dispatched to a configured vision-capable model."""
+        """Visual investigation with Muse Spark's image understanding."""
         spec = self._spec(Task.VISION, Modality.VISION)
         mime = validate_image(image, content_type, self.settings.max_image_bytes)
-        if spec.provider is Provider.GROQ:
-            import base64
+        out = self.client.vision_respond(
+            spec.model, prompt, image, mime, retries=spec.max_retries, timeout=spec.timeout_seconds,
+            max_tokens=spec.max_tokens)
+        return AIResult(spec.task.value, spec.provider.value, out["model"], False, out["request_id"], out["usage"],
+                        text=out["text"])
 
-            url = f"data:{mime};base64,{base64.b64encode(image).decode()}"
-            messages = [{"role": "user", "content": [
-                {"type": "text", "text": prompt}, {"type": "image_url", "image_url": {"url": url}}]}]
-            out = self._client(spec).chat(spec.model, messages, retries=spec.max_retries,
-                                          timeout=spec.timeout_seconds, max_tokens=spec.max_tokens)
-        elif self._injected:  # tests inject a scripted HTTP transport; production uses the SDK client below
-            out = self._client(spec).vision_chat(spec.model, prompt, image, mime, retries=spec.max_retries,
-                                      timeout=spec.timeout_seconds, max_tokens=spec.max_tokens)
-        else:
-            out = self.vision_client(spec).describe(prompt, image=image, content_type=mime, max_tokens=spec.max_tokens)
-        return AIResult(spec.task.value, spec.provider.value, out["model"], False,
-                        out["request_id"], out["usage"], text=out["text"])
+    # -- image generation / editing -----------------------------------------
+    def generate_image(self, prompt: str, *, n: int = 1, output_format: str = "png") -> dict[str, Any]:
+        spec = self._spec(Task.IMAGE_GENERATION, Modality.IMAGE_GENERATION)
+        if not prompt.strip():
+            raise AIInvalidInputError("the image prompt is empty")
+        if not 1 <= n <= 4:
+            raise AIInvalidInputError("n must be between 1 and 4")
+        if output_format not in {"png", "jpeg", "webp"}:
+            raise AIInvalidInputError("output_format must be png, jpeg or webp")
+        out = self.client.generate_image(spec.model, prompt, n=n, output_format=output_format,
+                                         retries=spec.max_retries, timeout=spec.timeout_seconds)
+        return {"task": spec.task.value, "provider": spec.provider.value, **out}
 
-    def vision_client(self, spec: TaskSpec | None = None) -> Any:
-        """The shared, reusable hosted Qwen vision client (OpenAI SDK against the Hugging Face router)."""
-        spec = spec or self._spec(Task.VISION, Modality.VISION)
-        if self._vision is None:
-            from .vision import QwenVisionClient
-
-            self._vision = QwenVisionClient(
-                keys=KeyPool(self._keys_for(spec)), model=spec.model, base_url=self.settings.hf_router_base_url,
-                timeout=spec.timeout_seconds, max_retries=spec.max_retries, max_image_bytes=self.settings.max_image_bytes)
-        return self._vision
-
-    def segmentation_client(self, spec: TaskSpec | None = None) -> Any:
-        """The shared, reusable hosted Mask2Former client (``huggingface_hub.InferenceClient``)."""
-        spec = spec or self._spec(Task.SEGMENTATION, Modality.SEGMENTATION)
-        if self._segmenter is None:
-            from .segmentation import Mask2FormerClient
-
-            self._segmenter = Mask2FormerClient(
-                keys=KeyPool(self._keys_for(spec)), model=spec.model, provider=self.settings.hf_inference_provider,
-                timeout=spec.timeout_seconds, max_retries=spec.max_retries, max_image_bytes=self.settings.max_image_bytes)
-        return self._segmenter
-
-    def segment_image(self, image: bytes, content_type: str | None) -> dict[str, Any]:
-        spec = self._spec(Task.SEGMENTATION, Modality.SEGMENTATION)
+    def edit_image(self, prompt: str, image: bytes, content_type: str | None) -> dict[str, Any]:
+        spec = self._spec(Task.IMAGE_GENERATION, Modality.IMAGE_GENERATION)
+        if not prompt.strip():
+            raise AIInvalidInputError("the edit prompt is empty")
         mime = validate_image(image, content_type, self.settings.max_image_bytes)
-        if spec.endpoint or self._injected or not spec.model:
-            # a dedicated endpoint (HF_SEGMENTATION_ENDPOINT) or a scripted test transport
-            url = spec.endpoint or f"https://api-inference.huggingface.co/models/{spec.model}"
-            masks = self._client(spec).segment(url, image, mime, model=spec.model or None,
-                                    retries=spec.max_retries, timeout=spec.timeout_seconds)
-            return {"task": spec.task.value, "provider": spec.provider.value, "model": spec.model or None, "masks": masks}
-        result = self.segmentation_client(spec).segment(image, mime)
-        return {"task": spec.task.value, "provider": spec.provider.value, "model": spec.model,
-                "inference_provider": result["provider"], "image": result["image"], "masks": result["masks"],
-                "count": result["count"]}
+        out = self.client.edit_image(spec.model, prompt, image, mime, retries=spec.max_retries,
+                                     timeout=spec.timeout_seconds)
+        return {"task": spec.task.value, "provider": spec.provider.value, **out}
+
+    # -- segmentation -------------------------------------------------------
+    def segment_image(self, image: bytes, content_type: str | None, concept: str) -> dict[str, Any]:
+        """Text-prompted SAM 3.1 segmentation of one image: boxes and pixel masks for one short noun phrase.
+
+        An unchanged (image, concept) pair is served from a small in-process cache so credits are not spent twice.
+        A completed request with no match returns ``count == 0``; an API failure raises, it never looks like success.
+        """
+        spec = self._spec(Task.SEGMENTATION, Modality.SEGMENTATION)
+        concept = (concept or "").strip()
+        if not concept or len(concept) > 120:
+            raise AIInvalidInputError("provide one short noun phrase (1-120 characters) naming the object to segment")
+        mime = validate_image(image, content_type, self.settings.max_image_bytes)
+        key = hashlib.sha256(image).hexdigest() + "|" + concept.lower() + "|" + spec.model
+        with self._lock:
+            cached = self._segments.get(key)
+            if cached is not None:
+                self._segments.move_to_end(key)
+                return {**cached, "cached": True}
+        out = self.client.segment(spec.model, concept, image, mime, retries=spec.max_retries, timeout=spec.timeout_seconds)
+        result = {"task": spec.task.value, "provider": spec.provider.value, "model": spec.model, "concept": concept,
+                  "cached": False, **out}
+        with self._lock:
+            self._segments[key] = result
+            while len(self._segments) > SEGMENT_CACHE_SIZE:
+                self._segments.popitem(last=False)
+        return result
+
+
+def _error_state(exc: AIError) -> str:
+    if isinstance(exc, AIConfigurationError):
+        return "key_missing"
+    if isinstance(exc, AIQuotaError):
+        return "insufficient_credits"
+    if isinstance(exc, AIRateLimitError):
+        return "rate_limited"
+    if isinstance(exc, AIModelUnavailableError):
+        return "model_unavailable"
+    if isinstance(exc, AIAuthError):
+        return "authentication_failed"
+    return "network_failure" if isinstance(exc, (AIProviderUnavailableError, AITimeoutError)) else "error"
 
 
 @lru_cache(maxsize=1)
@@ -300,6 +304,6 @@ def get_ai_service() -> AIService:
 
 
 __all__ = [
-    "AIConfigurationError", "AIError", "AIResult", "AIService", "get_ai_service",
+    "AIConfigurationError", "AIError", "AIResult", "AIService", "extract_json", "get_ai_service",
     "validate_audio", "validate_image",
 ]

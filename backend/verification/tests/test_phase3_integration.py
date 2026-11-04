@@ -6,8 +6,8 @@ What is real here
     * the Phase 2 evidence builder, requirement validation, LangGraph workflows, the deterministic
       verification engine, persistence and the Person 4 ``ProvenanceService`` incident registration
 What is NOT real
-    * the hosted model: only the Groq HTTP transport is scripted. This test makes no live Groq or
-      Hugging Face call and does not verify live provider behaviour.
+    * the hosted model: only the Meta HTTP transport is scripted. This test makes no live Meta
+      call and does not verify live provider behaviour.
 No ``VerificationInput``, event or evidence record is hand-built.
 """
 
@@ -156,6 +156,6 @@ def test_http_contract_errors_are_stable_and_leak_nothing(trained: Trained) -> N
         assert client.post(f"{V}/runs/{trained.run_id}/verifications", json={"requirement_ids": []}).status_code == 422
         assert client.post(f"{V}/verifications/missing/incident/retry").status_code == 404
         status = client.get(f"{V}/status")
-        assert status.status_code == 200 and SECRET not in status.text and "hf_test_secret" not in status.text
+        assert status.status_code == 200 and SECRET not in status.text
     finally:
         app.state.ai_service = None

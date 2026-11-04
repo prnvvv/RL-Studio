@@ -1,8 +1,8 @@
 """Voice transcription API.
 
-The browser uploads audio here; the backend forwards it to the hosted Groq
-Whisper model. The API key never reaches the client, and audio is processed in
-memory only (never written to disk or the database).
+The browser uploads a WAV recording here (mono 16-bit PCM, 16 or 24 kHz); the backend forwards it to Meta's hosted
+Muse Voice Transcribe model. MODEL_API_KEY never reaches the client, and audio is processed in memory only (never
+written to disk or the database).
 """
 
 from __future__ import annotations
@@ -83,6 +83,7 @@ async def transcribe(
         "text": result["text"],
         "language": result["language"],
         "duration_seconds": result["duration"],
+        "turns": result["turns"],
         "model": result["model"],
         "provider": result["provider"],
         "request_id": result["request_id"],

@@ -1,7 +1,7 @@
 """Phase 3: intent interpretation, requirement lifecycle, deterministic verification, incident handoff.
 
 Evidence comes from one genuinely trained (small) Studio run per module. The hosted model is replaced at
-the HTTP transport only (``ScriptedProvider``): no live Groq / Hugging Face call is made by these tests.
+the HTTP transport only (``ScriptedProvider``): no live Meta call is made by these tests.
 """
 
 from __future__ import annotations
@@ -84,7 +84,7 @@ def test_valid_interpretation_extracts_a_structured_draft_with_audit_metadata(tr
     # model / provider / timestamps / prompt version recorded for audit
     stages = view["ai"]["stages"]
     assert [s["task"] for s in stages] == ["intent_interpretation", "requirement_extraction"]
-    assert all(s["provider"] == "groq" and s["model"] == "openai/gpt-oss-20b" and s["started_at"] and s["finished_at"] for s in stages)
+    assert all(s["provider"] == "meta" and s["model"] == "muse-spark-1.3" and s["started_at"] and s["finished_at"] for s in stages)
     assert view["ai"]["prompt_version"] and view["source_refs"]["episodes"] > 0
     assert view["workflow"]["path"] == ["validate_input", "retrieve_evidence", "replay_check", "interpret", "extract",
                                         "validate_requirements", "persist"]

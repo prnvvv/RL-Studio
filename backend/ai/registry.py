@@ -1,8 +1,9 @@
-"""Task-specific model registry.
+"""Task-specific model registry for the Meta Model API.
 
-Each task maps to exactly one hosted model; only that model is invoked for the
-task. Fallbacks must be modality-compatible and are recorded when used.
-Local inference is never an option: every provider here is a hosted API.
+Each task maps to exactly one Meta-hosted model; only that model is invoked for the task. Every model id comes from
+configuration (``AISettings``); none is hardcoded in business modules. A fallback exists only for the Muse Wonder
+(preview) reasoning tasks, must be modality-compatible, and is always reported when used.
+There is no other provider and local inference is never an option.
 """
 
 from __future__ import annotations
@@ -14,8 +15,7 @@ from .settings import AISettings
 
 
 class Provider(str, Enum):
-    GROQ = "groq"
-    HUGGINGFACE = "huggingface"
+    META = "meta"
 
 
 class Modality(str, Enum):
@@ -23,16 +23,42 @@ class Modality(str, Enum):
     VISION = "vision"
     AUDIO = "audio"
     SEGMENTATION = "segmentation"
+    IMAGE_GENERATION = "image_generation"
 
 
 class Task(str, Enum):
     INTENT = "intent_interpretation"
     REQUIREMENTS = "requirement_extraction"
+    GENERAL = "general_assistance"
     ROOT_CAUSE = "root_cause_investigation"
     INVESTIGATION = "investigation_assistance"
+    RECOVERY_PLANNING = "recovery_planning"
     VISION = "visual_investigation"
+    IMAGE_GENERATION = "image_generation"
     SEGMENTATION = "visual_segmentation"
     TRANSCRIPTION = "voice_transcription"
+
+
+#: the capability each Meta model family supports; a task is rejected when its model's family cannot serve its modality
+MODEL_FAMILIES: dict[str, frozenset[Modality]] = {
+    "muse-spark": frozenset({Modality.TEXT, Modality.VISION}),
+    "muse-wonder": frozenset({Modality.TEXT, Modality.VISION}),
+    "muse-image": frozenset({Modality.IMAGE_GENERATION}),
+    "muse-voice-transcribe": frozenset({Modality.AUDIO}),
+    "sam": frozenset({Modality.SEGMENTATION}),
+}
+
+
+def model_family(model: str) -> str:
+    """'muse-spark-1.3' -> 'muse-spark', 'sam-3.1' -> 'sam' (the part before the version number)."""
+    parts = model.lower().split("-")
+    while parts and parts[-1][:1].isdigit():
+        parts.pop()
+    return "-".join(parts)
+
+
+def supports(model: str, modality: Modality) -> bool:
+    return modality in MODEL_FAMILIES.get(model_family(model), frozenset())
 
 
 @dataclass(frozen=True)
@@ -48,79 +74,62 @@ class TaskSpec:
     max_tokens: int | None = None
     #: task whose spec serves as fallback (must share modality and be enabled)
     fallback: Task | None = None
-    endpoint: str = ""
     output_schema: str = ""
-    #: name of the env var holding this model's dedicated credential (falls back to the shared one)
-    key_env: str = ""
+    #: whether the model is a preview offering whose account access must be verified
+    preview: bool = False
 
 
 def build_registry(s: AISettings) -> dict[Task, TaskSpec]:
     common = {"timeout_seconds": s.timeout_seconds, "max_retries": s.max_retries}
-    groq = Provider.GROQ
+    meta = Provider.META
 
-    def text(task: Task, model: str, schema: str, key_env: str, fallback: Task | None = None) -> TaskSpec:
+    def capability(model: str, modality: Modality, flag: bool, flag_reason: str) -> tuple[bool, str]:
+        if not flag:
+            return False, flag_reason
+        if not model:
+            return False, "model id not configured"
+        if not supports(model, modality):
+            return False, f"model {model!r} does not support {modality.value} input/output"
+        return True, ""
+
+    def text(task: Task, model: str, schema: str, fallback: Task | None = None) -> TaskSpec:
+        wonder = model_family(model) == "muse-wonder"
+        ok, reason = capability(model, Modality.TEXT, s.enable_wonder or not wonder,
+                                "Muse Wonder (preview) is disabled by META_WONDER_ENABLED")
         return TaskSpec(
-            task, groq, model, Modality.TEXT, enabled=bool(model), max_tokens=4096,
-            disabled_reason="" if model else "model id not configured",
-            fallback=fallback if s.enable_fallback else None, output_schema=schema, key_env=key_env, **common,
+            task, meta, model, Modality.TEXT, enabled=ok, disabled_reason=reason, max_tokens=4096,
+            fallback=fallback if s.enable_fallback else None, output_schema=schema, preview=wonder, **common,
         )
 
-    # Original design: Meta Muse Spark for intent interpretation. Replaced with Groq-hosted
-    # GPT-OSS 20B because Meta API access/free credits were unavailable.
-    intent = text(Task.INTENT, s.intent_model, "IntentInterpretation", "GROQ_INTENT_API_KEY")
-    # Original design: Meta Muse Spark for structured requirement extraction. Replaced with
-    # Groq-hosted GPT-OSS 20B because Meta API access/free credits were unavailable.
-    reqs = text(Task.REQUIREMENTS, s.requirements_model, "RequirementSet", "GROQ_REQUIREMENTS_API_KEY")
-    # Original design: Meta Muse Wonder for investigation assistance. Replaced with
-    # Groq-hosted GPT-OSS 120B because Meta API access/free credits were unavailable.
-    invest = text(Task.INVESTIGATION, s.investigation_model, "InvestigationNotes", "GROQ_INVESTIGATION_API_KEY", Task.INTENT)
-    # Original design: Meta Muse Wonder for root-cause investigation. Replaced with
-    # Groq-hosted GPT-OSS 120B because Meta API access/free credits were unavailable.
-    root = text(Task.ROOT_CAUSE, s.root_cause_model, "RootCauseAnalysis", "GROQ_ROOT_CAUSE_API_KEY", Task.INTENT)
+    # Muse Spark: the standard model for interpretation, extraction and general assistance.
+    intent = text(Task.INTENT, s.intent_model, "IntentInterpretation")
+    reqs = text(Task.REQUIREMENTS, s.requirements_model, "RequirementSet")
+    general = text(Task.GENERAL, s.general_model, "")
+    # Muse Wonder: complex multi-step investigation and planning only. May fall back to Muse Spark when Wonder
+    # (a preview model) is unavailable to the account; the result then reports fallback_used and the model used.
+    invest = text(Task.INVESTIGATION, s.investigation_model, "InvestigationNotes", Task.INTENT)
+    root = text(Task.ROOT_CAUSE, s.root_cause_model, "RootCauseAnalysis", Task.INTENT)
+    recovery = text(Task.RECOVERY_PLANNING, s.recovery_planning_model, "RecoveryPlan", Task.INTENT)
 
-    # Original design: Meta Muse Image for visual environment debugging. Replaced with a hosted
-    # vision-capable model because Meta API access/free credits were unavailable.
-    if s.vision_provider == "groq":
-        v_provider, v_model, v_key = Provider.GROQ, s.groq_vision_model, "GROQ_VISION_API_KEY"
-    else:
-        v_provider, v_model, v_key = Provider.HUGGINGFACE, s.vision_model, "HF_VISION_API_KEY"
-    vision = TaskSpec(
-        Task.VISION, v_provider, v_model, Modality.VISION,
-        enabled=s.enable_visual and bool(v_model),
-        disabled_reason=(
-            "visual investigation disabled" if not s.enable_visual
-            else "no verified vision model configured (set VISION_MODEL or GROQ_VISION_MODEL)"
-        ),
-        max_tokens=2048, output_schema="VisualObservations", key_env=v_key, **common,
-    )
+    ok, reason = capability(s.vision_model, Modality.VISION, s.enable_vision, "visual investigation disabled (META_VISION_ENABLED)")
+    vision = TaskSpec(Task.VISION, meta, s.vision_model, Modality.VISION, enabled=ok, disabled_reason=reason,
+                      max_tokens=2048, output_schema="VisualObservations", **common)
 
-    # Original design: Meta SAM 3.1 for visual segmentation. Using a hosted Hugging Face API
-    # implementation because local inference is not permitted and Meta API access/free credits
-    # were unavailable.
-    segmentation = TaskSpec(
-        Task.SEGMENTATION, Provider.HUGGINGFACE, s.hf_segmentation_model, Modality.SEGMENTATION,
-        enabled=s.enable_segmentation and bool(s.hf_segmentation_model or s.hf_segmentation_endpoint),
-        disabled_reason=(
-            "segmentation disabled" if not s.enable_segmentation
-            else "no hosted segmentation model/endpoint configured"
-        ),
-        endpoint=s.hf_segmentation_endpoint, output_schema="SegmentationMasks",
-        key_env="HF_SEGMENTATION_API_KEY", **common,
-    )
+    ok, reason = capability(s.image_model, Modality.IMAGE_GENERATION, s.enable_image_generation,
+                            "image generation disabled (META_IMAGE_GENERATION_ENABLED)")
+    image = TaskSpec(Task.IMAGE_GENERATION, meta, s.image_model, Modality.IMAGE_GENERATION, enabled=ok,
+                     disabled_reason=reason, output_schema="GeneratedImage", **common)
 
-    # Original design: Meta Muse Voice Transcribe for voice input. Replaced with Groq Whisper
-    # Large V3 Turbo because Meta API access/free credits were unavailable.
-    voice = TaskSpec(
-        Task.TRANSCRIPTION, groq, s.transcription_model, Modality.AUDIO,
-        enabled=s.enable_voice and bool(s.transcription_model),
-        disabled_reason="voice transcription disabled" if not s.enable_voice else "model id not configured",
-        output_schema="Transcription", key_env="GROQ_TRANSCRIPTION_API_KEY", **common,
-    )
+    ok, reason = capability(s.segmentation_model, Modality.SEGMENTATION, s.enable_segmentation,
+                            "segmentation disabled (META_SEGMENTATION_ENABLED)")
+    segmentation = TaskSpec(Task.SEGMENTATION, meta, s.segmentation_model, Modality.SEGMENTATION, enabled=ok,
+                            disabled_reason=reason, output_schema="SegmentationMasks", **common)
 
-    # Muse Glimmer / Muse Spark Open (open-weight evaluation) have no runtime task: the original
-    # intent was to evaluate open-weight models on a bounded task. Candidates here would be hosted
-    # open-weight models (e.g. GPT-OSS 20B on Groq) compared offline, never served locally.
-    specs = {t.task: t for t in (intent, reqs, invest, root, vision, segmentation, voice)}
+    ok, reason = capability(s.voice_model, Modality.AUDIO, s.enable_voice, "voice transcription disabled (META_VOICE_ENABLED)")
+    voice = TaskSpec(Task.TRANSCRIPTION, meta, s.voice_model, Modality.AUDIO, enabled=ok, disabled_reason=reason,
+                     output_schema="Transcription", **common)
+
+    specs = {t.task: t for t in (intent, reqs, general, invest, root, recovery, vision, image, segmentation, voice)}
     return {k: _check_fallback(v, specs) for k, v in specs.items()}
 
 

@@ -1,8 +1,8 @@
 """Shared helpers for the Phase 3 tests.
 
-* ``ScriptedProvider`` replaces the *network* only: the real ``AIService``, task registry, key pool,
-  retry/fallback logic and clients all run, with an ``httpx.MockTransport`` answering for Groq. Any test
-  using it exercises no live provider - nothing here claims a live Groq/Hugging Face call.
+* ``ScriptedProvider`` replaces the *network* only: the real ``AIService``, task registry, Meta client (OpenAI SDK),
+  retry/fallback logic all run, with an ``httpx.MockTransport`` answering for the Meta Responses API. Any test
+  using it exercises no live provider - nothing here claims a live Meta call.
 * ``trained_run`` trains a real (small) Studio run through the real HTTP API so the evidence is the
   genuine Phase 2 persisted data.
 """
@@ -20,7 +20,7 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
-from backend.ai.clients import GroqClient, HuggingFaceClient, KeyPool
+from backend.ai.clients import MetaClient
 from backend.ai.service import AIService
 from backend.ai.settings import AISettings
 from backend.api.app import create_app
@@ -30,7 +30,7 @@ from backend.studio.store import TrajectoryReader
 from backend.studio.tests.test_studio import BASE, _create, _wait
 from backend.verification.lifecycle import VerificationLifecycle
 
-SECRET = "gsk_test_secret_value_do_not_leak"
+SECRET = "meta_test_secret_value_do_not_leak"
 
 
 def reward_proposal(statement: str, *, op: str | None = ">=", value: Any = 1, **extra: Any) -> dict[str, Any]:
@@ -48,7 +48,7 @@ def statements_json(*texts: str, contradictions: list[dict[str, Any]] | None = N
 
 
 class ScriptedProvider:
-    """Answers Groq chat requests. ``mode`` can switch to failures; every request is logged."""
+    """Answers Meta Responses API requests. ``mode`` can switch to failures; every request is logged."""
 
     def __init__(self, interpretation: dict[str, Any] | None = None, requirements: list[dict[str, Any]] | None = None) -> None:
         self.interpretation = interpretation or statements_json("x")
@@ -58,10 +58,10 @@ class ScriptedProvider:
 
     def __call__(self, request: httpx.Request) -> httpx.Response:
         body = json.loads(request.content)
-        system = body["messages"][0]["content"]
+        system = body["input"][0]["content"]
         stage = "intent" if '"statements":[{"text"' in system else "requirements"
         self.calls.append({"stage": stage, "model": body["model"], "auth": request.headers.get("authorization"),
-                           "user": body["messages"][1]["content"]})
+                           "user": body["input"][1]["content"], "role": body["input"][0]["role"]})
         if self.mode == "down":
             return httpx.Response(503, json={"error": "upstream detail that must not leak"})
         if self.mode == "rate_limit":
@@ -72,16 +72,23 @@ class ScriptedProvider:
             content = json.dumps({"statements": "nope", "requirements": 7})
         else:
             content = json.dumps(self.interpretation if stage == "intent" else {"requirements": self.requirements})
-        return httpx.Response(200, json={"id": f"req_{len(self.calls)}", "model": body["model"],
-                                         "usage": {"total_tokens": 10}, "choices": [{"message": {"content": content}}]})
+        return httpx.Response(200, json=responses_ok(content, body["model"], f"resp_{len(self.calls)}"))
+
+
+def responses_ok(text: str, model: str = "muse-spark-1.3", rid: str = "resp_1") -> dict[str, Any]:
+    """A minimal, documented-shape Meta Responses API body whose ``output_text`` is ``text``."""
+    return {
+        "id": rid, "object": "response", "created_at": 0, "model": model, "status": "completed",
+        "output": [{"type": "message", "id": "msg_1", "role": "assistant", "status": "completed",
+                    "content": [{"type": "output_text", "text": text, "annotations": []}]}],
+        "usage": {"input_tokens": 1, "output_tokens": 1, "total_tokens": 10},
+    }
 
 
 def make_ai(handler: Callable[[httpx.Request], httpx.Response], **env: str) -> AIService:
-    settings = AISettings.from_env({"GROQ_API_KEY": SECRET, "HF_TOKEN": "hf_test_secret", "AI_MAX_RETRIES": "1", **env})
-    transport = httpx.MockTransport(handler)
-    groq = GroqClient(settings.groq_base_url, KeyPool(settings.groq_api_keys), transport=transport, sleep=lambda _s: None)
-    hf = HuggingFaceClient(settings.hf_router_base_url, settings.hf_token, transport=transport, sleep=lambda _s: None)
-    return AIService(settings, groq=groq, hf=hf)
+    settings = AISettings.from_env({"MODEL_API_KEY": SECRET, "META_API_MAX_RETRIES": "1", **env})
+    client = MetaClient(settings.base_url, settings.api_key, transport=httpx.MockTransport(handler), sleep=lambda _s: None)
+    return AIService(settings, client=client)
 
 
 class ExplodingAI(AIService):

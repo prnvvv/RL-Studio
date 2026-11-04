@@ -9,9 +9,8 @@ The output is only a *proposal*. ``requirement_validation`` and the user's expli
 what becomes a requirement, and the deterministic engine decides every verdict. A model failure never
 yields a requirement or a verdict; the optional deterministic fallback is labeled as such.
 
-Model attribution (see ``backend/ai/registry.py``): the originally intended Meta Muse Spark models were
-replaced by Groq-hosted GPT-OSS because Meta API access/free credits were unavailable. No Meta model is
-called by this module.
+Model attribution (see ``backend/ai/registry.py``): both stages use Meta's Muse Spark through the shared
+``AIService``. This module never names a model or provider itself; the registry and configuration do.
 """
 
 from __future__ import annotations

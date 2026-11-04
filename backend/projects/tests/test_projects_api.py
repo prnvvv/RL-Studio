@@ -1,6 +1,6 @@
 """Project CRUD, documents and pre-training intent. No training run exists in any test here.
 
-The hosted model is a scripted Groq transport (``ScriptedProvider``): these tests make no live provider call.
+The hosted model is a scripted Meta transport (``ScriptedProvider``): these tests make no live provider call.
 """
 
 from __future__ import annotations

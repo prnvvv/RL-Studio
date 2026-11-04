@@ -3,7 +3,7 @@
 Real:   Studio training runs (small CartPole PPO) through the HTTP API, the Phase 2 evidence builder, requirement
         validation, the LangGraph workflows, the deterministic verification engine, SQLite persistence and the
         Person 4 incident registration.
-Mocked: only the hosted-model HTTP transport (``ScriptedProvider``). No live Groq / Hugging Face call is made, and
+Mocked: only the hosted-model HTTP transport (``ScriptedProvider``). No live Meta call is made, and
         nothing here claims one.
 No run id, episode, metric or verification result is hand-built.
 """
