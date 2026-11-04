@@ -1,6 +1,9 @@
 import { actionLabels } from './brainHelpers'
 import { useFrameSnapshot } from './useFrameSnapshot'
 import type { StudioStore } from './studioStore'
+import { useTranslation } from 'react-i18next'
+
+const { t } = useTranslation()
 
 interface Props {
   store: StudioStore
@@ -19,8 +22,8 @@ export function BrainPanel({ store, renderer }: Props) {
   if (!brain) {
     return (
       <div className="brain-panel" role="status">
-        <strong>Agent brain</strong>
-        <span className="brain-panel__empty">Waiting for the first decision…</span>
+        <strong>{t('studio.brainpanel.agent_brain')}</strong>
+        <span className="brain-panel__empty">{t('studio.brainpanel.waiting')}</span>
       </div>
     )
   }
@@ -28,7 +31,7 @@ export function BrainPanel({ store, renderer }: Props) {
   if (brain.kind === 'gaussian') {
     return (
       <div className="brain-panel" role="status" aria-label="Agent brain">
-        <strong>Agent brain · Gaussian policy</strong>
+        <strong>{t('studio.brainpanel.gaussian_policy')}</strong>
         {(brain.mean ?? []).map((mean, i) => (
           <div key={i} className="brain-panel__row">
             <span>Action {i}</span>
@@ -44,13 +47,13 @@ export function BrainPanel({ store, renderer }: Props) {
   const probs = brain.probs ?? []
   const labels = actionLabels(renderer, probs.length)
   const title =
-    brain.kind === 'q' ? 'Agent brain · Q-values (softmax)' : 'Agent brain · action probabilities'
+    brain.kind === 'q' ? 'studio.brainpanel.q_values' : 'studio.brainpanel.action_probabilities'
   return (
     <div className="brain-panel" role="status" aria-label="Agent brain">
-      <strong>{title}</strong>
+      <strong>{t(title)}</strong>
       {probs.map((p, i) => (
         <div key={i} className="brain-panel__row" data-greedy={brain.greedy === i || undefined}>
-          <span>{labels[i]}</span>
+          <span>{t(labels[i])}</span>
           <span className="brain-panel__bar" aria-hidden="true">
             <span style={{ width: `${Math.round(p * 100)}%` }} />
           </span>
@@ -58,7 +61,7 @@ export function BrainPanel({ store, renderer }: Props) {
             {brain.kind === 'q' && brain.q ? `Q ${brain.q[i].toFixed(2)} · ` : ''}
             {(p * 100).toFixed(0)}%
           </span>
-          {brain.executed === i && <span className="chip">taken</span>}
+          {brain.executed === i && <span className="chip">{t('studio.brainpanel.taken')}</span>}
         </div>
       ))}
     </div>
