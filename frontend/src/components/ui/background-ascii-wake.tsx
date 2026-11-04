@@ -85,7 +85,7 @@ export function WakeGlyph({ cellSize = 12, className = '' }: WakeGlyphProps) {
       // sparse, near-silent ground state: a static seeded scatter of faint cells
       const rand = mulberry32(0xa53f9c1 ^ (cols * 71 + rows))
       for (let i = 0; i < n; i++) {
-        if (rand() < 0.015) ambient[i] = 0.08 + rand() * 0.14
+        if (rand() < 0.03) ambient[i] = 0.15 + rand() * 0.25
       }
     }
 
@@ -100,7 +100,7 @@ export function WakeGlyph({ cellSize = 12, className = '' }: WakeGlyphProps) {
           if (lum <= 0.03) continue
           const ch = RAMP[Math.min(RAMP.length - 1, Math.floor(lum * (RAMP.length - 1)))]
           if (!ch || ch === ' ') continue
-          ctx.globalAlpha = Math.min(0.6, 0.05 + lum * 0.5)
+          ctx.globalAlpha = Math.min(0.9, 0.2 + lum * 0.8)
           ctx.fillText(ch, gx * cellSize + cellSize / 2, gy * cellSize + cellSize / 2)
         }
       }

@@ -53,7 +53,7 @@ describe('WakeGlyph', () => {
     expect(canvas).toHaveClass('wake-glyph', 'ls-wake')
   })
 
-  it('draws only dim glyphs: alpha never exceeds 0.6', () => {
+  it('keeps glyph alpha capped at 0.9', () => {
     const alphas: number[] = []
     Object.defineProperty(context, 'globalAlpha', {
       set: (v: number) => alphas.push(v),
@@ -67,7 +67,7 @@ describe('WakeGlyph', () => {
     const host = container.firstElementChild as HTMLElement
     host.dispatchEvent(new MouseEvent('pointermove', { clientX: 20, clientY: 20, bubbles: true }))
     expect(alphas.every((a) => a <= 1)).toBe(true)
-    expect(alphas.filter((a) => a !== 1).every((a) => a <= 0.6)).toBe(true)
+    expect(alphas.filter((a) => a !== 1).every((a) => a <= 0.9)).toBe(true)
   })
 
   it('tracks the pointer on the parent so the canvas can stay click-through', () => {

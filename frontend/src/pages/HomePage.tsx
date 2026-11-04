@@ -76,7 +76,7 @@ export function HomePage() {
   return (
     <div className="ls-root">
       <div className="ls-first-screen">
-        <WakeGlyph className="ls-wake" cellSize={18} />
+        <WakeGlyph className="ls-wake" cellSize={16} />
         <AmbientWaves />
         <LandingNavbar />
         <main className="ls-main">
