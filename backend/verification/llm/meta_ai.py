@@ -43,18 +43,35 @@ from backend.verification.exceptions import MetaAIProviderError
 
 logger = logging.getLogger(__name__)
 
-#: Default base URL for the Meta Model API (overridable by configuration).
-META_API_BASE = os.getenv("META_AI_BASE_URL") or os.getenv("META_BASE_URL") or "https://api.meta.ai/v1"
+#: Default base URL for the AI provider (overridable by configuration).
+# Prefer Grok/xAI by default; fall back to legacy Meta env vars for compatibility.
+META_API_BASE = (
+    os.getenv("XAI_BASE_URL")
+    or os.getenv("GROK_BASE_URL")
+    or os.getenv("META_AI_BASE_URL")
+    or os.getenv("META_BASE_URL")
+    or "https://api.x.ai/v1"
+)
 
 #: Environment variables consulted for the API key, in priority order.
-API_KEY_ENV_VARS: tuple[str, ...] = ("META_AI_API_KEY", "META_API")
+API_KEY_ENV_VARS: tuple[str, ...] = (
+    "XAI_API_KEY",
+    "GROK_API_KEY",
+    "META_AI_API_KEY",
+    "META_API",
+)
 
 #: Environment variables consulted for the model name, in priority order.
-MODEL_ENV_VARS: tuple[str, ...] = ("META_AI_MODEL", "META_MODEL")
+MODEL_ENV_VARS: tuple[str, ...] = (
+    "XAI_MODEL",
+    "GROK_MODEL",
+    "META_AI_MODEL",
+    "META_MODEL",
+)
 
 #: Documented candidate models; a model name is never assumed to be available.
-DEFAULT_MODELS = ["muse-spark-1.3", "muse-wonder-1.0"]
-DEFAULT_MODEL = "muse-spark-1.3"
+DEFAULT_MODELS = ["grok-2-latest", "grok-beta", "grok-vision-beta", "muse-spark-1.3", "muse-wonder-1.0"]
+DEFAULT_MODEL = os.getenv("XAI_MODEL") or os.getenv("GROK_MODEL") or "grok-2-latest"
 
 #: Chat-completions endpoint, resolved relative to the configured base URL.
 DEFAULT_ENDPOINT = "/chat/completions"
@@ -231,7 +248,7 @@ class _InvestigatingMixin:
         raise NotImplementedError
 
     def provider_name(self) -> str:
-        return "meta_ai"
+        return "grok"
 
     def investigate(self, request: dict[str, Any]) -> dict[str, Any]:
         """Call the model with the supplied prompt and parse its JSON answer.
@@ -320,7 +337,7 @@ class MetaAIProviderDirect(_InvestigatingMixin, MetaAIProviderProtocol):
         resolved_key = resolve_api_key(api_key)
         if not resolved_key:
             raise MetaAIConfigurationError(
-                "Meta Model API credentials are not configured; set "
+                "Grok/xAI API credentials are not configured; set "
                 f"{' or '.join(API_KEY_ENV_VARS)}"
             )
 
@@ -355,23 +372,23 @@ class MetaAIProviderDirect(_InvestigatingMixin, MetaAIProviderProtocol):
 
         if status in (401, 403):
             return MetaAPIAuthError(
-                "Meta Model API rejected the credentials; check the configured API key.",
+                "Grok/xAI API rejected the credentials; check the configured API key.",
                 details=details,
             )
         if status == 429:
             return MetaAPIRateLimitError(
-                "Meta Model API rate limit exceeded.", details=details
+                "Grok/xAI API rate limit exceeded.", details=details
             )
         if 500 <= status < 600:
             return MetaAPIServerError(
-                f"Meta Model API server error {status}.", details=details
+                f"Grok/xAI API server error {status}.", details=details
             )
         if status in RETRY_STATUS_CODES:
             return MetaAPIServerError(
-                f"Meta Model API transient error {status}.", details=details
+                f"Grok/xAI API transient error {status}.", details=details
             )
         return MetaAIRequestError(
-            f"Meta Model API request failed with status {status}.", details=details
+            f"Grok/xAI API request failed with status {status}.", details=details
         )
 
     def _request_once(
@@ -382,11 +399,11 @@ class MetaAIProviderDirect(_InvestigatingMixin, MetaAIProviderProtocol):
             response = self.client.post(self.endpoint, json=payload)
         except httpx.TimeoutException as exc:
             raise MetaAPITimeoutError(
-                f"Meta Model API request timed out after {self.client.timeout.read}s."
+                f"Grok/xAI API request timed out after {self.client.timeout.read}s."
             ) from exc
         except httpx.TransportError as exc:
             raise MetaAPIServerError(
-                f"Meta Model API transport error: {type(exc).__name__}."
+                f"Grok/xAI API transport error: {type(exc).__name__}."
             ) from exc
 
         if response.status_code != 200:
@@ -396,10 +413,10 @@ class MetaAIProviderDirect(_InvestigatingMixin, MetaAIProviderProtocol):
             body = response.json()
         except json.JSONDecodeError as exc:
             raise MetaAIResponseFormatError(
-                "Meta Model API returned a non-JSON body."
+                "Grok/xAI API returned a non-JSON body."
             ) from exc
         if not isinstance(body, dict):
-            raise MetaAIResponseFormatError("Meta Model API response is not an object")
+            raise MetaAIResponseFormatError("Grok/xAI API response is not an object")
         return body
 
     @staticmethod
@@ -464,7 +481,7 @@ class MetaAIProviderDirect(_InvestigatingMixin, MetaAIProviderProtocol):
                 )
                 self._sleep(delay)
         else:  # pragma: no cover - loop always breaks or raises
-            raise last_error or MetaAPIServerError("Meta Model API call failed")
+            raise last_error or MetaAPIServerError("Grok/xAI API call failed")
 
         usage = raw.get("usage")
         self._last_usage = dict(usage) if isinstance(usage, dict) else None
@@ -512,7 +529,7 @@ if _HAS_LC:  # pragma: no cover - optional dependency
             resolved_key = resolve_api_key(api_key)
             if not resolved_key:
                 raise MetaAIConfigurationError(
-                    "Meta Model API credentials are not configured; set "
+                    "Grok/xAI API credentials are not configured; set "
                     f"{' or '.join(API_KEY_ENV_VARS)}"
                 )
             self.model = resolve_model(model_name)
@@ -526,8 +543,8 @@ if _HAS_LC:  # pragma: no cover - optional dependency
                 **kwargs,
             )
 
-        def provider_name(self) -> str:
-            return "meta_ai_langchain"
+    def provider_name(self) -> str:
+        return "grok_langchain"
 
         def invoke(
             self,

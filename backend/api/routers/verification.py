@@ -87,8 +87,9 @@ def verification_status() -> dict[str, Any]:
         "status": "ready",
         "deterministic_verification": True,
         "meta_ai_provider": "configured" if settings.meta_ai_api_key else "unavailable",
+        "provider": "grok" if settings.meta_ai_api_key else "unavailable",
         "note": (
-            "Deterministic verification works with the Meta AI provider "
+            "Deterministic verification works with the Grok/xAI provider "
             "unavailable. A missing provider is reported, never simulated."
         ),
     }
