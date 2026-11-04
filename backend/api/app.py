@@ -8,7 +8,6 @@ from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.core.config import settings
-
 from backend.database.config import DatabaseConfig
 from backend.database.connection import Database
 from backend.projects.scope import enforce_project_scope
