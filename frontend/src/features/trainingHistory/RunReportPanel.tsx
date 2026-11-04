@@ -11,15 +11,7 @@ import '../selfHealing/selfHealing.css'
 
 const NA = 'Not recorded'
 
-function Section({
-  title,
-  hint,
-  children,
-}: {
-  title: string
-  hint?: string
-  children: ReactNode
-}) {
+function Section({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) {
   return (
     <section className="rr-section" aria-label={title}>
       <div className="rr-section__head">
@@ -31,12 +23,23 @@ function Section({
   )
 }
 
-function Stat({ label, value, sub }: { label: string; value: string | number | null | undefined; sub?: string }) {
+function Stat({
+  label,
+  value,
+  sub,
+}: {
+  label: string
+  value: string | number | null | undefined
+  sub?: string
+}) {
   const empty = value === null || value === undefined || value === ''
   return (
     <div className="sh-stat">
       <span className="sh-stat__label">{label}</span>
-      <span className="sh-stat__value" style={empty ? { fontSize: 'var(--text-sm)', fontWeight: 400 } : undefined}>
+      <span
+        className="sh-stat__value"
+        style={empty ? { fontSize: 'var(--text-sm)', fontWeight: 400 } : undefined}
+      >
         {empty ? NA : String(value)}
       </span>
       {sub ? <span className="sh-stat__sub">{sub}</span> : null}
@@ -57,10 +60,16 @@ function Facts({ rows }: { rows: Array<[string, string | number | null | undefin
   )
 }
 
-function entries(snapshot: Record<string, unknown> | undefined, key: string): Array<[string, string]> {
+function entries(
+  snapshot: Record<string, unknown> | undefined,
+  key: string,
+): Array<[string, string]> {
   const value = snapshot?.[key]
   if (typeof value !== 'object' || value === null) return []
-  return Object.entries(value as Record<string, unknown>).map(([k, v]) => [k.replace(/_/g, ' '), String(v)])
+  return Object.entries(value as Record<string, unknown>).map(([k, v]) => [
+    k.replace(/_/g, ' '),
+    String(v),
+  ])
 }
 
 function Empty({ title, children }: { title: string; children: ReactNode }) {
@@ -86,10 +95,9 @@ export function RunReportPanel({ selected }: { selected: SelectedRun }) {
   const final = run.final_metrics
   const agentParams = entries(detail.snapshots.agent, 'agent_params')
   const envParams = entries(detail.snapshots.environment, 'env_params')
-  const trainingParams = Object.entries(detail.snapshots.training ?? {}).map(([k, v]): [string, string] => [
-    k.replace(/_/g, ' '),
-    String(v),
-  ])
+  const trainingParams = Object.entries(detail.snapshots.training ?? {}).map(
+    ([k, v]): [string, string] => [k.replace(/_/g, ' '), String(v)],
+  )
   const evaluations = detail.evaluations ?? []
   const diagnosisHref = (incidentId: string) =>
     `/diagnosis-recovery?runId=${encodeURIComponent(run.run_id)}&incidentId=${encodeURIComponent(incidentId)}`
@@ -98,7 +106,8 @@ export function RunReportPanel({ selected }: { selected: SelectedRun }) {
     <div className="rr" aria-label={`Report for run ${run.run_id}`}>
       {run.active ? (
         <p role="status" className="sh-note">
-          This run is still in progress, so the report is a partial snapshot of what has been recorded so far.
+          This run is still in progress, so the report is a partial snapshot of what has been
+          recorded so far.
         </p>
       ) : null}
 
@@ -109,19 +118,33 @@ export function RunReportPanel({ selected }: { selected: SelectedRun }) {
             <span className="sh-stat__value">{run.status}</span>
             <span className="sh-stat__sub">{reasonLabel(run)}</span>
           </div>
-          <Stat label="Mean reward (training)" value={final.mean_reward?.toFixed(2)} sub="across all training episodes" />
+          <Stat
+            label="Mean reward (training)"
+            value={final.mean_reward?.toFixed(2)}
+            sub="across all training episodes"
+          />
           <Stat label="Best episode reward" value={final.best_reward?.toFixed(2)} />
           <Stat
             label="Success rate (training)"
-            value={typeof final.success_rate === 'number' ? `${(final.success_rate * 100).toFixed(1)}%` : null}
+            value={
+              typeof final.success_rate === 'number'
+                ? `${(final.success_rate * 100).toFixed(1)}%`
+                : null
+            }
           />
           <Stat label="Timesteps" value={run.total_timesteps} />
           <Stat label="Episodes" value={run.total_episodes} />
-          <Stat label="Duration" value={run.duration_seconds === null ? null : `${run.duration_seconds.toFixed(0)} s`} />
+          <Stat
+            label="Duration"
+            value={run.duration_seconds === null ? null : `${run.duration_seconds.toFixed(0)} s`}
+          />
         </div>
         <Facts
           rows={[
-            ['Agent', `${run.agent_name ?? run.algorithm ?? ''}${run.agent_version === null ? '' : ` v${run.agent_version}`}`],
+            [
+              'Agent',
+              `${run.agent_name ?? run.algorithm ?? ''}${run.agent_version === null ? '' : ` v${run.agent_version}`}`,
+            ],
             ['Environment', run.environment_config_name ?? run.environment_name],
             ['Experiment', run.experiment_name],
             ['Seed', run.seed],
@@ -143,7 +166,11 @@ export function RunReportPanel({ selected }: { selected: SelectedRun }) {
             yLabel="Episode reward"
           />
         ) : (
-          <Empty title={metrics.status === 'loading' ? 'Loading episodes' : 'No episode rewards recorded'}>
+          <Empty
+            title={
+              metrics.status === 'loading' ? 'Loading episodes' : 'No episode rewards recorded'
+            }
+          >
             {metrics.status === 'loading'
               ? 'Reading the recorded episodes for this run…'
               : 'No episode reward was recorded for this run, so no curve is drawn.'}
@@ -186,8 +213,8 @@ export function RunReportPanel({ selected }: { selected: SelectedRun }) {
       <Section title="Verification" hint="Deterministic verdicts against confirmed requirements.">
         {detail.verifications.length === 0 ? (
           <Empty title="No verification yet">
-            No requirement has been verified against this run. Confirm a requirement in the project workspace
-            and verify it; a missing result is never a pass.
+            No requirement has been verified against this run. Confirm a requirement in the project
+            workspace and verify it; a missing result is never a pass.
           </Empty>
         ) : (
           <div className="sh-table-wrap">
@@ -223,7 +250,9 @@ export function RunReportPanel({ selected }: { selected: SelectedRun }) {
                 <div className="sh-card__head">
                   <span className="sh-mono">{i.incident_id}</span>
                   <div className="sh-row">
-                    {i.severity ? <StatusBadge label={`severity ${i.severity}`} tone="neutral" glyph="none" /> : null}
+                    {i.severity ? (
+                      <StatusBadge label={`severity ${i.severity}`} tone="neutral" glyph="none" />
+                    ) : null}
                     <StatusBadge label={i.status} tone="quiet" glyph="none" />
                   </div>
                 </div>
@@ -244,7 +273,9 @@ export function RunReportPanel({ selected }: { selected: SelectedRun }) {
 
       <Section title="Recovery" hint="Executed recoveries; success needs a passing evaluation.">
         {detail.recoveries.length === 0 ? (
-          <Empty title="No recovery history">No recovery was planned or executed for this run.</Empty>
+          <Empty title="No recovery history">
+            No recovery was planned or executed for this run.
+          </Empty>
         ) : (
           <div className="sh-table-wrap">
             <table className="sh-table">
@@ -293,7 +324,9 @@ export function RunReportPanel({ selected }: { selected: SelectedRun }) {
                     <td className="sh-mono">{String(c.checkpoint_id ?? NA)}</td>
                     <td>{c.timestep === undefined ? NA : String(c.timestep)}</td>
                     <td>{c.reason === undefined || c.reason === null ? NA : String(c.reason)}</td>
-                    <td className="sh-mono">{typeof c.sha256 === 'string' ? `${c.sha256.slice(0, 16)}…` : NA}</td>
+                    <td className="sh-mono">
+                      {typeof c.sha256 === 'string' ? `${c.sha256.slice(0, 16)}…` : NA}
+                    </td>
                   </tr>
                 ))}
               </tbody>
