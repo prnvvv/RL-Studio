@@ -51,6 +51,7 @@ pydantic_core==2.50.2
 pygame-ce==2.5.8
 Pygments==2.21.0
 pytest==9.2.0
+python-multipart==0.0.20
 python-dotenv==1.2.4
 PyYAML==6.0.3
 requests==2.34.2
