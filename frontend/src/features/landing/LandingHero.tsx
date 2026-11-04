@@ -23,8 +23,8 @@ export function LandingHero() {
         </h1>
 
         <p className="ls-sub ls-enter" style={delay(700)}>
-          RL Studio checks every run against developer-confirmed contracts, pins
-          violations to real events, and only restores what it can verify.
+          RL Studio checks every run against developer-confirmed contracts, pins violations to real
+          events, and only restores what it can verify.
         </p>
 
         <div className="ls-cta ls-enter" style={delay(800)}>
