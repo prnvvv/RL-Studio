@@ -2,17 +2,17 @@ import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { ArrowIcon, LogoMark } from './icons'
 
-const { t } = useTranslation()
-
-// Platform and Research point at existing app pages; Team has no page yet, so
-// it scrolls to the overview section rather than linking to a dead route.
-const navLinks: Array<{ label: string; to?: string; href?: string }> = [
-  { to: '/environments', label: 'landing.navbar.platform' },
-  { to: '/reports', label: 'landing.navbar.research' },
-  { href: '#overview', label: 'landing.navbar.team' },
-]
-
 export function LandingNavbar() {
+  const { t } = useTranslation()
+
+  // Platform and Research point at existing app pages; Team has no page yet, so
+  // it scrolls to the overview section rather than linking to a dead route.
+  const navLinks: Array<{ label: string; to?: string; href?: string }> = [
+    { to: '/environments', label: 'landing.navbar.platform' },
+    { to: '/reports', label: 'landing.navbar.research' },
+    { href: '#overview', label: 'landing.navbar.team' },
+  ]
+
   return (
     <header className="ls-nav ls-enter" style={{ ['--d' as string]: '0ms' }}>
       <div className="ls-nav__brand">
