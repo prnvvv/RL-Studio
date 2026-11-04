@@ -215,10 +215,12 @@ export function createProjectService(): ProjectService {
       ),
 
     submitIntent: (id, request) =>
-      mapped(api.post<unknown>(`${BASE}/${seg(id)}/intents`, { jsonBody: request, timeoutMs: SLOW_MS }), (d) =>
-        isRecord(d) && Array.isArray(d.intents)
-          ? { state: 'ok', data: d as unknown as IntentSubmitResult }
-          : unexpected(),
+      mapped(
+        api.post<unknown>(`${BASE}/${seg(id)}/intents`, { jsonBody: request, timeoutMs: SLOW_MS }),
+        (d) =>
+          isRecord(d) && Array.isArray(d.intents)
+            ? { state: 'ok', data: d as unknown as IntentSubmitResult }
+            : unexpected(),
       ),
 
     listRequirements: (id, signal) =>
@@ -264,10 +266,15 @@ export function createProjectService(): ProjectService {
       ),
 
     verify: (id, request) =>
-      mapped(api.post<unknown>(`${BASE}/${seg(id)}/verifications`, { jsonBody: request, timeoutMs: SLOW_MS }), (d) =>
-        isRecord(d) && (d.state === 'evaluated' || d.state === 'waiting_for_evidence')
-          ? { state: 'ok', data: d as unknown as VerifyResult }
-          : unexpected(),
+      mapped(
+        api.post<unknown>(`${BASE}/${seg(id)}/verifications`, {
+          jsonBody: request,
+          timeoutMs: SLOW_MS,
+        }),
+        (d) =>
+          isRecord(d) && (d.state === 'evaluated' || d.state === 'waiting_for_evidence')
+            ? { state: 'ok', data: d as unknown as VerifyResult }
+            : unexpected(),
       ),
 
     listVerifications: (id, runId, signal) =>
