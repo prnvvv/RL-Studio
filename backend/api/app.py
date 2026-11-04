@@ -61,7 +61,9 @@ def _install_automation(app: FastAPI, database: Database) -> WorkflowAutomation:
         from backend.diagnosis.service import DiagnosisService
 
         ai = getattr(app.state, "ai_service", None) or get_ai_service()
-        DiagnosisService(database, services.provenance, ai).investigate(incident_id)
+        diagnosis = DiagnosisService(database, services.provenance, ai)
+        diagnosis.investigate(incident_id)
+        diagnosis.recommend_recovery(incident_id)  # a plan for every incident, never executed
 
     automation = WorkflowAutomation(evaluate=evaluate, investigate=investigate)
     automation.install()
