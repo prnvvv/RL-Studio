@@ -55,8 +55,76 @@ function glyphFor(status: Evaluation['evaluation_status']): 'check' | 'cross' | 
   }
 }
 
+/** Dashboard-only metric cards. Every value is the record's own; nothing is computed here. */
+function MetricCards({
+  evaluation,
+  rows,
+  improvements,
+}: {
+  evaluation: Evaluation
+  rows: ReturnType<typeof comparisonRows>
+  improvements: ReturnType<typeof improvementRows>
+}) {
+  const series = rows.filter((row) => row.key !== 'faulty' || row.columns.reward !== 'Not supplied')
+  const isMissing = (value: string) =>
+    ['Not available', 'Not supplied', 'Not computed'].includes(value)
+  return (
+    <div className="rp-metrics" aria-label="Evaluation metrics" role="group">
+      {series.map((row) => (
+        <article className="rp-metric" key={row.key} aria-label={`${row.series} metrics`}>
+          <h4 className="rp-metric__title">{row.series}</h4>
+          <span
+            className={`rp-metric__value${isMissing(row.columns.reward) ? ' rp-metric__value--na' : ''}`}
+          >
+            {row.columns.reward}
+          </span>
+          <dl className="rp-metric__rows">
+            <div className="rp-metric__row">
+              <dt>Success rate</dt>
+              <dd>{row.columns.success}</dd>
+            </div>
+            <div className="rp-metric__row">
+              <dt>Episode length</dt>
+              <dd>{row.columns.length}</dd>
+            </div>
+          </dl>
+        </article>
+      ))}
+      {improvements.map((row) => (
+        <article className="rp-metric" key={row.key} aria-label={row.series}>
+          <h4 className="rp-metric__title">{row.series}</h4>
+          <span
+            className={`rp-metric__value${isMissing(row.columns.reward) ? ' rp-metric__value--na' : ''}`}
+          >
+            {row.columns.reward}
+          </span>
+        </article>
+      ))}
+      <article className="rp-metric" aria-label="Evaluation scope">
+        <h4 className="rp-metric__title">Evaluation scope</h4>
+        <dl className="rp-metric__rows">
+          <div className="rp-metric__row">
+            <dt>Episodes</dt>
+            <dd>{evaluation.episode_count === null ? 'Not recorded' : evaluation.episode_count}</dd>
+          </div>
+          <div className="rp-metric__row">
+            <dt>Seeds</dt>
+            <dd>{evaluation.seeds.length > 0 ? evaluation.seeds.join(', ') : 'None recorded'}</dd>
+          </div>
+        </dl>
+      </article>
+    </div>
+  )
+}
+
 /** The loaded record: outcome, comparison, improvements, criteria, context. */
-function LoadedEvaluation({ evaluation }: { evaluation: Evaluation }) {
+function LoadedEvaluation({
+  evaluation,
+  dashboard = false,
+}: {
+  evaluation: Evaluation
+  dashboard?: boolean
+}) {
   const claim = outcomeClaim(evaluation)
   const rows = comparisonRows(evaluation)
   const improvements = improvementRows(evaluation)
@@ -70,10 +138,38 @@ function LoadedEvaluation({ evaluation }: { evaluation: Evaluation }) {
         glyph: 'query' as const,
       }
 
+  // Default presentation (used by Diagnosis) keeps its inline styles; the Reports dashboard uses classes.
+  const titleProps = dashboard
+    ? { className: 'rp-eval__section-title' }
+    : {
+        style: {
+          margin: '0 0 var(--space-2) 0',
+          fontSize: 'var(--text-xs)',
+          fontWeight: 600,
+          textTransform: 'uppercase' as const,
+          letterSpacing: '0.06em',
+          color: 'var(--text-secondary)',
+          fontFamily: 'var(--font-sans)',
+        },
+      }
+  const detailProps = dashboard ? { className: 'rp-eval__detail' } : { style: detailText }
+  const cell = (extra?: Record<string, unknown>) =>
+    dashboard ? {} : { style: { ...tableCell, ...extra } }
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+    <div
+      className={dashboard ? 'rp-eval' : undefined}
+      style={
+        dashboard ? undefined : { display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }
+      }
+    >
       <div
-        style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap', alignItems: 'center' }}
+        className={dashboard ? 'rp-eval__badges' : undefined}
+        style={
+          dashboard
+            ? undefined
+            : { display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap', alignItems: 'center' }
+        }
       >
         <StatusBadge label={claim.label} tone={claim.tone} glyph={glyphFor(claim.outcome)} />
         <StatusBadge
@@ -83,36 +179,31 @@ function LoadedEvaluation({ evaluation }: { evaluation: Evaluation }) {
         />
       </div>
 
+      {dashboard ? (
+        <MetricCards evaluation={evaluation} rows={rows} improvements={improvements} />
+      ) : null}
+
       <section aria-label="Baseline comparison">
-        <h4
-          style={{
-            margin: '0 0 var(--space-2) 0',
-            fontSize: 'var(--text-xs)',
-            fontWeight: 600,
-            textTransform: 'uppercase',
-            letterSpacing: '0.06em',
-            color: 'var(--text-secondary)',
-            fontFamily: 'var(--font-sans)',
-          }}
+        <h4 {...titleProps}>Baseline comparison</h4>
+        <table
+          className={dashboard ? 'rp-eval__table' : undefined}
+          style={dashboard ? undefined : { width: '100%', borderCollapse: 'collapse' }}
         >
-          Baseline comparison
-        </h4>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <caption className="visually-hidden">
             Baseline comparison of recovered, healthy, and faulty series
           </caption>
           <thead>
             <tr>
-              <th scope="col" style={{ ...tableCell, fontWeight: 600 }}>
+              <th scope="col" {...cell({ fontWeight: 600 })}>
                 Series
               </th>
-              <th scope="col" style={{ ...tableCell, fontWeight: 600 }}>
+              <th scope="col" {...cell({ fontWeight: 600 })}>
                 Mean reward
               </th>
-              <th scope="col" style={{ ...tableCell, fontWeight: 600 }}>
+              <th scope="col" {...cell({ fontWeight: 600 })}>
                 Success rate
               </th>
-              <th scope="col" style={{ ...tableCell, fontWeight: 600 }}>
+              <th scope="col" {...cell({ fontWeight: 600 })}>
                 Episode length
               </th>
             </tr>
@@ -120,20 +211,24 @@ function LoadedEvaluation({ evaluation }: { evaluation: Evaluation }) {
           <tbody>
             {rows.map((row) => (
               <tr key={row.key}>
-                <th
-                  scope="row"
-                  style={{ ...tableCell, fontWeight: 500, color: 'var(--text-primary)' }}
-                >
+                <th scope="row" {...cell({ fontWeight: 500, color: 'var(--text-primary)' })}>
                   {row.series}
                 </th>
-                <td style={tableCell}>{row.columns.reward}</td>
-                <td style={tableCell}>{row.columns.success}</td>
-                <td style={tableCell}>{row.columns.length}</td>
+                <td {...cell()}>{row.columns.reward}</td>
+                <td {...cell()}>{row.columns.success}</td>
+                <td {...cell()}>{row.columns.length}</td>
               </tr>
             ))}
           </tbody>
         </table>
-        <p style={{ ...detailText, marginTop: 'var(--space-2)' }}>
+        <p
+          {...detailProps}
+          style={
+            dashboard
+              ? { marginTop: 'var(--space-2)' }
+              : { ...detailText, marginTop: 'var(--space-2)' }
+          }
+        >
           The comparison shows only what the record supplies. A missing faulty baseline is “Not
           supplied”, a missing measurement is “Not available”, and a missing delta is “Not computed
           by the backend”.
@@ -141,49 +236,31 @@ function LoadedEvaluation({ evaluation }: { evaluation: Evaluation }) {
       </section>
 
       <section aria-label="Recorded improvements">
-        <h4
-          style={{
-            margin: '0 0 var(--space-2) 0',
-            fontSize: 'var(--text-xs)',
-            fontWeight: 600,
-            textTransform: 'uppercase',
-            letterSpacing: '0.06em',
-            color: 'var(--text-secondary)',
-            fontFamily: 'var(--font-sans)',
-          }}
-        >
-          Recorded improvements
-        </h4>
+        <h4 {...titleProps}>Recorded improvements</h4>
         {improvements.map((row) => (
-          <p key={row.key} style={detailText}>
+          <p key={row.key} {...detailProps}>
             {row.series}: {row.columns.reward}
           </p>
         ))}
       </section>
 
       <section aria-label="Acceptance criteria">
-        <h4
-          style={{
-            margin: '0 0 var(--space-2) 0',
-            fontSize: 'var(--text-xs)',
-            fontWeight: 600,
-            textTransform: 'uppercase',
-            letterSpacing: '0.06em',
-            color: 'var(--text-secondary)',
-            fontFamily: 'var(--font-sans)',
-          }}
-        >
-          Configured acceptance criteria ({criteria.length})
-        </h4>
+        <h4 {...titleProps}>Configured acceptance criteria ({criteria.length})</h4>
         {criteria.length === 0 ? (
-          <p style={detailText}>
+          <p {...detailProps}>
             The record carries no configured acceptance criteria. They were not inferred after the
             results were seen.
           </p>
         ) : (
-          <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+          <ul
+            className={dashboard ? 'rp-eval__list' : undefined}
+            style={dashboard ? undefined : { listStyle: 'none', margin: 0, padding: 0 }}
+          >
             {criteria.map((criterion) => (
-              <li key={criterion.key} style={{ ...detailText, padding: '2px 0' }}>
+              <li
+                key={criterion.key}
+                {...(dashboard ? {} : { style: { ...detailText, padding: '2px 0' } })}
+              >
                 {criterion.label}: {criterion.value}
               </li>
             ))}
@@ -192,7 +269,7 @@ function LoadedEvaluation({ evaluation }: { evaluation: Evaluation }) {
       </section>
 
       <section aria-label="Evaluation context">
-        <p style={detailText}>
+        <p {...detailProps}>
           {evaluation.episode_count === null
             ? 'Episode count: not recorded.'
             : `Episodes evaluated: ${evaluation.episode_count}.`}
@@ -212,12 +289,12 @@ function LoadedEvaluation({ evaluation }: { evaluation: Evaluation }) {
       {evaluation.warnings.length > 0 || evaluation.errors.length > 0 ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
           {evaluation.warnings.map((warning, index) => (
-            <p key={`w-${index}`} style={detailText}>
+            <p key={`w-${index}`} {...detailProps}>
               Warning: {warning}
             </p>
           ))}
           {evaluation.errors.map((error, index) => (
-            <p key={`e-${index}`} style={{ ...detailText, fontWeight: 600 }}>
+            <p key={`e-${index}`} {...detailProps} style={{ fontWeight: 600 }}>
               Evaluation error: {error}
             </p>
           ))}
@@ -228,12 +305,18 @@ function LoadedEvaluation({ evaluation }: { evaluation: Evaluation }) {
 }
 
 export interface EvaluationPanelProps {
+  /** `dashboard` adds metric cards and the Reports styling; the default is unchanged. */
+  presentation?: 'default' | 'dashboard'
   evaluation?: PanelState<Evaluation>
   /** Retry affordance for loading the record (a safe GET). */
   onReload?: () => void
 }
 
-export function EvaluationPanel({ evaluation, onReload }: EvaluationPanelProps) {
+export function EvaluationPanel({
+  evaluation,
+  onReload,
+  presentation = 'default',
+}: EvaluationPanelProps) {
   return (
     <section aria-label="Evaluation record">
       {!evaluation ? (
@@ -269,7 +352,10 @@ export function EvaluationPanel({ evaluation, onReload }: EvaluationPanelProps) 
           }
         />
       ) : (
-        <LoadedEvaluation evaluation={unwrapMockData(evaluation.data)} />
+        <LoadedEvaluation
+          evaluation={unwrapMockData(evaluation.data)}
+          dashboard={presentation === 'dashboard'}
+        />
       )}
     </section>
   )
