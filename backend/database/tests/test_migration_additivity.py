@@ -30,7 +30,7 @@ def _schema(conn: sqlite3.Connection) -> dict[str, list[tuple[Any, ...]]]:
 
 
 def test_new_migrations_only_create_tables_and_indexes() -> None:
-    assert [mig.version for mig in NEW] == [3, 4, 5]
+    assert [mig.version for mig in NEW] == [3, 4, 5, 6]
     for mig in NEW:
         for statement in mig.statements:
             assert ALLOWED.match(statement), f"migration {mig.version}: not an idempotent CREATE: {statement[:60]!r}"
@@ -74,7 +74,7 @@ def test_upgrade_preserves_existing_schema_and_rows() -> None:
     before = _schema(conn)
     rows_before = {t: [tuple(r) for r in conn.execute(f"SELECT * FROM {t}")] for t in ("runs", "incidents", "audit_events", "verifications")}
 
-    assert m.apply_migrations(conn, m.MIGRATIONS) == [3, 4, 5]
+    assert m.apply_migrations(conn, m.MIGRATIONS) == [3, 4, 5, 6]
 
     after = _schema(conn)
     for table, columns in before.items():
@@ -82,14 +82,15 @@ def test_upgrade_preserves_existing_schema_and_rows() -> None:
     assert {t: [tuple(r) for r in conn.execute(f"SELECT * FROM {t}")] for t in rows_before} == rows_before
     assert {"projects", "project_documents", "project_intent_links", "project_requirement_links",
             "project_run_bindings", "project_run_verifications", "project_requirement_policies",
-            "incident_investigations"} <= set(after)
+            "incident_investigations", "training_runs", "project_agents", "project_environment_configs",
+            "project_experiments"} <= set(after)
 
 
 def test_migrations_are_idempotent_and_recorded_in_order() -> None:
     conn = _connect()
-    assert m.apply_migrations(conn) == [1, 2, 3, 4, 5]
+    assert m.apply_migrations(conn) == [1, 2, 3, 4, 5, 6]
     assert m.apply_migrations(conn) == []
-    assert [r[0] for r in conn.execute("SELECT version FROM schema_migrations ORDER BY version")] == [1, 2, 3, 4, 5]
+    assert [r[0] for r in conn.execute("SELECT version FROM schema_migrations ORDER BY version")] == [1, 2, 3, 4, 5, 6]
 
 
 def test_audit_log_stays_append_only() -> None:

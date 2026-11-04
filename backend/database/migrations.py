@@ -518,12 +518,101 @@ MIGRATION_5_STATEMENTS: tuple[str, ...] = (
 )
 
 
+#: Persistent, project-scoped training history. Additive only: project-level agents and environments (versioned, with
+#: their earlier configurations kept), experiments, and the authoritative training-run catalog. Each catalog row keeps
+#: the exact agent and environment configuration snapshot the run used, so later edits never rewrite history. A run
+#: with a NULL project_id is a legacy run and is never assigned to a project implicitly.
+MIGRATION_6_STATEMENTS: tuple[str, ...] = (
+    """
+    CREATE TABLE IF NOT EXISTS project_agents (
+        agent_id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        algorithm TEXT NOT NULL,
+        config_json TEXT NOT NULL DEFAULT '{}',
+        config_fingerprint TEXT NOT NULL,
+        version INTEGER NOT NULL DEFAULT 1,
+        revisions_json TEXT NOT NULL DEFAULT '[]',
+        latest_run_id TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_project_agents_project ON project_agents(project_id, updated_at)",
+    """
+    CREATE TABLE IF NOT EXISTS project_environment_configs (
+        environment_config_id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        environment_kind TEXT NOT NULL,
+        config_json TEXT NOT NULL DEFAULT '{}',
+        config_fingerprint TEXT NOT NULL,
+        version INTEGER NOT NULL DEFAULT 1,
+        revisions_json TEXT NOT NULL DEFAULT '[]',
+        latest_run_id TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_project_envcfg_project ON project_environment_configs(project_id, updated_at)",
+    """
+    CREATE TABLE IF NOT EXISTS project_experiments (
+        experiment_id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        description TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_project_experiments_project ON project_experiments(project_id, updated_at)",
+    """
+    CREATE TABLE IF NOT EXISTS training_runs (
+        run_id TEXT PRIMARY KEY,
+        project_id TEXT,
+        experiment_id TEXT,
+        agent_id TEXT,
+        environment_config_id TEXT,
+        agent_version INTEGER,
+        environment_config_version INTEGER,
+        session_id TEXT,
+        name TEXT,
+        algorithm TEXT,
+        environment_name TEXT,
+        seed INTEGER,
+        agent_snapshot_json TEXT NOT NULL DEFAULT '{}',
+        environment_snapshot_json TEXT NOT NULL DEFAULT '{}',
+        training_snapshot_json TEXT NOT NULL DEFAULT '{}',
+        status TEXT NOT NULL,
+        termination_reason TEXT,
+        continues_run_id TEXT,
+        started_at TEXT,
+        finished_at TEXT,
+        duration_seconds REAL,
+        total_timesteps INTEGER,
+        total_episodes INTEGER,
+        final_metrics_json TEXT NOT NULL DEFAULT '{}',
+        error TEXT,
+        last_progress_at TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_training_runs_project ON training_runs(project_id, started_at)",
+    "CREATE INDEX IF NOT EXISTS idx_training_runs_agent ON training_runs(project_id, agent_id, started_at)",
+    "CREATE INDEX IF NOT EXISTS idx_training_runs_env ON training_runs(project_id, environment_config_id)",
+    "CREATE INDEX IF NOT EXISTS idx_training_runs_experiment ON training_runs(project_id, experiment_id)",
+    "CREATE INDEX IF NOT EXISTS idx_training_runs_status ON training_runs(status)",
+)
+
+
 MIGRATIONS: tuple[Migration, ...] = (
     Migration(version=1, name="initial_person4_schema", statements=MIGRATION_1_STATEMENTS),
     Migration(version=2, name="person3_verification_lifecycle", statements=MIGRATION_2_STATEMENTS),
     Migration(version=3, name="project_management", statements=MIGRATION_3_STATEMENTS),
     Migration(version=4, name="project_requirement_policies", statements=MIGRATION_4_STATEMENTS),
     Migration(version=5, name="incident_investigations", statements=MIGRATION_5_STATEMENTS),
+    Migration(version=6, name="training_history", statements=MIGRATION_6_STATEMENTS),
 )
 
 
