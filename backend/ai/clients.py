@@ -1,6 +1,6 @@
 """The single hosted client for the Meta Model API (``https://api.meta.ai/v1``, one shared ``MODEL_API_KEY``).
 
-* Text, vision, image generation/editing and SAM segmentation go through the official OpenAI Python SDK, which Meta
+* Text, vision and SAM segmentation go through the official OpenAI Python SDK, which Meta
   documents as compatible. The SDK is always constructed with an explicit ``api_key`` and Meta ``base_url`` so it can
   never reach another provider's default host. The SDK's own retries are disabled; bounded retries are implemented here.
 * Voice transcription is a Meta-specific multipart endpoint (``POST /asr/transcribe``) and uses ``httpx`` directly.
@@ -44,7 +44,7 @@ logger = logging.getLogger(__name__)
 PROVIDER = "meta"
 MAX_BACKOFF_SECONDS = 8.0
 #: optional request parameters Meta may reject for a given model; dropped once (and retried) when named in a HTTP 400
-DROPPABLE_PARAMS = frozenset({"temperature", "max_output_tokens", "metadata", "reasoning", "response_format", "output_format"})
+DROPPABLE_PARAMS = frozenset({"temperature", "max_output_tokens", "metadata", "reasoning", "response_format"})
 SAM_METADATA = {"mask_encoding": "one_bit", "include_confidence": "true"}
 
 
@@ -218,44 +218,6 @@ class MetaClient:
         messages.append({"role": "user", "content": [
             {"type": "input_text", "text": prompt}, {"type": "input_image", "image_url": data_url}]})
         return self.respond(model, messages, retries=retries, timeout=timeout, max_tokens=max_tokens)
-
-    # -- images (Muse Image) ------------------------------------------------
-    @staticmethod
-    def _image_items(resp: Any, model: str) -> list[dict[str, Any]]:
-        items = []
-        for item in getattr(resp, "data", None) or []:
-            b64, url = getattr(item, "b64_json", None), getattr(item, "url", None)
-            if b64 or url:
-                items.append({"b64_json": b64, "url": url, "revised_prompt": getattr(item, "revised_prompt", None)})
-        if not items:
-            raise AIInvalidResponseError("Meta returned no image data", provider=PROVIDER, model=model)
-        return items
-
-    def generate_image(
-        self, model: str, prompt: str, *, n: int = 1, output_format: str = "png",
-        retries: int = 2, timeout: float | None = None,
-    ) -> dict[str, Any]:
-        """``POST /images/generations``; images come back as base64 (``response_format=b64_json``)."""
-        sdk = self._sdk().with_options(timeout=timeout or self._timeout, max_retries=0)
-        extra: dict[str, Any] = {"output_format": output_format}
-        resp = self._call(
-            model, retries,
-            lambda: sdk.images.generate(model=model, prompt=prompt, n=n, response_format="b64_json", extra_body=dict(extra)),
-            extra,
-        )
-        return {"images": self._image_items(resp, model), "model": model, "output_format": output_format,
-                "request_id": getattr(resp, "_request_id", None), "usage": _usage(resp)}
-
-    def edit_image(
-        self, model: str, prompt: str, image: bytes, image_type: str, *, filename: str = "image",
-        retries: int = 2, timeout: float | None = None,
-    ) -> dict[str, Any]:
-        """``POST /images/edits`` (multipart, as the OpenAI SDK sends it)."""
-        sdk = self._sdk().with_options(timeout=timeout or self._timeout, max_retries=0)
-        resp = self._call(
-            model, retries, lambda: sdk.images.edit(model=model, prompt=prompt, image=(filename, image, image_type)))
-        return {"images": self._image_items(resp, model), "model": model,
-                "request_id": getattr(resp, "_request_id", None), "usage": _usage(resp)}
 
     # -- voice (Muse Voice Transcribe) ---------------------------------------
     def transcribe(

@@ -2,7 +2,7 @@
 
 Run ``python -m backend.ai.diagnostics`` for the static configuration checks. Add ``--live`` to also make small real
 calls (these CONSUME CREDITS); ``--live --only spark,sam`` limits which models are exercised. Each model is probed
-independently: a Muse Spark success proves nothing about Muse Wonder, Image, Voice or SAM. The vocabulary is
+independently: a Muse Spark success proves nothing about Muse Wonder, Voice or SAM. The vocabulary is
 deliberate and never blurred:
 
 * ``NOT_CONFIGURED``          required settings are missing or still placeholders (no call is attempted)
@@ -57,7 +57,7 @@ REQUIRED_PACKAGES = {"openai": "openai", "meta_sam_parser": "meta-sam-parser", "
 FORBIDDEN_IMPORTS = ("torch", "torchvision", "transformers", "huggingface_hub", "groq")
 PROBE_PROMPT = "Reply with the single word OK."
 PROBE_IMAGE_PROMPT = "Describe this image in one sentence."
-ALL_PROBES = ("spark", "wonder", "image", "voice", "sam")
+ALL_PROBES = ("spark", "wonder", "voice", "sam")
 
 
 @dataclass(frozen=True)
@@ -202,11 +202,6 @@ def run_probes(settings: AISettings, only: tuple[str, ...] = ALL_PROBES) -> list
     if "wonder" in only:
         # called directly (no fallback) so a Spark success can never be reported as Wonder access
         probes.append(_run("Muse Wonder (preview reasoning)", Task.ROOT_CAUSE, service, listed, _ask, _text_judge))
-    if "image" in only:
-        probes.append(_run("Muse Image (generation)", Task.IMAGE_GENERATION, service, listed,
-                           lambda sp: service.generate_image("a small red circle on a white background"),
-                           lambda r: (INFERENCE_SUCCESSFUL, "an image was returned", {"images": len(r["images"])})
-                           if r["images"] else (API_CONNECTED, "no image returned", {})))
     if "voice" in only:
         def voice_judge(r: dict[str, Any]) -> tuple[str, str, dict[str, Any]]:
             if r["text"]:

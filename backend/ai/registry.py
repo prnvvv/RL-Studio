@@ -23,7 +23,6 @@ class Modality(str, Enum):
     VISION = "vision"
     AUDIO = "audio"
     SEGMENTATION = "segmentation"
-    IMAGE_GENERATION = "image_generation"
 
 
 class Task(str, Enum):
@@ -34,7 +33,6 @@ class Task(str, Enum):
     INVESTIGATION = "investigation_assistance"
     RECOVERY_PLANNING = "recovery_planning"
     VISION = "visual_investigation"
-    IMAGE_GENERATION = "image_generation"
     SEGMENTATION = "visual_segmentation"
     TRANSCRIPTION = "voice_transcription"
 
@@ -43,7 +41,6 @@ class Task(str, Enum):
 MODEL_FAMILIES: dict[str, frozenset[Modality]] = {
     "muse-spark": frozenset({Modality.TEXT, Modality.VISION}),
     "muse-wonder": frozenset({Modality.TEXT, Modality.VISION}),
-    "muse-image": frozenset({Modality.IMAGE_GENERATION}),
     "muse-voice-transcribe": frozenset({Modality.AUDIO}),
     "sam": frozenset({Modality.SEGMENTATION}),
 }
@@ -115,11 +112,6 @@ def build_registry(s: AISettings) -> dict[Task, TaskSpec]:
     vision = TaskSpec(Task.VISION, meta, s.vision_model, Modality.VISION, enabled=ok, disabled_reason=reason,
                       max_tokens=2048, output_schema="VisualObservations", **common)
 
-    ok, reason = capability(s.image_model, Modality.IMAGE_GENERATION, s.enable_image_generation,
-                            "image generation disabled (META_IMAGE_GENERATION_ENABLED)")
-    image = TaskSpec(Task.IMAGE_GENERATION, meta, s.image_model, Modality.IMAGE_GENERATION, enabled=ok,
-                     disabled_reason=reason, output_schema="GeneratedImage", **common)
-
     ok, reason = capability(s.segmentation_model, Modality.SEGMENTATION, s.enable_segmentation,
                             "segmentation disabled (META_SEGMENTATION_ENABLED)")
     segmentation = TaskSpec(Task.SEGMENTATION, meta, s.segmentation_model, Modality.SEGMENTATION, enabled=ok,
@@ -129,7 +121,7 @@ def build_registry(s: AISettings) -> dict[Task, TaskSpec]:
     voice = TaskSpec(Task.TRANSCRIPTION, meta, s.voice_model, Modality.AUDIO, enabled=ok, disabled_reason=reason,
                      output_schema="Transcription", **common)
 
-    specs = {t.task: t for t in (intent, reqs, general, invest, root, recovery, vision, image, segmentation, voice)}
+    specs = {t.task: t for t in (intent, reqs, general, invest, root, recovery, vision, segmentation, voice)}
     return {k: _check_fallback(v, specs) for k, v in specs.items()}
 
 

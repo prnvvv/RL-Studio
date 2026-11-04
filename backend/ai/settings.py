@@ -57,11 +57,9 @@ class AISettings:
     investigation_model: str
     recovery_planning_model: str
     vision_model: str
-    image_model: str
     voice_model: str
     segmentation_model: str
     enable_vision: bool
-    enable_image_generation: bool
     enable_voice: bool
     enable_segmentation: bool
     enable_wonder: bool
@@ -105,11 +103,9 @@ class AISettings:
             investigation_model=model("META_INVESTIGATION_MODEL", "muse-wonder-1.0"),
             recovery_planning_model=model("META_RECOVERY_PLANNING_MODEL", "muse-wonder-1.0"),
             vision_model=model("META_VISION_MODEL", spark),
-            image_model=model("META_IMAGE_MODEL", "muse-image-1.0"),
             voice_model=model("META_VOICE_MODEL", "muse-voice-transcribe-1.0"),
             segmentation_model=model("META_SEGMENTATION_MODEL", "sam-3.1"),
             enable_vision=_bool(e.get("META_VISION_ENABLED"), True),
-            enable_image_generation=_bool(e.get("META_IMAGE_GENERATION_ENABLED"), True),
             enable_voice=_bool(e.get("META_VOICE_ENABLED"), True),
             enable_segmentation=_bool(e.get("META_SEGMENTATION_ENABLED"), True),
             enable_wonder=_bool(e.get("META_WONDER_ENABLED"), True),
@@ -134,7 +130,6 @@ class AISettings:
             "api_key_variable": "MODEL_API_KEY",
             "fallback_enabled": self.enable_fallback,
             "vision_enabled": self.enable_vision,
-            "image_generation_enabled": self.enable_image_generation,
             "voice_enabled": self.enable_voice,
             "segmentation_enabled": self.enable_segmentation,
             "wonder_enabled": self.enable_wonder,

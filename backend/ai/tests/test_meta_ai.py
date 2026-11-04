@@ -97,7 +97,6 @@ def test_default_registry_matches_required_models():
         assert reg[task].model == "muse-spark-1.3"
     for task in (Task.ROOT_CAUSE, Task.INVESTIGATION, Task.RECOVERY_PLANNING):
         assert reg[task].model == "muse-wonder-1.0" and reg[task].preview
-    assert reg[Task.IMAGE_GENERATION].model == "muse-image-1.0"
     assert reg[Task.TRANSCRIPTION].model == "muse-voice-transcribe-1.0"
     assert reg[Task.SEGMENTATION].model == "sam-3.1"
     assert all(s.provider is Provider.META and s.enabled for s in reg.values())
@@ -108,14 +107,14 @@ def test_every_model_variable_is_consumed_by_the_registry():
         "META_INTENT_MODEL": "muse-spark-9.9", "META_REQUIREMENTS_MODEL": "muse-spark-9.8", "META_GENERAL_MODEL": "muse-spark-9.7",
         "META_ROOT_CAUSE_MODEL": "muse-wonder-9.1", "META_INVESTIGATION_MODEL": "muse-wonder-9.2",
         "META_RECOVERY_PLANNING_MODEL": "muse-wonder-9.3", "META_VISION_MODEL": "muse-spark-9.6",
-        "META_IMAGE_MODEL": "muse-image-9.0", "META_VOICE_MODEL": "muse-voice-transcribe-9.0", "META_SEGMENTATION_MODEL": "sam-9.0",
+        "META_VOICE_MODEL": "muse-voice-transcribe-9.0", "META_SEGMENTATION_MODEL": "sam-9.0",
     }
     reg = build_registry(settings(**env))
     got = {t: reg[t].model for t in reg}
     assert got == {
         Task.INTENT: "muse-spark-9.9", Task.REQUIREMENTS: "muse-spark-9.8", Task.GENERAL: "muse-spark-9.7",
         Task.ROOT_CAUSE: "muse-wonder-9.1", Task.INVESTIGATION: "muse-wonder-9.2", Task.RECOVERY_PLANNING: "muse-wonder-9.3",
-        Task.VISION: "muse-spark-9.6", Task.IMAGE_GENERATION: "muse-image-9.0", Task.TRANSCRIPTION: "muse-voice-transcribe-9.0",
+        Task.VISION: "muse-spark-9.6", Task.TRANSCRIPTION: "muse-voice-transcribe-9.0",
         Task.SEGMENTATION: "sam-9.0",
     }
 
@@ -126,16 +125,16 @@ def test_default_model_variable_drives_the_spark_tasks():
 
 
 def test_feature_flags_disable_capabilities_with_a_reason():
-    reg = build_registry(settings(META_VISION_ENABLED="false", META_IMAGE_GENERATION_ENABLED="false",
+    reg = build_registry(settings(META_VISION_ENABLED="false",
                                   META_VOICE_ENABLED="false", META_SEGMENTATION_ENABLED="false", META_WONDER_ENABLED="false"))
-    for task in (Task.VISION, Task.IMAGE_GENERATION, Task.TRANSCRIPTION, Task.SEGMENTATION, Task.ROOT_CAUSE,
+    for task in (Task.VISION, Task.TRANSCRIPTION, Task.SEGMENTATION, Task.ROOT_CAUSE,
                  Task.INVESTIGATION, Task.RECOVERY_PLANNING):
         assert not reg[task].enabled and reg[task].disabled_reason
     assert reg[Task.INTENT].enabled  # Spark is unaffected by the Wonder switch
 
 
 def test_a_model_is_never_routed_to_a_modality_it_does_not_support():
-    reg = build_registry(settings(META_VISION_MODEL="sam-3.1", META_SEGMENTATION_MODEL="muse-image-1.0",
+    reg = build_registry(settings(META_VISION_MODEL="sam-3.1", META_SEGMENTATION_MODEL="muse-voice-transcribe-1.0",
                                   META_INTENT_MODEL="muse-voice-transcribe-1.0"))
     for task in (Task.VISION, Task.SEGMENTATION, Task.INTENT):
         assert not reg[task].enabled and "does not support" in reg[task].disabled_reason
@@ -390,44 +389,6 @@ def test_image_validation_and_disabled_vision():
 def test_text_task_rejects_non_text_modality():
     with pytest.raises(AIUnsupportedTaskError):
         service(lambda r: responses_ok("x"))._spec(Task.TRANSCRIPTION, Modality.TEXT)
-
-
-# --- image generation / editing --------------------------------------------------
-
-
-def test_image_generation_uses_the_images_endpoint_and_returns_base64():
-    seen: dict[str, Any] = {}
-    b64 = base64.b64encode(png()).decode()
-
-    def handler(req: httpx.Request) -> httpx.Response:
-        seen.update(path=req.url.path, body=json.loads(req.content))
-        return httpx.Response(200, json={"created": 1, "data": [{"b64_json": b64, "revised_prompt": "r"}]})
-
-    out = service(handler).generate_image("a fox")
-    assert seen["path"] == "/v1/images/generations"
-    assert seen["body"]["model"] == "muse-image-1.0" and seen["body"]["prompt"] == "a fox" and seen["body"]["n"] == 1
-    assert out["images"][0]["b64_json"] == b64 and out["model"] == "muse-image-1.0"
-
-
-def test_image_edit_is_multipart_and_no_image_data_is_an_error():
-    seen: dict[str, Any] = {}
-
-    def handler(req: httpx.Request) -> httpx.Response:
-        seen.update(path=req.url.path, ctype=req.headers["content-type"], body=req.content)
-        return httpx.Response(200, json={"created": 1, "data": [{"b64_json": "AAAA"}]})
-
-    out = service(handler).edit_image("make it blue", png(), "image/png")
-    assert seen["path"] == "/v1/images/edits" and seen["ctype"].startswith("multipart/form-data")
-    assert b"muse-image-1.0" in seen["body"] and out["images"]
-    with pytest.raises(AIInvalidResponseError):
-        service(lambda r: httpx.Response(200, json={"created": 1, "data": []})).generate_image("x")
-
-
-def test_image_generation_validates_input():
-    svc = service(lambda r: httpx.Response(200, json={"data": []}))
-    for kwargs in ({"prompt": " "}, {"prompt": "x", "n": 9}, {"prompt": "x", "output_format": "gif"}):
-        with pytest.raises(AIInvalidInputError):
-            svc.generate_image(**kwargs)
 
 
 # --- audio -----------------------------------------------------------------------

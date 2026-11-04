@@ -233,28 +233,6 @@ class AIService:
         return AIResult(spec.task.value, spec.provider.value, out["model"], False, out["request_id"], out["usage"],
                         text=out["text"])
 
-    # -- image generation / editing -----------------------------------------
-    def generate_image(self, prompt: str, *, n: int = 1, output_format: str = "png") -> dict[str, Any]:
-        spec = self._spec(Task.IMAGE_GENERATION, Modality.IMAGE_GENERATION)
-        if not prompt.strip():
-            raise AIInvalidInputError("the image prompt is empty")
-        if not 1 <= n <= 4:
-            raise AIInvalidInputError("n must be between 1 and 4")
-        if output_format not in {"png", "jpeg", "webp"}:
-            raise AIInvalidInputError("output_format must be png, jpeg or webp")
-        out = self.client.generate_image(spec.model, prompt, n=n, output_format=output_format,
-                                         retries=spec.max_retries, timeout=spec.timeout_seconds)
-        return {"task": spec.task.value, "provider": spec.provider.value, **out}
-
-    def edit_image(self, prompt: str, image: bytes, content_type: str | None) -> dict[str, Any]:
-        spec = self._spec(Task.IMAGE_GENERATION, Modality.IMAGE_GENERATION)
-        if not prompt.strip():
-            raise AIInvalidInputError("the edit prompt is empty")
-        mime = validate_image(image, content_type, self.settings.max_image_bytes)
-        out = self.client.edit_image(spec.model, prompt, image, mime, retries=spec.max_retries,
-                                     timeout=spec.timeout_seconds)
-        return {"task": spec.task.value, "provider": spec.provider.value, **out}
-
     # -- segmentation -------------------------------------------------------
     def segment_image(self, image: bytes, content_type: str | None, concept: str) -> dict[str, Any]:
         """Text-prompted SAM 3.1 segmentation of one image: boxes and pixel masks for one short noun phrase.

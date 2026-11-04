@@ -61,11 +61,6 @@ def test_muse_wonder_is_verified_without_fallback(settings):
     assert out["text"].strip()
 
 
-def test_muse_image_generation(settings):
-    out = _call_or_skip(lambda: AIService(settings).generate_image("a small red circle on a white background"))
-    assert out["images"]
-
-
 def test_sam_segmentation(settings):
     out = _call_or_skip(lambda: AIService(settings).segment_image(d.probe_image(), "image/png", "circle"))
     assert out["count"] >= 0 and out["model"] == settings.segmentation_model
