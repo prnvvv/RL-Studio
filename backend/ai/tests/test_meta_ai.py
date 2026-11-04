@@ -60,7 +60,7 @@ def wav(seconds: float = 1.0, rate: int = 16000, channels: int = 1) -> bytes:
 
 
 def settings(**env: str) -> AISettings:
-    return AISettings.from_env({"MODEL_API_KEY": KEY, "META_API_MAX_RETRIES": "2", **env})
+    return AISettings.from_env({"MODAL_API_KEY": KEY, "META_API_MAX_RETRIES": "2", **env})
 
 
 def service(handler, **env) -> AIService:
@@ -155,8 +155,8 @@ def test_reliability_settings_are_read_and_bounded():
 
 
 def test_placeholder_key_counts_as_unconfigured():
-    assert AISettings.from_env({"MODEL_API_KEY": "REPLACE_WITH_META_KEY"}).api_key == ""
-    assert AISettings.from_env({"MODEL_API_KEY": "   "}).api_key == ""
+    assert AISettings.from_env({"MODAL_API_KEY": "REPLACE_WITH_META_KEY"}).api_key == ""
+    assert AISettings.from_env({"MODAL_API_KEY": "   "}).api_key == ""
 
 
 def test_public_status_never_contains_secrets():

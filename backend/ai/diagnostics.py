@@ -87,7 +87,7 @@ def config_checks(settings: AISettings) -> list[Check]:
     reg = build_registry(settings)
     key_ok = bool(settings.api_key)
     checks = [
-        Check("MODEL_API_KEY present and not a placeholder", key_ok,
+        Check("MODAL_API_KEY present and not a placeholder", key_ok,
               "set" if key_ok else "missing, empty or still a template placeholder"),
         Check("META_API_BASE_URL is the Meta Model API", settings.base_url == DEFAULT_BASE_URL,
               "matches" if settings.base_url == DEFAULT_BASE_URL else f"expected {DEFAULT_BASE_URL}"),
@@ -163,7 +163,7 @@ def _run(name: str, task: Task, service: Any, listed: dict[str, dict[str, str]],
     probe = Probe(name, NOT_CONFIGURED, "")
     spec = service.registry[task]
     if not spec.enabled or not service.client.configured:
-        probe.detail = spec.disabled_reason or "MODEL_API_KEY is not configured"
+        probe.detail = spec.disabled_reason or "MODAL_API_KEY is not configured"
         return probe
     probe.state = CONFIGURED
     probe.reached.append(CONFIGURED)

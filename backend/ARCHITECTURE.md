@@ -863,7 +863,7 @@ A stopped investigation must report whether it completed successfully or remaine
 
 ## 15. Meta AI Integration
 
-> **Implementation status:** there is no `diagnosis/meta_ai.py`. The single provider adapter is `backend/ai/` (`MetaClient` + `AIService`, configured from `MODEL_API_KEY` and `META_*`; Meta Model API is the only hosted AI provider). The verification workflow's advisory investigator is `backend/verification/llm/ai_investigator.py`, a thin adapter over `AIService`.
+> **Implementation status:** there is no `diagnosis/meta_ai.py`. The single provider adapter is `backend/ai/` (`MetaClient` + `AIService`, configured from `MODAL_API_KEY` and `META_*`; Meta Model API is the only hosted AI provider). The verification workflow's advisory investigator is `backend/verification/llm/ai_investigator.py`, a thin adapter over `AIService`.
 
 **File:** `diagnosis/meta_ai.py`
 

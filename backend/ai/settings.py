@@ -1,6 +1,6 @@
 """Environment-driven AI configuration for the Meta Model API. Secrets are never exposed via ``public()``.
 
-One shared credential (``MODEL_API_KEY``) serves every Meta-hosted model. Every model identifier, feature flag and
+One shared credential (``MODAL_API_KEY``) serves every Meta-hosted model. Every model identifier, feature flag and
 reliability setting below is read from the environment and consumed by ``registry.build_registry``.
 """
 
@@ -93,8 +93,7 @@ class AISettings:
 
         spark = default_model
         return cls(
-            # MODAL_API_KEY is accepted as the name this project's .env uses; MODEL_API_KEY wins when both are set.
-            api_key=_secret(e, "MODEL_API_KEY") or _secret(e, "MODAL_API_KEY"),
+            api_key=_secret(e, "MODAL_API_KEY"),
             base_url=_str(e, "META_API_BASE_URL", DEFAULT_BASE_URL).rstrip("/"),
             default_model=default_model,
             intent_model=model("META_INTENT_MODEL", spark),
@@ -128,7 +127,7 @@ class AISettings:
             "provider": "meta",
             "base_url": self.base_url,
             "api_key_configured": bool(self.api_key),
-            "api_key_variable": "MODEL_API_KEY",
+            "api_key_variable": "MODAL_API_KEY",
             "fallback_enabled": self.enable_fallback,
             "vision_enabled": self.enable_vision,
             "voice_enabled": self.enable_voice,

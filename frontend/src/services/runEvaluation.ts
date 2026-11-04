@@ -140,11 +140,12 @@ export interface RunEvaluationService {
 }
 
 const seg = encodeURIComponent
+const SLOW_MS = 180_000
 
 export function createRunEvaluationService(): RunEvaluationService {
   return {
     evaluateRun: (runId, request) =>
-      api.post<RunEvaluation>(`/api/v1/runs/${seg(runId)}/evaluations`, { jsonBody: request }),
+      api.post<RunEvaluation>(`/api/v1/runs/${seg(runId)}/evaluations`, { jsonBody: request, timeoutMs: SLOW_MS }),
     async listRunEvaluations(runId, signal) {
       const result = await api.get<{ evaluations: RunEvaluation[] }>(
         `/api/v1/runs/${seg(runId)}/evaluations`,
@@ -157,7 +158,7 @@ export function createRunEvaluationService(): RunEvaluationService {
     evaluateRecovery: (incidentId, recoveryId, request) =>
       api.post<RecoveryEvaluationResult>(
         `/api/v1/incidents/${seg(incidentId)}/recoveries/${seg(recoveryId)}/evaluate`,
-        { jsonBody: request },
+        { jsonBody: request, timeoutMs: SLOW_MS },
       ),
   }
 }

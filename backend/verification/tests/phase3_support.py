@@ -86,7 +86,7 @@ def responses_ok(text: str, model: str = "muse-spark-1.3", rid: str = "resp_1") 
 
 
 def make_ai(handler: Callable[[httpx.Request], httpx.Response], **env: str) -> AIService:
-    settings = AISettings.from_env({"MODEL_API_KEY": SECRET, "META_API_MAX_RETRIES": "1", **env})
+    settings = AISettings.from_env({"MODAL_API_KEY": SECRET, "META_API_MAX_RETRIES": "1", **env})
     client = MetaClient(settings.base_url, settings.api_key, transport=httpx.MockTransport(handler), sleep=lambda _s: None)
     return AIService(settings, client=client)
 

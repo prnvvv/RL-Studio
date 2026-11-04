@@ -1,7 +1,7 @@
 """Voice transcription API.
 
 The browser uploads a WAV recording here (mono 16-bit PCM, 16 or 24 kHz); the backend forwards it to Meta's hosted
-Muse Voice Transcribe model. MODEL_API_KEY never reaches the client, and audio is processed in memory only (never
+Muse Voice Transcribe model. MODAL_API_KEY never reaches the client, and audio is processed in memory only (never
 written to disk or the database).
 """
 

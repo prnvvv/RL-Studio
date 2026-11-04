@@ -32,6 +32,8 @@ interface RequestOptions extends Omit<RequestInit, 'signal' | 'body'> {
   jsonBody?: unknown
   /** Optional caller-owned cancellation signal. */
   signal?: AbortSignal
+  /** Overrides the client timeout for slow operations (model calls, policy rollouts). */
+  timeoutMs?: number
 }
 
 /**
@@ -136,10 +138,11 @@ export function recordNotFound<T>(): ServiceResult<T> {
  */
 export function createApiClient(config: ApiClientConfig = {}) {
   const baseUrl = config.baseUrl ?? resolveBaseUrl()
-  const timeoutMs = config.timeoutMs ?? DEFAULT_TIMEOUT_MS
+  const clientTimeoutMs = config.timeoutMs ?? DEFAULT_TIMEOUT_MS
 
   async function request<T>(path: string, options: RequestOptions = {}): Promise<ServiceResult<T>> {
-    const { jsonBody, headers, signal, ...rest } = options
+    const { jsonBody, headers, signal, timeoutMs: requestTimeoutMs, ...rest } = options
+    const timeoutMs = requestTimeoutMs ?? clientTimeoutMs
 
     if (signal?.aborted) {
       return errorResult('cancelled')

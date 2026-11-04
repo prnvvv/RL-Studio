@@ -139,7 +139,7 @@ class AIService:
             if not s.enabled:
                 state, reason = "disabled", s.disabled_reason
             elif not has_key:
-                state, reason = "unconfigured", "MODEL_API_KEY is not configured"
+                state, reason = "unconfigured", "MODAL_API_KEY is not configured"
             else:
                 state, reason = "configured", ""
             access = self._access.get(s.model, {"state": "not_verified", "detail": "run the connectivity check"})

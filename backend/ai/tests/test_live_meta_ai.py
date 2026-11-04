@@ -1,4 +1,4 @@
-"""REAL Meta Model API calls. Skipped unless ``RUN_LIVE_AI_TESTS=true`` and ``MODEL_API_KEY`` is configured.
+"""REAL Meta Model API calls. Skipped unless ``RUN_LIVE_AI_TESTS=true`` and ``MODAL_API_KEY`` is configured.
 
 These tests CONSUME CREDITS (each makes one small call) and are the only tests that can show a model actually works for
 this account. Each model is tested independently: a Muse Spark success says nothing about Muse Wonder, Image, Voice or
@@ -27,7 +27,7 @@ pytestmark = pytest.mark.skipif(not d.live_tests_enabled(), reason="set RUN_LIVE
 def settings() -> AISettings:
     s = AISettings.from_env()
     if not s.api_key:
-        pytest.skip("MODEL_API_KEY is not configured")
+        pytest.skip("MODAL_API_KEY is not configured")
     return s
 
 
@@ -35,7 +35,7 @@ def _call_or_skip(fn):
     try:
         return fn()
     except AIAuthError:
-        pytest.fail("Meta rejected MODEL_API_KEY (authentication failed): paste a valid key into backend/.env")
+        pytest.fail("Meta rejected MODAL_API_KEY (authentication failed): paste a valid key into backend/.env")
     except (AIQuotaError, AIModelUnavailableError) as exc:
         pytest.skip(f"not available to this account: {exc.code} {exc.message}")
     except AIError as exc:

@@ -95,6 +95,7 @@ export interface DiagnosisService {
 }
 
 const seg = encodeURIComponent
+const SLOW_MS = 120_000
 
 export function createDiagnosisService(): DiagnosisService {
   return {
@@ -106,10 +107,11 @@ export function createDiagnosisService(): DiagnosisService {
       return result.state === 'ok' ? { state: 'ok', data: result.data.incidents } : result
     },
     investigate: (incidentId, force = false) =>
-      api.post(`/api/v1/incidents/${seg(incidentId)}/investigations`, { jsonBody: { force } }),
+      api.post(`/api/v1/incidents/${seg(incidentId)}/investigations`, { jsonBody: { force }, timeoutMs: SLOW_MS }),
     recommend: (incidentId, force = false) =>
       api.post(`/api/v1/incidents/${seg(incidentId)}/recovery-recommendations`, {
         jsonBody: { force },
+        timeoutMs: SLOW_MS,
       }),
     async listRecords(incidentId, signal) {
       const result = await api.get<{ investigations: Array<InvestigationRecord<unknown>> }>(

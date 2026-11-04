@@ -1,4 +1,4 @@
-"""The single hosted client for the Meta Model API (``https://api.meta.ai/v1``, one shared ``MODEL_API_KEY``).
+"""The single hosted client for the Meta Model API (``https://api.meta.ai/v1``, one shared ``MODAL_API_KEY``).
 
 * Text, vision and SAM segmentation go through the official OpenAI Python SDK, which Meta
   documents as compatible. The SDK is always constructed with an explicit ``api_key`` and Meta ``base_url`` so it can
@@ -54,7 +54,7 @@ def classify_status(status: int, model: str | None, body: Any = None) -> AIError
     err = body.get("error", body) if isinstance(body, dict) else {}
     etype = err.get("type") if isinstance(err, dict) else None
     if status == 401 or etype == "authentication_error":
-        return AIAuthError("Meta rejected the configured MODEL_API_KEY", **kw)
+        return AIAuthError("Meta rejected the configured MODAL_API_KEY", **kw)
     if status == 402 or etype == "billing_error":
         return AIQuotaError("Meta reports insufficient credits or no billing configured (HTTP 402)", **kw)
     if status == 403:
@@ -115,7 +115,7 @@ class MetaClient:
 
     def _require_key(self) -> None:
         if not self._api_key:
-            raise AIConfigurationError("MODEL_API_KEY is not configured", provider=PROVIDER)
+            raise AIConfigurationError("MODAL_API_KEY is not configured", provider=PROVIDER)
 
     def _sdk(self) -> openai.OpenAI:
         """OpenAI SDK pinned to the Meta base URL (the key is passed explicitly, never read from OPENAI_API_KEY)."""

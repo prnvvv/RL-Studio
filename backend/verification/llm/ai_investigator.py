@@ -3,7 +3,7 @@
 Implements the ``MetaAIProvider.investigate(request)`` contract the verification workflow's ``investigate`` node
 already calls (``backend/verification/agent/verification_agent.py``), so the existing prompts, response validation and
 guardrails are unchanged. The only thing replaced is the transport: there is exactly one hosted-AI client in the
-backend (``backend/ai``), configured from ``MODEL_API_KEY`` / ``META_*``; this module never builds an HTTP request,
+backend (``backend/ai``), configured from ``MODAL_API_KEY`` / ``META_*``; this module never builds an HTTP request,
 reads a credential or names a model. The model is whatever the registry assigns to ``Task.INVESTIGATION``
 (Muse Wonder by default).
 
