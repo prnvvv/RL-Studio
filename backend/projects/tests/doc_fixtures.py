@@ -23,17 +23,72 @@ def make_docx(*paragraphs: str) -> bytes:
     return buf.getvalue()
 
 
-def make_pdf(*lines: str, compress: bool = True) -> bytes:
-    ops = "BT /F1 12 Tf 72 720 Td 14 TL\n" + "".join(
-        f"({line.replace(chr(92), chr(92) * 2).replace('(', chr(92) + '(').replace(')', chr(92) + ')')}) Tj T*\n"
-        for line in lines
-    ) + "ET"
-    stream = zlib.compress(ops.encode("latin-1")) if compress else ops.encode("latin-1")
-    flt = b"/Filter /FlateDecode " if compress else b""
-    return (
-        b"%PDF-1.4\n1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n"
-        b"2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj\n"
-        b"3 0 obj << /Type /Page /Parent 2 0 R /Contents 4 0 R >> endobj\n"
-        b"4 0 obj << " + flt + b"/Length " + str(len(stream)).encode() + b" >>\nstream\n" + stream + b"\nendstream\nendobj\n"
-        b"trailer << /Root 1 0 R >>\n%%EOF\n"
+def _esc(text: str) -> str:
+    return text.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
+
+
+def make_pdf_pages(pages: list[list[str]], *, compress: bool = True, image_only: bool = False) -> bytes:
+    """A structurally valid PDF (xref table, Helvetica font) with one content stream per page.
+
+    ``image_only`` draws a 2x2 grey image on every page and no text, like a scanned document.
+    """
+    objects: list[bytes] = []
+
+    def add(body: bytes) -> int:
+        objects.append(body)
+        return len(objects)
+
+    catalog = add(b"")  # patched below
+    pages_obj = add(b"")
+    font = add(b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>")
+    image = add(
+        b"<< /Type /XObject /Subtype /Image /Width 2 /Height 2 /ColorSpace /DeviceGray /BitsPerComponent 8 /Length 4 >>\n"
+        b"stream\n\x00\x80\xc0\xff\nendstream"
     )
+    kids: list[int] = []
+    for lines in pages:
+        if image_only:
+            ops = b"q 200 0 0 200 50 500 cm /Im0 Do Q"
+        else:
+            text = "BT /F1 12 Tf 72 720 Td 16 TL\n" + "".join(f"({_esc(line)}) Tj T*\n" for line in lines) + "ET"
+            ops = text.encode("latin-1")
+        stream = zlib.compress(ops) if compress else ops
+        flt = b"/Filter /FlateDecode " if compress else b""
+        content = add(b"<< " + flt + b"/Length " + str(len(stream)).encode() + b" >>\nstream\n" + stream + b"\nendstream")
+        xobjects = f" /XObject << /Im0 {image} 0 R >>" if image_only else ""
+        page = add(
+            f"<< /Type /Page /Parent {pages_obj} 0 R /MediaBox [0 0 612 792] "
+            f"/Resources << /Font << /F1 {font} 0 R >>{xobjects} >> /Contents {content} 0 R >>".encode()
+        )
+        kids.append(page)
+    objects[catalog - 1] = f"<< /Type /Catalog /Pages {pages_obj} 0 R >>".encode()
+    objects[pages_obj - 1] = (
+        f"<< /Type /Pages /Kids [{' '.join(f'{k} 0 R' for k in kids)}] /Count {len(kids)} >>".encode()
+    )
+
+    out = bytearray(b"%PDF-1.4\n")
+    offsets: list[int] = []
+    for number, body in enumerate(objects, start=1):
+        offsets.append(len(out))
+        out += f"{number} 0 obj\n".encode() + body + b"\nendobj\n"
+    xref = len(out)
+    out += f"xref\n0 {len(objects) + 1}\n".encode() + b"0000000000 65535 f \n"
+    for offset in offsets:
+        out += f"{offset:010d} 00000 n \n".encode()
+    out += f"trailer\n<< /Size {len(objects) + 1} /Root {catalog} 0 R >>\nstartxref\n{xref}\n%%EOF\n".encode()
+    return bytes(out)
+
+
+def make_pdf(*lines: str, compress: bool = True) -> bytes:
+    """Single-page text PDF."""
+    return make_pdf_pages([list(lines)], compress=compress)
+
+
+def make_encrypted_pdf(password: str = "secret") -> bytes:
+    from pypdf import PdfReader, PdfWriter
+
+    writer = PdfWriter(clone_from=PdfReader(io.BytesIO(make_pdf("Confidential requirement."))))
+    writer.encrypt(password, algorithm="RC4-128")
+    buf = io.BytesIO()
+    writer.write(buf)
+    return buf.getvalue()

@@ -1,4 +1,4 @@
-﻿"""Validated text extraction for intent documents (txt / md / pdf / docx).
+"""Validated text extraction for intent documents (txt / md / pdf / docx).
 
 Nothing here trusts a file extension or the client's content type: the file *signature* decides the
 format and must agree with the extension. Nothing is executed or rendered; DOCX is read as a bounded zip of
@@ -16,14 +16,16 @@ from __future__ import annotations
 import io
 import re
 import zipfile
-import zlib
 from dataclasses import dataclass
 from xml.etree import ElementTree as ET
+
+from pypdf import PdfReader
+from pypdf.errors import PyPdfError
 
 MAX_DOCUMENT_BYTES = 2 * 1024 * 1024
 MAX_EXTRACTED_CHARS = 200_000
 MAX_ZIP_MEMBER_BYTES = 8 * 1024 * 1024  # decompressed size cap (zip-bomb guard)
-MAX_PDF_STREAMS = 400
+MAX_PDF_PAGES = 200
 
 #: extension -> (canonical format, accepted client content types)
 SUPPORTED: dict[str, tuple[str, frozenset[str]]] = {
@@ -147,63 +149,55 @@ def _docx_text(data: bytes) -> str:
     return "\n".join(paragraphs)
 
 
-_STREAM = re.compile(rb"stream\r?\n(.*?)\r?\nendstream", re.DOTALL)
-_PAREN = re.compile(rb"\(((?:\\.|[^\\)])*)\)")
-_ESCAPES = {b"n": b"\n", b"r": b"\r", b"t": b"\t", b"b": b"\b", b"f": b"\f", b"(": b"(", b")": b")", b"\\": b"\\"}
-
-
-def _unescape(raw: bytes) -> str:
-    out = bytearray()
-    i = 0
-    while i < len(raw):
-        c = raw[i:i + 1]
-        if c == b"\\" and i + 1 < len(raw):
-            nxt = raw[i + 1:i + 2]
-            if nxt in _ESCAPES:
-                out += _ESCAPES[nxt]
-                i += 2
-                continue
-            octal = re.match(rb"[0-7]{1,3}", raw[i + 1:i + 4])
-            if octal:
-                out.append(int(octal.group(0), 8) & 0xFF)
-                i += 1 + len(octal.group(0))
-                continue
-            i += 1
-            continue
-        out += c
-        i += 1
-    return out.decode("latin-1")
-
-
 def _pdf_text(data: bytes) -> str:
-    if re.search(rb"/Encrypt\b", data):
-        raise ExtractionError("The PDF is encrypted")
-    lines: list[str] = []
-    streams = _STREAM.findall(data)
-    if len(streams) > MAX_PDF_STREAMS:
-        streams = streams[:MAX_PDF_STREAMS]
-    for body in streams:
-        try:
-            content = zlib.decompressobj().decompress(body, MAX_ZIP_MEMBER_BYTES)
-        except zlib.error:
-            content = body  # not Flate-compressed
-        if b"BT" not in content or b"ET" not in content:
-            continue
-        for block in re.findall(rb"BT(.*?)ET", content, re.DOTALL):
-            line_parts: list[str] = []
-            for match in re.finditer(rb"\[(.*?)\]\s*TJ|\(((?:\\.|[^\\)])*)\)\s*(?:Tj|'|\")", block, re.DOTALL):
-                if match.group(1) is not None:
-                    line_parts.append("".join(_unescape(p) for p in _PAREN.findall(match.group(1))))
-                else:
-                    line_parts.append(_unescape(match.group(2)))
-                tail = block[match.end():match.end() + 12]
-                if b"T*" in tail or b"Td" in tail or b"TD" in tail or b"'" in match.group(0):
-                    lines.append("".join(line_parts))
-                    line_parts = []
-            if line_parts:
-                lines.append("".join(line_parts))
-    return "\n".join(lines)
+    """Multi-page text extraction with pypdf. Every failure mode is an explicit ``ExtractionError``.
 
+    OCR is NOT supported: a scanned / image-only PDF is reported as such and never turned into text.
+    """
+    try:
+        reader = PdfReader(io.BytesIO(data), strict=False)
+        encrypted = reader.is_encrypted
+        page_count = len(reader.pages) if not encrypted else 0
+    except (PyPdfError, ValueError, KeyError, TypeError, OSError, RecursionError, AssertionError, NotImplementedError) as exc:
+        raise ExtractionError("The PDF is malformed or unreadable") from exc
+    if encrypted:
+        raise ExtractionError("The PDF is encrypted; remove the password protection and upload it again")
+    if page_count == 0:
+        raise ExtractionError("The PDF has no pages")
+    if page_count > MAX_PDF_PAGES:
+        raise ExtractionError("The PDF has too many pages", {"pages": page_count, "max_pages": MAX_PDF_PAGES})
+
+    parts: list[str] = []
+    unreadable = 0
+    total = 0
+    for page in reader.pages:
+        try:
+            text = (page.extract_text() or "").strip()
+        except (PyPdfError, ValueError, KeyError, TypeError, RecursionError, AssertionError, NotImplementedError):
+            unreadable += 1
+            continue
+        if text:
+            total += len(text)
+            if total > MAX_EXTRACTED_CHARS:
+                raise ExtractionError("The extracted text is too long", {"max_chars": MAX_EXTRACTED_CHARS})
+            parts.append(text)
+    if parts:
+        return "\n\n".join(parts)
+    if unreadable == page_count:
+        raise ExtractionError("The PDF pages could not be read (malformed content)")
+    if _has_images(reader):
+        raise ExtractionError(
+            "The PDF has no extractable text: it appears to be a scanned or image-only document. "
+            "OCR is not available, so its content cannot be read. Upload a text-based PDF, DOCX, Markdown or TXT."
+        )
+    return ""
+
+
+def _has_images(reader: PdfReader) -> bool:
+    try:
+        return any(len(page.images) > 0 for page in reader.pages)
+    except (PyPdfError, ValueError, KeyError, TypeError, RecursionError, AssertionError, NotImplementedError, OSError):
+        return False
 
 def extract_text(filename: str, content_type: str | None, data: bytes) -> ExtractedDocument:
     """Validate and extract. Raises ``DocumentError`` / ``ExtractionError`` with an explicit reason."""
