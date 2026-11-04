@@ -17,6 +17,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field, StrictBool
 
 from backend.database.exceptions import ConflictError, NotFoundError, StudioError
+from backend.projects.repository import ProjectRepository
 from backend.studio import custom
 from backend.studio.catalog import build_catalog
 from backend.studio.manager import manager
@@ -39,6 +40,8 @@ class SessionRequest(BaseModel):
     agent_params: dict[str, Any] = Field(default_factory=dict)
     env_params: dict[str, Any] = Field(default_factory=dict)
     training: dict[str, Any] = Field(default_factory=dict)
+    # Optional: the project this training belongs to. Omitted for sessions created outside a project.
+    project_id: str | None = Field(default=None, pattern=r"^prj_[0-9a-f]{16}$")
 
 
 class ControlRequest(BaseModel):
@@ -181,9 +184,14 @@ def delete_environment(env_id: str) -> dict[str, Any]:
 
 
 @router.post("/sessions", status_code=201)
-def create_session(request: SessionRequest) -> dict[str, Any]:
-    payload = request.model_dump(exclude={"name"})
-    session = manager.create(payload, request.name)
+def create_session(request: SessionRequest, http: Request) -> dict[str, Any]:
+    if request.project_id is not None:
+        database = getattr(http.app.state, "database", None)
+        project = None if database is None else ProjectRepository(database).get_project(request.project_id)
+        if project is None:
+            raise NotFoundError("Project not found", details={"project_id": request.project_id})
+    payload = request.model_dump(exclude={"name", "project_id"})
+    session = manager.create(payload, request.name, request.project_id)
     return session.snapshot()
 
 

@@ -395,8 +395,11 @@ class TrainingSession:
         name: str | None = None,
         battle_id: str | None = None,
         battle_side: str | None = None,
+        project_id: str | None = None,
     ) -> None:
         self.session_id = session_id
+        # Association only (kept out of ``config`` so config fingerprints and stored configs are unchanged).
+        self.project_id = project_id
         self.battle_id = battle_id
         self.battle_side = battle_side
         self.config = config
@@ -679,6 +682,7 @@ class TrainingSession:
                 environment_version=self._environment_version,
                 agent_id=self.config["agent"],
                 config=self.config,
+                project_id=self.project_id,
             )
             self._bridge.run_started()
             self._thread = threading.Thread(target=self._run, name=f"studio-{self.session_id}", daemon=True)
@@ -1129,6 +1133,7 @@ class TrainingSession:
         return {
             "session_id": self.session_id,
             "run_id": self.run_id,
+            "project_id": self.project_id,
             "name": self.name,
             "status": self._status.value,
             "pending_command": self._pending,

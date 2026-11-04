@@ -97,8 +97,10 @@ class RunBridge:
         agent_id: str,
         config: dict[str, Any],
         database: Database | None = None,
+        project_id: str | None = None,
     ) -> None:
         self.run_id = run_id
+        self.project_id = project_id
         self.environment_id = environment_id
         self.environment_version = environment_version
         self.agent_id = agent_id
@@ -132,6 +134,7 @@ class RunBridge:
             ProvenanceService(self._database).register_run(
                 RunRegistration(
                     run_id=self.run_id,
+                    project_id=self.project_id,
                     environment_id=self.environment_id,
                     environment_version=self.environment_version,
                     agent_config_fingerprint=config_fingerprint(self.config),

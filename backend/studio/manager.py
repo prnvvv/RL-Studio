@@ -27,12 +27,12 @@ class SessionManager:
         self._sessions: dict[str, TrainingSession] = {}
         self._battles: dict[str, dict[str, str]] = {}
 
-    def create(self, raw: dict[str, Any], name: str | None = None) -> TrainingSession:
+    def create(self, raw: dict[str, Any], name: str | None = None, project_id: str | None = None) -> TrainingSession:
         config = validate_config(raw)
         clean_name = (name or "").strip()[:80] or None
         with self._lock:
             self._evict_if_full()
-            session = TrainingSession(f"ses_{uuid.uuid4().hex[:8]}", config, clean_name)
+            session = TrainingSession(f"ses_{uuid.uuid4().hex[:8]}", config, clean_name, project_id=project_id)
             self._sessions[session.session_id] = session
             return session
 
