@@ -9,8 +9,9 @@ from __future__ import annotations
 import base64
 import logging
 import random
+import threading
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from typing import Any
 
 import httpx
@@ -52,26 +53,84 @@ def classify_status(status: int, provider: str, model: str | None) -> AIError:
     return AIInvalidResponseError(f"{provider} returned unexpected HTTP {status}", **kw)
 
 
+class KeyPool:
+    """Ordered API keys with failover.
+
+    Stays on one key until it is rate limited (cooldown), rejected (dead), or has made
+    ``call_limit`` calls this process (0 = unlimited). Counts live in memory and reset on restart,
+    so the provider-side quota stays the source of truth; a 429 always triggers a switch.
+    """
+
+    def __init__(self, keys: Sequence[str], *, call_limit: int = 0, cooldown_seconds: float = 60.0,
+                 clock: Callable[[], float] = time.monotonic) -> None:
+        self._keys = [k for k in dict.fromkeys(k.strip() for k in keys) if k]
+        self._limit = max(0, call_limit)
+        self._cooldown = cooldown_seconds
+        self._clock = clock
+        self._used = dict.fromkeys(self._keys, 0)
+        self._until = dict.fromkeys(self._keys, 0.0)
+        self._dead: set[str] = set()
+        self._lock = threading.Lock()
+
+    def __len__(self) -> int:
+        return len(self._keys)
+
+    def acquire(self) -> str | None:
+        """Next usable key (counting the call), or None if every key is unavailable."""
+        with self._lock:
+            now = self._clock()
+            for key in self._keys:
+                if key in self._dead or self._until[key] > now:
+                    continue
+                if self._limit and self._used[key] >= self._limit:
+                    continue
+                self._used[key] += 1
+                return key
+            return None
+
+    def rate_limited(self, key: str) -> None:
+        with self._lock:
+            self._until[key] = self._clock() + self._cooldown
+
+    def rejected(self, key: str) -> None:
+        with self._lock:
+            self._dead.add(key)
+
+    def stats(self) -> list[dict[str, object]]:
+        """Per-key state by position only; key material is never exposed."""
+        with self._lock:
+            now = self._clock()
+            return [
+                {"slot": i + 1, "calls": self._used[k], "rejected": k in self._dead,
+                 "cooling_down": self._until[k] > now,
+                 "budget_exhausted": bool(self._limit and self._used[k] >= self._limit)}
+                for i, k in enumerate(self._keys)
+            ]
+
+
 class _HostedClient:
     provider = "provider"
 
     def __init__(
         self,
         base_url: str,
-        api_key: str,
+        api_key: str | Sequence[str] | KeyPool,
         *,
         timeout: float = 60.0,
         transport: httpx.BaseTransport | None = None,
         sleep: Callable[[float], None] = time.sleep,
     ) -> None:
         self.base_url = base_url.rstrip("/")
-        self._api_key = api_key
+        if isinstance(api_key, KeyPool):
+            self.keys = api_key
+        else:
+            self.keys = KeyPool([api_key] if isinstance(api_key, str) else list(api_key))
         self._timeout = timeout
         self._transport = transport
         self._sleep = sleep
 
     def _require_key(self) -> None:
-        if not self._api_key:
+        if not len(self.keys):
             raise AIConfigurationError(f"{self.provider} credentials are not configured", provider=self.provider)
 
     def _post(
@@ -85,12 +144,29 @@ class _HostedClient:
     ) -> httpx.Response:
         """POST with bounded retries for transient errors only."""
         self._require_key()
-        headers = {"Authorization": f"Bearer {self._api_key}"}
+        return self._send(
+            model, retries,
+            lambda client, key: client.post(url, headers={"Authorization": f"Bearer {key}"}, **request),
+            timeout,
+        )
+
+    def _send(
+        self, model: str | None, retries: int,
+        do: Callable[[httpx.Client, str], httpx.Response], timeout: float | None,
+    ) -> httpx.Response:
+        """Send with key failover (429/401 move to the next key) and bounded retry/backoff."""
         attempt = 0
+        last_key_error: AIError | None = None
         while True:
+            key = self.keys.acquire()
+            if key is None:
+                raise last_key_error or AIRateLimitError(
+                    f"{self.provider}: every configured API key is exhausted or cooling down",
+                    provider=self.provider, model=model,
+                )
             try:
                 with httpx.Client(timeout=timeout or self._timeout, transport=self._transport) as client:
-                    resp = client.post(url, headers=headers, **request)
+                    resp = do(client, key)
                 if resp.status_code < 400:
                     return resp
                 err: AIError = classify_status(resp.status_code, self.provider, model)
@@ -100,6 +176,14 @@ class _HostedClient:
                 err = AIProviderUnavailableError(
                     f"{self.provider} could not be reached", provider=self.provider, model=model
                 )
+            if isinstance(err, AIRateLimitError):
+                self.keys.rate_limited(key)
+                last_key_error = err
+                continue  # next key immediately; no backoff or retry budget spent
+            if isinstance(err, AIAuthError):
+                self.keys.rejected(key)
+                last_key_error = err
+                continue
             if not err.retryable or attempt >= retries:
                 raise err
             attempt += 1
@@ -195,15 +279,11 @@ class GroqClient(_HostedClient):
     def list_models(self) -> set[str]:
         """Model ids in the account's catalogue (used to verify availability)."""
         self._require_key()
-        try:
-            with httpx.Client(timeout=self._timeout, transport=self._transport) as client:
-                resp = client.get(f"{self.base_url}/models", headers={"Authorization": f"Bearer {self._api_key}"})
-        except httpx.TimeoutException as exc:
-            raise AITimeoutError("groq request timed out", provider=self.provider) from exc
-        except httpx.TransportError as exc:
-            raise AIProviderUnavailableError("groq could not be reached", provider=self.provider) from exc
-        if resp.status_code >= 400:
-            raise classify_status(resp.status_code, self.provider, None)
+        resp = self._send(
+            None, 1,
+            lambda c, key: c.get(f"{self.base_url}/models", headers={"Authorization": f"Bearer {key}"}),
+            None,
+        )
         body = self._json(resp, self.provider, None)
         return {m["id"] for m in body.get("data", []) if isinstance(m, dict) and "id" in m}
 
@@ -265,23 +345,10 @@ class HuggingFaceClient(_HostedClient):
     def _post_binary(
         self, url: str, image: bytes, image_type: str, model: str | None, retries: int, timeout: float | None
     ) -> httpx.Response:
-        attempt = 0
-        while True:
-            try:
-                with httpx.Client(timeout=timeout or self._timeout, transport=self._transport) as client:
-                    resp = client.post(
-                        url,
-                        content=image,
-                        headers={"Authorization": f"Bearer {self._api_key}", "Content-Type": image_type},
-                    )
-                if resp.status_code < 400:
-                    return resp
-                err: AIError = classify_status(resp.status_code, self.provider, model)
-            except httpx.TimeoutException:
-                err = AITimeoutError("huggingface request timed out", provider=self.provider, model=model)
-            except httpx.TransportError:
-                err = AIProviderUnavailableError("huggingface could not be reached", provider=self.provider, model=model)
-            if not err.retryable or attempt >= retries:
-                raise err
-            attempt += 1
-            self._sleep(min(MAX_BACKOFF_SECONDS, 0.5 * 2 ** (attempt - 1)))
+        return self._send(
+            model, retries,
+            lambda c, key: c.post(
+                url, content=image, headers={"Authorization": f"Bearer {key}", "Content-Type": image_type}
+            ),
+            timeout,
+        )

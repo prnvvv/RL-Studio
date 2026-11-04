@@ -10,12 +10,13 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from pydantic import BaseModel
 
-from backend.ai.clients import GroqClient, HuggingFaceClient
+from backend.ai.clients import GroqClient, HuggingFaceClient, KeyPool
 from backend.ai.errors import (
     AIAuthError,
     AIConfigurationError,
     AIInvalidInputError,
     AIInvalidResponseError,
+    AIProviderUnavailableError,
     AIRateLimitError,
     AIUnsupportedTaskError,
 )
@@ -36,7 +37,10 @@ def service(handler, **env) -> AIService:
     s = settings(**env)
     transport = httpx.MockTransport(handler)
     sleeps: list[float] = []
-    groq = GroqClient(s.groq_base_url, s.groq_api_key, transport=transport, sleep=sleeps.append)
+    groq = GroqClient(
+        s.groq_base_url, KeyPool(s.groq_api_keys, call_limit=s.groq_key_call_limit),
+        transport=transport, sleep=sleeps.append,
+    )
     hf = HuggingFaceClient(s.hf_router_base_url, s.hf_token, transport=transport, sleep=sleeps.append)
     svc = AIService(s, groq=groq, hf=hf)
     svc.sleeps = sleeps  # type: ignore[attr-defined]
@@ -115,15 +119,28 @@ def test_auth_error_is_not_retried():
     assert "gsk_test_secret" not in ei.value.message
 
 
-def test_rate_limit_retries_are_bounded_then_fail():
+def test_rate_limit_with_a_single_key_fails_fast_without_hammering():
     calls = []
 
     def handler(req):
         calls.append(1)
         return httpx.Response(429)
 
-    svc = service(handler, AI_MAX_RETRIES="2", AI_ENABLE_FALLBACK="false")
+    svc = service(handler, AI_ENABLE_FALLBACK="false")
     with pytest.raises(AIRateLimitError):
+        svc.run_text(Task.INTENT, [{"role": "user", "content": "hi"}])
+    assert len(calls) == 1  # the key is cooling down; no retry storm
+
+
+def test_transient_server_errors_retry_with_bounded_backoff():
+    calls = []
+
+    def handler(req):
+        calls.append(1)
+        return httpx.Response(503)
+
+    svc = service(handler, AI_MAX_RETRIES="2", AI_ENABLE_FALLBACK="false")
+    with pytest.raises(AIProviderUnavailableError):
         svc.run_text(Task.INTENT, [{"role": "user", "content": "hi"}])
     assert len(calls) == 3 and len(svc.sleeps) == 2  # type: ignore[attr-defined]
 
@@ -327,3 +344,64 @@ def test_transcribe_disabled_by_flag(api):
     svc = service(lambda r: httpx.Response(200, json={}), AI_ENABLE_VOICE_TRANSCRIPTION="false")
     app.dependency_overrides[get_ai_service] = lambda: svc
     assert post(client).status_code == 501
+
+
+# --- multiple Groq keys ------------------------------------------------------
+
+
+def test_keys_parsed_from_both_variables_and_deduplicated():
+    s = settings(GROQ_API_KEY="k1", GROQ_API_KEYS=" k2, k1 ,k3,, ")
+    assert s.groq_api_keys == ("k1", "k2", "k3")
+    assert s.public()["groq_key_count"] == 3
+
+
+def test_rate_limited_key_fails_over_to_next_key():
+    used = []
+
+    def handler(req):
+        key = req.headers["authorization"].split()[1]
+        used.append(key)
+        return httpx.Response(429) if key == "k1" else chat_ok("ok")
+
+    svc = service(handler, GROQ_API_KEY="k1", GROQ_API_KEYS="k2", AI_ENABLE_FALLBACK="false")
+    assert svc.run_text(Task.INTENT, [{"role": "user", "content": "x"}]).text == "ok"
+    svc.run_text(Task.INTENT, [{"role": "user", "content": "x"}])
+    assert used == ["k1", "k2", "k2"]  # k1 stays cooling down for later calls
+    assert svc.sleeps == []  # type: ignore[attr-defined]  # failover spends no backoff
+
+
+def test_rejected_key_is_dropped_and_other_key_used():
+    used = []
+
+    def handler(req):
+        key = req.headers["authorization"].split()[1]
+        used.append(key)
+        return httpx.Response(401) if key == "bad" else chat_ok("ok")
+
+    svc = service(handler, GROQ_API_KEY="bad", GROQ_API_KEYS="good")
+    svc.run_text(Task.INTENT, [{"role": "user", "content": "x"}])
+    svc.run_text(Task.INTENT, [{"role": "user", "content": "x"}])
+    assert used == ["bad", "good", "good"]
+    assert svc.status()["groq_keys"][0]["rejected"] is True
+
+
+def test_per_key_call_budget_rotates_proactively():
+    used = []
+
+    def handler(req):
+        used.append(req.headers["authorization"].split()[1])
+        return chat_ok("ok")
+
+    svc = service(handler, GROQ_API_KEY="k1", GROQ_API_KEYS="k2", GROQ_KEY_CALL_LIMIT="2")
+    for _ in range(4):
+        svc.run_text(Task.INTENT, [{"role": "user", "content": "x"}])
+    assert used == ["k1", "k1", "k2", "k2"]
+    with pytest.raises(AIRateLimitError):  # both budgets spent
+        svc.run_text(Task.INTENT, [{"role": "user", "content": "x"}])
+
+
+def test_status_exposes_slots_not_key_material():
+    svc = service(lambda r: chat_ok("ok"), GROQ_API_KEY="secretA", GROQ_API_KEYS="secretB")
+    dumped = json.dumps(svc.status())
+    assert "secretA" not in dumped and "secretB" not in dumped
+    assert [k["slot"] for k in svc.status()["groq_keys"]] == [1, 2]
