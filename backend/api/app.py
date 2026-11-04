@@ -4,10 +4,11 @@ import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 
 from backend.database.config import DatabaseConfig
 from backend.database.connection import Database
+from backend.projects.scope import enforce_project_scope
 
 from .dependencies import build_services
 from .errors import install_error_handlers
@@ -65,16 +66,20 @@ def create_app(config: DatabaseConfig | None = None) -> FastAPI:
         # RL Studio serves no models here, so answer with an empty list instead of a 404.
         return {"object": "list", "data": []}
 
+    # Every router that exposes run-owned data enforces project isolation on the server
+    # (``backend/projects/scope.py``). The projects router is authorised by its own path project id.
+    scoped = [Depends(enforce_project_scope)]
+
     # Documented Person 4 contract endpoints.
-    app.include_router(provenance.p4_router)
-    app.include_router(recovery.p4_router)
-    app.include_router(evaluation.p4_router)
-    app.include_router(verification.router)
+    app.include_router(provenance.p4_router, dependencies=scoped)
+    app.include_router(recovery.p4_router, dependencies=scoped)
+    app.include_router(evaluation.p4_router, dependencies=scoped)
+    app.include_router(verification.router, dependencies=scoped)
 
     # Operational endpoints are wired but kept out of the documented schema.
-    app.include_router(runs.router, include_in_schema=False)
-    app.include_router(ws_router, include_in_schema=False)
-    app.include_router(studio.router, include_in_schema=False)
+    app.include_router(runs.router, include_in_schema=False, dependencies=scoped)
+    app.include_router(ws_router, include_in_schema=False, dependencies=scoped)
+    app.include_router(studio.router, include_in_schema=False, dependencies=scoped)
     app.include_router(projects.router, include_in_schema=False)
     app.include_router(voice.router, include_in_schema=False)
     return app

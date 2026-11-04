@@ -21,7 +21,7 @@ from fastapi.testclient import TestClient
 
 from backend.api.app import create_app
 from backend.studio.manager import manager
-from backend.studio.tests.test_studio import BASE, _wait
+from backend.studio.tests.test_studio import BASE
 from backend.verification.tests.phase3_support import (
     TRAINING,
     ExplodingAI,
@@ -37,20 +37,35 @@ OK = "the final episode reward must be at least 1"
 IMPOSSIBLE = "the final episode reward must be at least 100000"
 
 
+def h(project_id: str | None) -> dict[str, str]:
+    return {} if project_id is None else {"X-Project-ID": project_id}
+
+
+def _wait_for(client: TestClient, sid: str, project_id: str | None, states: set[str], timeout: float = 60.0) -> dict[str, Any]:
+    deadline = time.time() + timeout
+    snap: dict[str, Any] = {}
+    while time.time() < deadline:
+        snap = client.get(f"{BASE}/sessions/{sid}", headers=h(project_id)).json()
+        if snap.get("status") in states:
+            return snap
+        time.sleep(0.1)
+    raise AssertionError(f"timed out waiting for {states}; last={snap}")
+
+
 def _start(client: TestClient, project_id: str | None, training: dict[str, Any] | None = None) -> str:
     body: dict[str, Any] = {"agent": "PPO", "environment": "cartpole", "training": training or TRAINING}
     if project_id:
         body["project_id"] = project_id
-    response = client.post(f"{BASE}/sessions", json=body)
+    response = client.post(f"{BASE}/sessions", json=body, headers=h(project_id))
     assert response.status_code == 201, response.text
     sid = response.json()["session_id"]
-    assert client.post(f"{BASE}/sessions/{sid}/start").status_code == 200
+    assert client.post(f"{BASE}/sessions/{sid}/start", headers=h(project_id)).status_code == 200
     return sid
 
 
 def _train(client: TestClient, project_id: str | None) -> str:
     sid = _start(client, project_id)
-    snap = _wait(client, sid, {"completed", "failed"})
+    snap = _wait_for(client, sid, project_id, {"completed", "failed"})
     assert snap["status"] == "completed", snap.get("error")
     return snap["run_id"]
 
@@ -116,7 +131,7 @@ def test_2_training_started_later_belongs_to_the_project_and_sees_saved_requirem
     assert detail["training"] == {"state": "completed", "run_count": 1, "active_runs": 0, "completed_runs": 1}
     assert detail["requirements"]["confirmed"] == 2
     # the run registration carries the project; the training config was not altered
-    run = client.get(f"/api/v1/studio/runs/{run_id}").json()
+    run = client.get(f"/api/v1/studio/runs/{run_id}", headers=h(pid)).json()
     assert "project_id" not in run["config"]
     with client.app.state.database.read() as conn:  # type: ignore[attr-defined]
         assert conn.execute("SELECT project_id FROM runs WHERE run_id = ?", (run_id,)).fetchone()[0] == pid
@@ -137,7 +152,7 @@ def test_3_post_training_verification_uses_the_original_engine_and_actual_eviden
     # the existing Person 3 -> Person 4 handoff happened for the failure
     assert ver["incident"]["handoff_status"] == "created" and ver["incident"]["incident_id"]
     # the run-scoped record is the original lifecycle's own verification
-    direct = client.get(f"{V}/verifications/{ver['verification_id']}").json()
+    direct = client.get(f"{V}/verifications/{ver['verification_id']}", headers=h(pid)).json()
     assert direct["overall_status"] == "fail" and direct["run_id"] == run_id
 
     rows = client.get(f"{P}/{pid}/verifications", params={"run_id": run_id}).json()["verifications"]
@@ -155,7 +170,7 @@ def test_3_post_training_verification_uses_the_original_engine_and_actual_eviden
 
 def test_4_new_requirement_after_training_gets_a_new_verification_and_history_is_immutable(client: TestClient) -> None:
     pid, run_id = STATE["pid"], STATE["run1"]
-    before = client.get(f"{V}/verifications/{STATE['ver1']}/results").json()["results"]
+    before = client.get(f"{V}/verifications/{STATE['ver1']}/results", headers=h(pid)).json()["results"]
     extra = "the final episode reward must be at least 2"
     _script(client, (extra, 2))
     req = client.post(f"{P}/{pid}/intents", json={"statement": f"Another bar: {extra}", "run_id": run_id}).json()
@@ -166,7 +181,7 @@ def test_4_new_requirement_after_training_gets_a_new_verification_and_history_is
     second = client.post(f"{P}/{pid}/verifications", json={"run_id": run_id, "requirement_ids": [rid]}).json()
     assert second["verification"]["verification_id"] != STATE["ver1"]
     assert [x["status"] for x in second["verification"]["results"]] == ["pass"]
-    after = client.get(f"{V}/verifications/{STATE['ver1']}/results").json()["results"]
+    after = client.get(f"{V}/verifications/{STATE['ver1']}/results", headers=h(pid)).json()["results"]
     assert after == before  # the earlier result was not rewritten
     assert len(client.get(f"{P}/{pid}/verifications", params={"run_id": run_id}).json()["verifications"]) == 3
 
@@ -223,7 +238,7 @@ def test_7_during_training_waits_for_evidence_then_evaluates_without_touching_tr
     client.app.state.ai_service = ExplodingAI()  # type: ignore[attr-defined]
     training = {**TRAINING, "total_timesteps": 400000, "eval_every": 200000, "checkpoint_every": 200000}
     sid = _start(client, pid, training)
-    run_id = client.get(f"{BASE}/sessions/{sid}").json()["run_id"]
+    run_id = client.get(f"{BASE}/sessions/{sid}", headers=h(pid)).json()["run_id"]
     assert run_id and client.get(f"{P}/{pid}/runs").json()["runs"][0]["run_id"] == run_id
 
     waited, evaluated = False, None
@@ -238,7 +253,7 @@ def test_7_during_training_waits_for_evidence_then_evaluates_without_touching_tr
             assert r.status_code == 201, r.text
             evaluated = r.json()
     assert evaluated is not None, "no episode completed in time"
-    snap = client.get(f"{BASE}/sessions/{sid}").json()
+    snap = client.get(f"{BASE}/sessions/{sid}", headers=h(pid)).json()
     assert evaluated["stage"] == "during_training" and evaluated["interim"] is True
     assert snap["status"] in {"running", "completed"}  # verification did not stop or fail the run
     assert evaluated["evaluation_window"]["episodes"] >= 1 and evaluated["evaluation_window"]["run_status"] == "running"
@@ -251,11 +266,11 @@ def test_7_during_training_waits_for_evidence_then_evaluates_without_touching_tr
     _script(client, (text, 7))
     during = client.post(f"{P}/{pid}/intents", json={"statement": text, "run_id": run_id}).json()
     assert during["stage"] == "during_training" and during["requirement_count"] == 1
-    assert client.get(f"{BASE}/sessions/{sid}").json()["status"] in {"running", "completed"}
+    assert client.get(f"{BASE}/sessions/{sid}", headers=h(pid)).json()["status"] in {"running", "completed"}
 
-    client.post(f"{BASE}/sessions/{sid}/stop")
-    _wait(client, sid, {"stopped", "completed", "failed"}, timeout=60)
-    assert client.get(f"{BASE}/sessions/{sid}").json()["status"] in {"stopped", "completed"}
+    client.post(f"{BASE}/sessions/{sid}/stop", headers=h(pid))
+    _wait_for(client, sid, pid, {"stopped", "completed", "failed"}, timeout=60)
+    assert client.get(f"{BASE}/sessions/{sid}", headers=h(pid)).json()["status"] in {"stopped", "completed"}
 
 
 def test_8_everything_is_read_back_after_a_restart(client: TestClient, roots: Path) -> None:
@@ -266,5 +281,5 @@ def test_8_everything_is_read_back_after_a_restart(client: TestClient, roots: Pa
         assert STATE["ok_req"] in {r["requirement_id"] for r in reqs}
         rows = fresh.get(f"{P}/{pid}/verifications", params={"run_id": run_id}).json()["verifications"]
         assert {x["verification_id"] for x in rows} >= {STATE["ver1"]}
-        assert fresh.get(f"{V}/verifications/{STATE['ver1']}").json()["overall_status"] == "fail"
+        assert fresh.get(f"{V}/verifications/{STATE['ver1']}", headers=h(pid)).json()["overall_status"] == "fail"
         assert len(fresh.get(f"{P}/{pid}/runs").json()["runs"]) >= 2
