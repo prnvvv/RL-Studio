@@ -164,6 +164,8 @@ function RequirementRow({
 }
 
 export interface ProjectIntentPanelProps {
+  /** The run chosen in the shared run context; Verification defaults to it. */
+  selectedRunId?: string | null
   projectId: string
   service?: ProjectService
   /** Called after anything that changes the project's counts, so the page header can refresh. */
@@ -178,6 +180,7 @@ export interface ProjectIntentPanelProps {
 export function ProjectIntentPanel({
   projectId,
   service = defaultService,
+  selectedRunId = null,
   onChanged,
 }: ProjectIntentPanelProps) {
   const [requirements, setRequirements] = useState<ProjectRequirement[]>([])
@@ -192,8 +195,12 @@ export function ProjectIntentPanel({
   const [runId, setRunId] = useState('')
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
-  const [verifyRunId, setVerifyRunId] = useState('')
+  const [verifyRunId, setVerifyRunId] = useState(selectedRunId ?? '')
   const [verifyResult, setVerifyResult] = useState<VerifyResult | null>(null)
+  // Switching the shared run context re-points Verification at that run.
+  useEffect(() => {
+    if (selectedRunId) setVerifyRunId(selectedRunId)
+  }, [selectedRunId])
 
   const refresh = useCallback(async () => {
     const [reqs, docs, rs, hist] = await Promise.all([

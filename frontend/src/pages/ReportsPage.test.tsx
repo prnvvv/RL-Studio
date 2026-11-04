@@ -25,15 +25,17 @@ describe('ReportsPage', () => {
     expect(screen.getByLabelText('Filter runs')).toBeInTheDocument()
   })
 
-  it('renders the six documented columns even with no records', () => {
+  it('renders the documented columns even with no records', () => {
     renderPage()
 
     const table = screen.getByRole('table')
     const headers = within(table).getAllByRole('columnheader')
     expect(headers.map((header) => header.textContent)).toEqual([
       'Run ID',
+      'Agent',
       'Environment',
       'Steps',
+      'Final Reward',
       'Success Rate',
       'Status',
       'Date',

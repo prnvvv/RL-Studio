@@ -14,6 +14,9 @@ import { RunLifecycleStatus } from '../features/monitoring/RunLifecycleStatus'
 import { liveEventsToTimeline } from '../features/monitoring/eventPresentation'
 import { LiveEventsProvider, useLiveEventsContext } from '../contexts/LiveEventsContext'
 import { useRunStatus } from '../hooks/useRunStatus'
+import { useSelectedRun, type SelectedRun } from '../hooks/useSelectedRun'
+import { RunContextBar, reasonLabel, stamp } from '../features/trainingHistory/RunContextBar'
+import { metricRows, rewardSeries, useRunMetrics } from '../features/trainingHistory/useRunMetrics'
 import { createRunService } from '../services/runs'
 import { formatUtcDate, formatUtcTime } from '../utils/datetime'
 import '../features/monitoring/monitoring.css'
@@ -53,15 +56,81 @@ function RunLifecycleSection({ runId }: { runId: string }) {
   )
 }
 
+/** Lifecycle of a project run, read from the persisted run catalog (also for finished, stopped or interrupted runs). */
+function CatalogLifecycleSection({ run }: { run: NonNullable<SelectedRun['run']> }) {
+  const reason = reasonLabel(run)
+  return (
+    <MonitoringPanel
+      title="Run lifecycle"
+      icon="lifecycle"
+      description="Read from the persisted run record, so it is the same for a live, finished, stopped or interrupted run."
+    >
+      <dl className="th-bar__facts" aria-label="Recorded run lifecycle">
+        <div>
+          <dt>Status</dt>
+          <dd>
+            <span className={`th-status th-status--${run.status}`}>{run.status}</span>
+          </dd>
+        </div>
+        <div>
+          <dt>Started</dt>
+          <dd>{stamp(run.started_at)}</dd>
+        </div>
+        <div>
+          <dt>Ended</dt>
+          <dd>
+            {run.finished_at === null
+              ? run.active
+                ? 'In progress'
+                : 'Not recorded'
+              : stamp(run.finished_at)}
+          </dd>
+        </div>
+        {reason === null ? null : (
+          <div>
+            <dt>Reason</dt>
+            <dd>{reason}</dd>
+          </div>
+        )}
+        {run.error === null ? null : (
+          <div>
+            <dt>Error</dt>
+            <dd>{run.error}</dd>
+          </div>
+        )}
+      </dl>
+    </MonitoringPanel>
+  )
+}
+
 interface MonitoringContentProps {
+  selected: SelectedRun
   runId: string | null
   incidentId: string | null
   onScope: (runId: string) => void
   onClearScope: () => void
 }
 
-function MonitoringContent({ runId, incidentId, onScope, onClearScope }: MonitoringContentProps) {
+function MonitoringContent({
+  selected,
+  runId,
+  incidentId,
+  onScope,
+  onClearScope,
+}: MonitoringContentProps) {
   const live = useLiveEventsContext()
+  // Persisted metrics of the selected project run: history for a finished run, polled only while it is active.
+  const history = useRunMetrics(selected.projectId, runId, selected.run?.active ?? false)
+  const historyReady =
+    history.status === 'ready' && history.metrics !== null && history.metrics.run_id === runId
+  const stats = historyReady
+    ? metricRows(history.metrics, selected.run?.duration_seconds ?? null)
+    : liveStats
+  const series = historyReady ? rewardSeries(history.metrics, runId ?? 'run') : []
+  const scoped = selected.projectId !== null && runId !== null
+  const linkRun = scoped ? `runId=${encodeURIComponent(runId)}` : null
+  const join = (suffix: string) =>
+    linkRun === null ? suffix : suffix === '' ? `?${linkRun}` : `${suffix}&${linkRun}`
   const events = liveEventsToTimeline(live.events)
 
   const runSuffix = runId === null ? '' : `?runId=${encodeURIComponent(runId)}`
@@ -81,6 +150,8 @@ function MonitoringContent({ runId, incidentId, onScope, onClearScope }: Monitor
         <h1 className="mon-title">Monitoring</h1>
         <p className="mon-subtitle">Observe training behaviour and recorded execution events</p>
       </header>
+
+      <RunContextBar selected={selected} />
 
       <section className="mon-run" aria-label="Run scope and identifier">
         <div className="mon-run__cell">
@@ -147,7 +218,11 @@ function MonitoringContent({ runId, incidentId, onScope, onClearScope }: Monitor
         </div>
       ) : null}
 
-      {runId === null ? null : <RunLifecycleSection runId={runId} />}
+      {runId === null ? null : selected.run !== null ? (
+        <CatalogLifecycleSection run={selected.run} />
+      ) : selected.projectId !== null && selected.status === 'loading' ? null : (
+        <RunLifecycleSection runId={runId} />
+      )}
 
       <div className="mon-main">
         <MonitoringPanel
@@ -182,12 +257,13 @@ function MonitoringContent({ runId, incidentId, onScope, onClearScope }: Monitor
             icon="chart"
             description="Training metrics, not held-out evaluation metrics."
           >
-            <LiveStatsPanel rows={liveStats} />
+            <LiveStatsPanel rows={stats} />
             <p className="mon-note">
               <MonitoringIcon name="info" className="" />
               <span>
-                No run-metrics endpoint is available yet, so these values stay explicitly
-                unavailable rather than being estimated from events.
+                {historyReady
+                  ? 'Read from this run\u2019s persisted training record. A value the run did not record stays unavailable.'
+                  : 'No run metrics are loaded, so these values stay explicitly unavailable rather than being estimated from events.'}
               </span>
             </p>
           </MonitoringPanel>
@@ -195,8 +271,10 @@ function MonitoringContent({ runId, incidentId, onScope, onClearScope }: Monitor
           <MonitoringPanel title="Related views" icon="link">
             <nav className="mon-links" aria-label="Related views">
               <Link to={`/training${runSuffix}`}>Training dashboard</Link>
-              <Link to={`/diagnosis-recovery${incidentSuffix}`}>Diagnosis &amp; Recovery</Link>
-              <Link to={`/reports${incidentSuffix}`}>Reports</Link>
+              <Link to={`/diagnosis-recovery${join(incidentSuffix)}`}>
+                Diagnosis &amp; Recovery
+              </Link>
+              <Link to={`/reports${join(incidentSuffix)}`}>Reports</Link>
             </nav>
             <p className="mon-hint">
               Links carry the selected run or incident scope to the destination page.
@@ -212,16 +290,20 @@ function MonitoringContent({ runId, incidentId, onScope, onClearScope }: Monitor
       >
         <LineChart
           title="Reward versus training steps by run"
-          series={[]}
+          series={series}
           xLabel="Training steps"
           yLabel="Episode reward"
         />
         <div style={{ marginTop: 'var(--space-3)' }}>
-          <UnavailableState
-            title="No comparison series available"
-            description="Baseline, faulty, and recovered series are drawn only from recorded evaluation and training metrics. No metrics series has been loaded."
-            owner="Person 2 — RL engine (metrics) · Person 4 — evaluation records"
-          />
+          {series.length > 0 ? (
+            <p className="mon-hint">{`Episode rewards recorded for ${runId}. Baseline, faulty and recovered series need recorded evaluation records.`}</p>
+          ) : (
+            <UnavailableState
+              title="No comparison series available"
+              description="Baseline, faulty, and recovered series are drawn only from recorded evaluation and training metrics. No metrics series has been loaded."
+              owner="Person 2 — RL engine (metrics) · Person 4 — evaluation records"
+            />
+          )}
         </div>
       </MonitoringPanel>
     </div>
@@ -230,6 +312,7 @@ function MonitoringContent({ runId, incidentId, onScope, onClearScope }: Monitor
 
 export function MonitoringPage() {
   const [searchParams, setSearchParams] = useSearchParams()
+  const selected = useSelectedRun()
   const runParam = searchParams.get('runId')
   const runId = runParam !== null && runParam.trim() !== '' ? runParam : null
   const incidentParam = searchParams.get('incidentId')
@@ -256,6 +339,7 @@ export function MonitoringPage() {
     <ApplicationShell>
       <LiveEventsProvider runId={runId}>
         <MonitoringContent
+          selected={selected}
           runId={runId}
           incidentId={incidentId}
           onScope={scopeToRun}

@@ -5,6 +5,11 @@ import type { DataTableColumn } from '../components/ui/DataTable'
 import { StatusBadge } from '../components/ui/StatusBadge'
 import { filterRuns, runDetailPath, RunSummary } from '../features/reports/runHistory'
 import { useServiceQuery } from '../hooks/useServiceQuery'
+import { useSelectedRun } from '../hooks/useSelectedRun'
+import type { TrainingRun } from '../services/trainingHistory'
+import { RunContextBar } from '../features/trainingHistory/RunContextBar'
+import { RunReportPanel } from '../features/trainingHistory/RunReportPanel'
+import { formatUtcDate } from '../utils/datetime'
 import { createEvaluationService, type EvaluationService } from '../services/evaluation'
 import { EvaluationPanel } from '../features/evaluation/EvaluationPanel'
 import { MonitoringPanel } from '../features/monitoring/MonitoringPanel'
@@ -14,10 +19,27 @@ import { RunHistoryTable } from '../features/reports/RunHistoryTable'
 import '../features/monitoring/monitoring.css'
 import '../features/reports/reports.css'
 
-// No run-history endpoint is connected, so this is an empty page of records
-// rather than example runs. Every column below renders only what a record
-// supplies; "Not available" is used for a missing value.
-const loadedRuns: RunSummary[] = []
+/**
+ * One persisted training run as a display row. Every value is the run's own record: a missing value is `null` (shown
+ * as "Not available"), never a zero or an estimate.
+ */
+function toSummary(run: TrainingRun): RunSummary {
+  const success = run.final_metrics.success_rate
+  const reward = run.final_metrics.mean_reward
+  return {
+    id: run.run_id,
+    environment: run.environment_config_name ?? run.environment_name,
+    steps: run.total_timesteps === null ? null : String(run.total_timesteps),
+    successRate: typeof success === 'number' ? `${(success * 100).toFixed(1)}%` : null,
+    status: run.status,
+    date: run.started_at === null ? null : formatUtcDate(run.started_at),
+    agent:
+      run.agent_name === null
+        ? null
+        : `${run.agent_name}${run.agent_version === null ? '' : ` v${run.agent_version}`}`,
+    reward: typeof reward === 'number' ? reward.toFixed(2) : null,
+  }
+}
 
 const columns: DataTableColumn<RunSummary>[] = [
   {
@@ -27,6 +49,13 @@ const columns: DataTableColumn<RunSummary>[] = [
     truncate: true,
     title: (run) => run.id,
     render: (run) => <Link to={runDetailPath(run.id)}>{run.id}</Link>,
+  },
+  {
+    id: 'agent',
+    header: 'Agent',
+    truncate: true,
+    title: (run) => run.agent ?? undefined,
+    render: (run) => run.agent ?? <NotAvailable />,
   },
   {
     id: 'environment',
@@ -41,6 +70,12 @@ const columns: DataTableColumn<RunSummary>[] = [
     header: 'Steps',
     align: 'right',
     render: (run) => run.steps ?? <NotAvailable />,
+  },
+  {
+    id: 'reward',
+    header: 'Final Reward',
+    align: 'right',
+    render: (run) => run.reward ?? <NotAvailable />,
   },
   {
     id: 'success-rate',
@@ -129,8 +164,10 @@ export function ReportsPage() {
   const evaluationId =
     evaluationParam !== null && evaluationParam.trim() !== '' ? evaluationParam : null
   const evaluationConnected = incidentId !== null && evaluationId !== null
+  const selected = useSelectedRun()
+  const loadedRuns = useMemo(() => selected.runs.map(toSummary), [selected.runs])
   const [query, setQuery] = useState('')
-  const runs = useMemo(() => filterRuns(loadedRuns, query), [query])
+  const runs = useMemo(() => filterRuns(loadedRuns, query), [loadedRuns, query])
   const filterDisabled = loadedRuns.length === 0
 
   return (
@@ -146,12 +183,14 @@ export function ReportsPage() {
           </header>
           <div className="rp-source">
             <StatusBadge
-              label="No data source"
+              label={loadedRuns.length > 0 ? 'Project run history' : 'No data source'}
               tone="quiet"
               note={evaluationConnected ? 'run history' : undefined}
             />
           </div>
         </div>
+
+        <RunContextBar selected={selected} />
 
         <RunFilter
           label="Filter runs"
@@ -171,9 +210,9 @@ export function ReportsPage() {
           description="Recorded runs and their training outcomes. Status labels are taken from the backend and are never inferred from metrics."
           footer={
             <span>
-              Final reward and per-row actions are not shown: neither is supported yet, and an
-              action that cannot run is never rendered. Export is unavailable until a real export
-              capability exists and is tested.
+              Rows are the project&apos;s persisted training runs. Per-row actions that cannot run
+              are never rendered. Export is unavailable until a real export capability exists and is
+              tested.
             </span>
           }
         >
@@ -197,6 +236,16 @@ export function ReportsPage() {
             }
           />
         </MonitoringPanel>
+
+        {selected.run === null ? null : (
+          <MonitoringPanel
+            title="Run report"
+            icon="history"
+            description="Built only from the selected run's persisted records and its own configuration snapshots."
+          >
+            <RunReportPanel selected={selected} />
+          </MonitoringPanel>
+        )}
 
         <MonitoringPanel
           title="Evaluation Summary"

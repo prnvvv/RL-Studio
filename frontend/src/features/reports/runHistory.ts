@@ -17,11 +17,24 @@ export interface RunSummary {
   /** Rendered exactly as the backend reports it; never inferred from a metric. */
   status: string | null
   date: string | null
+  /** Agent name and version as recorded on the run (optional: older sources do not supply it). */
+  agent?: string | null
+  /** Recorded mean episode reward, already formatted; null when the run recorded none. */
+  reward?: string | null
 }
 
 /** Fields a text filter is allowed to match against. */
 function searchableText(run: RunSummary): string {
-  return [run.id, run.environment, run.steps, run.successRate, run.status, run.date]
+  return [
+    run.id,
+    run.environment,
+    run.agent,
+    run.steps,
+    run.successRate,
+    run.reward,
+    run.status,
+    run.date,
+  ]
     .filter((value): value is string => value !== null)
     .join(' ')
     .toLowerCase()

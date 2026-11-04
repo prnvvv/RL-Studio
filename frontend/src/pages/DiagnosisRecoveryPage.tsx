@@ -1,5 +1,8 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { useSelectedRun } from '../hooks/useSelectedRun'
+import { RunContextBar } from '../features/trainingHistory/RunContextBar'
+import { RunIncidentsPanel } from '../features/trainingHistory/RunIncidentsPanel'
 import { ApplicationShell } from '../components/layout/ApplicationShell'
 import { Panel } from '../components/ui/Panel'
 import { DefinitionList } from '../components/ui/DefinitionList'
@@ -614,6 +617,7 @@ function IncidentWorkspace({
 
 export function DiagnosisRecoveryPage() {
   const [searchParams] = useSearchParams()
+  const selected = useSelectedRun()
   const incidentParam = searchParams.get('incidentId')
   const incidentId = incidentParam !== null && incidentParam.trim() !== '' ? incidentParam : null
   const evaluationParam = searchParams.get('evaluationId')
@@ -651,6 +655,9 @@ export function DiagnosisRecoveryPage() {
           </div>
           <StatusBadge label="Advisory analysis" tone="quiet" glyph="query" />
         </div>
+
+        <RunContextBar selected={selected} />
+        <RunIncidentsPanel selected={selected} focusedIncidentId={incidentId} />
 
         <p
           style={{

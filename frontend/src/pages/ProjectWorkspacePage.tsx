@@ -2,6 +2,9 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ApplicationShell } from '../components/layout/ApplicationShell'
 import { useActiveProject } from '../contexts/ActiveProjectContext'
+import { useSelectedRun } from '../hooks/useSelectedRun'
+import { RunContextBar } from '../features/trainingHistory/RunContextBar'
+import { TrainingHistoryPanel } from '../features/trainingHistory/TrainingHistoryPanel'
 import { ProjectIntentPanel } from '../features/projects/ProjectIntentPanel'
 import { TRAINING_LABEL, configLabel, formatWhen } from '../features/projects/projectFormat'
 import type { ProjectRun, ProjectSummary } from '../schemas/projects'
@@ -27,6 +30,7 @@ export function ProjectWorkspacePage({ service = defaultService }: { service?: P
   const { activeProjectId, setActiveProjectId } = useActiveProject()
   const [state, setState] = useState<State>({ state: 'loading' })
   const [runs, setRuns] = useState<ProjectRun[]>([])
+  const selected = useSelectedRun()
 
   const load = useCallback(
     async (signal?: AbortSignal) => {
@@ -167,9 +171,22 @@ export function ProjectWorkspacePage({ service = defaultService }: { service?: P
           )}
         </section>
 
+        <RunContextBar selected={selected} projectName={project.name} />
+
+        <section className="pw-card" aria-label="Training history" id="training-history-section">
+          <h2>Training history</h2>
+          <p className="pw-card__lead">
+            Every training run of this project, with the agent, environment and configuration it
+            used. Open any run in Monitoring, Reports, Diagnosis or Verification without returning
+            to Studio.
+          </p>
+          <TrainingHistoryPanel projectId={project.project_id} selectedRunId={selected.runId} />
+        </section>
+
         <ProjectIntentPanel
           projectId={project.project_id}
           service={service}
+          selectedRunId={selected.runId}
           onChanged={() => void load()}
         />
       </div>
