@@ -5,7 +5,6 @@ import { HomePage } from '../pages/HomePage'
 import { StudioPage } from '../pages/StudioPage'
 import { ProjectsPage } from '../pages/ProjectsPage'
 import { ProjectWorkspacePage } from '../pages/ProjectWorkspacePage'
-import { EnvironmentsPage } from '../pages/EnvironmentsPage'
 import { MonitoringPage } from '../pages/MonitoringPage'
 import { DiagnosisRecoveryPage } from '../pages/DiagnosisRecoveryPage'
 import { ReportsPage } from '../pages/ReportsPage'
@@ -27,7 +26,6 @@ export function AppRouter() {
         <Route path="/studio" element={<StudioPage />} />
         {/* The old standalone training page is retired; the Studio workspace is where training runs. */}
         <Route path="/training" element={<Navigate to="/studio?view=training" replace />} />
-        <Route path="/environments" element={<EnvironmentsPage />} />
         <Route path="/monitoring" element={<MonitoringPage />} />
         <Route path="/diagnosis-recovery" element={<DiagnosisRecoveryPage />} />
         <Route path="/reports" element={<ReportsPage />} />

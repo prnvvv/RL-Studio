@@ -43,6 +43,12 @@ describe('AppRouter', () => {
     expect(screen.getByTestId('workspace')).toBeInTheDocument()
   })
 
+  it('safely 404s on the removed /environments page instead of rendering or redirecting', () => {
+    renderAt('/environments')
+    expect(screen.getByText('This page does not exist')).toBeInTheDocument()
+    expect(screen.queryByTestId('studio')).not.toBeInTheDocument()
+  })
+
   it('redirects the retired /training page into the Studio training view', () => {
     renderAt('/training')
     expect(screen.getByTestId('studio')).toHaveTextContent('/studio?view=training')
