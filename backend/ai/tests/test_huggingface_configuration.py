@@ -212,7 +212,12 @@ def test_no_hosted_ai_module_references_local_model_loading() -> None:
 
 
 def test_the_requirements_do_not_pull_in_local_inference_packages_for_this_feature() -> None:
-    pinned = {line.split("==")[0].strip().lower() for line in (ROOT / "requirements.txt").read_text().splitlines() if "==" in line}
+    # The requirements file lives at the repo root or under backend/ depending on the deployment layout.
+    candidates = [ROOT / "requirements.txt", ROOT / "backend" / "requirements.txt"]
+    found = [p for p in candidates if p.is_file()]
+    assert found, f"no requirements.txt in any of: {[str(p.relative_to(ROOT)) for p in candidates]}"
+    lines = found[0].read_text(encoding="utf-8").splitlines()
+    pinned = {line.split("==")[0].strip().lower() for line in lines if "==" in line}
     assert {"openai", "huggingface_hub", "pillow"} <= pinned
     assert "transformers" not in pinned and "torchvision" not in pinned
 
