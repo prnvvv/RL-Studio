@@ -1,9 +1,11 @@
 /**
  * Voice transcription boundary and the browser-native implementation.
  *
- * `VoiceTranscriber` is a replaceable boundary (approved decision): today it
- * is the browser-native Web Speech API; a future server-side transcriber can
- * be swapped in behind the same interface without touching UI code.
+ * `VoiceTranscriber` is a replaceable boundary (approved decision). The app uses
+ * the server-backed transcriber (`serverVoiceTranscriber.ts`, Meta Muse Voice
+ * Transcribe through the backend); the browser-native Web Speech engine below is
+ * kept behind the same interface but is not the default, because it would send
+ * audio to a browser vendor's service rather than the project's hosted provider.
  *
  * States are feature-detected and honest (`frontend/AGENTS.md` §16.2):
  * `unsupported` is reported when no Speech Recognition engine exists, and
@@ -12,7 +14,14 @@
  */
 
 export type VoiceDictationState =
-  'unsupported' | 'permission_denied' | 'idle' | 'listening' | 'recognised' | 'error'
+  | 'unsupported'
+  | 'permission_denied'
+  | 'idle'
+  | 'listening'
+  /** Audio recorded; the backend is transcribing it (server-backed transcriber only). */
+  | 'transcribing'
+  | 'recognised'
+  | 'error'
 
 export type TranscriberEvent =
   | { type: 'state'; state: Exclude<VoiceDictationState, 'error'>; message?: undefined }

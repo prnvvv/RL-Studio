@@ -13,6 +13,7 @@ const STATE_LABELS: Record<VoiceDictationState, string> = {
   permission_denied: 'Microphone permission denied',
   idle: 'Dictation ready',
   listening: 'Listening',
+  transcribing: 'Transcribing the recording',
   recognised: 'Speech recognised — review the inserted text',
   error: 'Dictation error',
 }
@@ -25,7 +26,7 @@ export function VoiceStateBadge({ state, message }: VoiceStateBadgeProps) {
   return (
     <span
       role={
-        state === 'listening'
+        state === 'listening' || state === 'transcribing'
           ? 'status'
           : state === 'error' || state === 'permission_denied'
             ? 'alert'
@@ -47,7 +48,7 @@ export function VoiceStateBadge({ state, message }: VoiceStateBadgeProps) {
             ? 'check'
             : state === 'error' || state === 'permission_denied' || state === 'unsupported'
               ? 'cross'
-              : state === 'listening' || state === 'idle'
+              : state === 'listening' || state === 'idle' || state === 'transcribing'
                 ? 'dot'
                 : 'query'
         }

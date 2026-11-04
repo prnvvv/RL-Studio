@@ -12,7 +12,8 @@ import { FormField } from '../../components/ui/FormField'
 import { TextArea } from '../../components/ui/TextArea'
 import { ErrorState } from '../../components/ui/ErrorState'
 import { VoiceDictationControl } from './VoiceDictationControl'
-import { createWebSpeechTranscriber, type VoiceTranscriber } from './voiceTranscriber'
+import { createServerTranscriber } from './serverVoiceTranscriber'
+import type { VoiceTranscriber } from './voiceTranscriber'
 import { RequirementReviewList } from '../requirements/RequirementReviewList'
 
 interface IntentComposerProps {
@@ -52,8 +53,11 @@ function unwrap(
 export function IntentComposer({
   onSubmit,
   onDecide,
-  transcriber = createWebSpeechTranscriber(),
+  transcriber: injectedTranscriber,
 }: IntentComposerProps) {
+  // One transcriber for the component's lifetime (a new one per render would drop an in-progress recording).
+  const [defaultTranscriber] = useState(() => createServerTranscriber())
+  const transcriber = injectedTranscriber ?? defaultTranscriber
   const [text, setText] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [outcome, setOutcome] = useState<IntentSubmissionOutcome | null>(null)
