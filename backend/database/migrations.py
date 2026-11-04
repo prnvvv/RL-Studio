@@ -606,6 +606,46 @@ MIGRATION_6_STATEMENTS: tuple[str, ...] = (
 )
 
 
+#: Run-level policy evaluations (Person 4 evaluation, extended). Additive only. ``evaluations`` (migration 1) stays the
+#: incident/recovery acceptance record; this table records an evaluation of one *saved checkpoint* against its own
+#: environment, with or without an incident. Rows are append-only: repeating an evaluation adds a new row.
+MIGRATION_7_STATEMENTS: tuple[str, ...] = (
+    """
+    CREATE TABLE IF NOT EXISTS run_evaluations (
+        run_evaluation_id TEXT PRIMARY KEY,
+        project_id TEXT,
+        run_id TEXT NOT NULL,
+        artifact_id TEXT NOT NULL,
+        checkpoint_id TEXT,
+        policy_fingerprint TEXT,
+        agent_config_fingerprint TEXT,
+        algorithm TEXT,
+        environment_id TEXT,
+        environment_version TEXT,
+        environment_config_json TEXT NOT NULL DEFAULT '{}',
+        status TEXT NOT NULL,
+        episode_count INTEGER NOT NULL DEFAULT 0,
+        seeds_json TEXT NOT NULL DEFAULT '[]',
+        metrics_json TEXT NOT NULL DEFAULT '{}',
+        episodes_json TEXT NOT NULL DEFAULT '[]',
+        baseline_json TEXT,
+        acceptance_json TEXT,
+        incident_id TEXT,
+        recovery_id TEXT,
+        purpose TEXT NOT NULL DEFAULT 'manual',
+        warnings_json TEXT NOT NULL DEFAULT '[]',
+        errors_json TEXT NOT NULL DEFAULT '[]',
+        details_json TEXT NOT NULL DEFAULT '{}',
+        created_at TEXT NOT NULL,
+        completed_at TEXT
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_run_evaluations_run ON run_evaluations(run_id, created_at)",
+    "CREATE INDEX IF NOT EXISTS idx_run_evaluations_project ON run_evaluations(project_id, created_at)",
+    "CREATE INDEX IF NOT EXISTS idx_run_evaluations_incident ON run_evaluations(incident_id)",
+)
+
+
 MIGRATIONS: tuple[Migration, ...] = (
     Migration(version=1, name="initial_person4_schema", statements=MIGRATION_1_STATEMENTS),
     Migration(version=2, name="person3_verification_lifecycle", statements=MIGRATION_2_STATEMENTS),
@@ -613,6 +653,7 @@ MIGRATIONS: tuple[Migration, ...] = (
     Migration(version=4, name="project_requirement_policies", statements=MIGRATION_4_STATEMENTS),
     Migration(version=5, name="incident_investigations", statements=MIGRATION_5_STATEMENTS),
     Migration(version=6, name="training_history", statements=MIGRATION_6_STATEMENTS),
+    Migration(version=7, name="run_evaluations", statements=MIGRATION_7_STATEMENTS),
 )
 
 

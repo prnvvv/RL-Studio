@@ -82,7 +82,7 @@ def atomic_copy(source: Path, destination: Path) -> None:
     tmp_path = Path(tmp_name)
     try:
         shutil.copyfile(source, tmp_path)
-        with tmp_path.open("rb") as handle:
+        with tmp_path.open("r+b") as handle:  # fsync needs a writable handle on Windows
             os.fsync(handle.fileno())
         os.replace(tmp_path, destination)
     finally:

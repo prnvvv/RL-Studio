@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import sqlite3
 from typing import Any
 
@@ -43,6 +44,8 @@ FAIL = CheckOutcome.fail.value
 UNKNOWN = CheckOutcome.unknown.value
 BLOCKED = CheckOutcome.blocked.value
 SKIPPED = CheckOutcome.skipped.value
+
+logger = logging.getLogger(__name__)
 
 REQUIRED_CONTINUATION_COMPONENTS = (
     "policy",
@@ -1071,6 +1074,7 @@ class RecoveryService:
                 )
             return updated
         except Exception as exc:  # execution boundary: preserve failure state  # noqa: BLE001
+            logger.warning("recovery %s execution failed (%s: %s)", recovery_id, type(exc).__name__, exc)
             failure_message = (
                 "Recovery execution failed or was blocked; the source checkpoint "
                 "was not modified."

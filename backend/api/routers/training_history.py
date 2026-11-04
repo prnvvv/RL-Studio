@@ -223,6 +223,8 @@ def get_training_run(project_id: ProjectId, run_id: RunIdPath, request: Request)
         "run": run,
         "snapshots": hist.snapshots(run_id),
         "checkpoints": reader.checkpoints(run_id) if reader.get_run(run_id) else [],
+        # Policy evaluations of this run's saved checkpoints (append-only; episodes omitted, fetch one for them).
+        "evaluations": request.app.state.services.run_evaluation.list_for_run(run_id),
         "verifications": [{"verification_id": v["verification_id"], "overall_status": v["overall_status"],
                            "created_at": v["created_at"]} for v in verifications],
         "incidents": [{"incident_id": i["incident_id"], "status": i["status"], "severity": i.get("severity"),

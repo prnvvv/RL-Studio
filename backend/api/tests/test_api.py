@@ -119,6 +119,10 @@ class ApiTests(unittest.TestCase):
             "/api/v1/incidents/{incident_id}/recoveries/{recovery_id}": "get",
             "/api/v1/incidents/{incident_id}/evaluations": "post",
             "/api/v1/incidents/{incident_id}/evaluations/{evaluation_id}": "get",
+            # run-level policy evaluation (rollouts of a saved checkpoint)
+            "/api/v1/runs/{run_id}/evaluations": "post",
+            "/api/v1/runs/{run_id}/evaluations/{run_evaluation_id}": "get",
+            "/api/v1/incidents/{incident_id}/recoveries/{recovery_id}/evaluate": "post",
             "/api/v1/verification/status": "get",
             "/api/v1/verification/verify": "post",
             # Phase 3 intent-to-verification lifecycle

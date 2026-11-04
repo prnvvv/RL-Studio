@@ -1129,6 +1129,9 @@ class TrainingSession:
                 "created_at": _now(),
                 "algorithm": self.config["agent"],
                 "environment": self.config["environment"],
+                # Facts about the saved archive, recorded so recovery can check compatibility instead of guessing.
+                "observation_space": describe_space(model.observation_space),
+                "action_space": describe_space(model.action_space),
             }
             (directory / f"{checkpoint_id}.meta.json").write_text(json.dumps(record, sort_keys=True))
             with self._lock:

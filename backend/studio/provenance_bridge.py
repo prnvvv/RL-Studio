@@ -163,6 +163,15 @@ class RunBridge:
                 timestep=timestep, episodes=episodes, metrics=metrics, error=error)
         except Exception as exc:  # noqa: BLE001
             self._fail("history_finished", exc)
+            return
+        # Optional workflow automation (off by default; see backend/workflow). Runs after the record is durable.
+        from backend.workflow import run_completed_hooks
+
+        for hook in list(run_completed_hooks):
+            try:
+                hook(self.run_id, status)
+            except Exception as exc:  # noqa: BLE001
+                self._fail("run_completed_hook", exc)
 
     def run_started(self, *, timestep: int = 0, resumed: bool = False) -> None:
         try:
@@ -229,7 +238,16 @@ class RunBridge:
                     environment_id=self.environment_id,
                     environment_version=self.environment_version,
                     agent_config_fingerprint=config_fingerprint(self.config),
-                    metadata={"reason": record.get("reason"), "algorithm": record.get("algorithm")},
+                    # A Stable-Baselines3 archive holds the policy and optimizer weights and the step counter; it does
+                    # not hold RNG state, so "rng" is deliberately not claimed (a restore is a warm start).
+                    included_state_components=["policy", "optimizer", "counters"],
+                    metadata={
+                        "reason": record.get("reason"),
+                        "algorithm": record.get("algorithm"),
+                        "serialization_format": "stable_baselines3_zip",
+                        "observation_space": record.get("observation_space"),
+                        "action_space": record.get("action_space"),
+                    },
                 )
             )
             self._publish(
