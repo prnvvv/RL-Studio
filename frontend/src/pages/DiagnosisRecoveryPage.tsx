@@ -29,15 +29,38 @@ import type { AnomalyObservation, IncidentRecord } from '../schemas/verification
 import '../features/selfHealing/selfHealing.css'
 
 /** Incident-detail rows from a loaded record; a field the record lacks stays null (shown as unavailable). */
-function incidentRows(record: (IncidentRecord & { requirement?: { source_statement?: string; expected_value?: unknown; comparison_operator?: string | null } | null; summary?: string | null }) | null) {
+function incidentRows(
+  record:
+    | (IncidentRecord & {
+        requirement?: {
+          source_statement?: string
+          expected_value?: unknown
+          comparison_operator?: string | null
+        } | null
+        summary?: string | null
+      })
+    | null,
+) {
   const requirement = record?.requirement ?? null
   return [
     { id: 'incident-id', label: 'Incident', value: record ? record.incident_id : null },
     { id: 'severity', label: 'Severity', value: record ? record.severity : null },
     { id: 'summary', label: 'Summary', value: record?.summary ?? null },
-    { id: 'detection-status', label: 'Detection status', value: record ? record.detection_status : null },
-    { id: 'diagnosis-status', label: 'Diagnosis status', value: record ? record.diagnosis_status : null },
-    { id: 'requirement', label: 'Requirement', value: requirement?.source_statement ?? record?.requirement_id ?? null },
+    {
+      id: 'detection-status',
+      label: 'Detection status',
+      value: record ? record.detection_status : null,
+    },
+    {
+      id: 'diagnosis-status',
+      label: 'Diagnosis status',
+      value: record ? record.diagnosis_status : null,
+    },
+    {
+      id: 'requirement',
+      label: 'Requirement',
+      value: requirement?.source_statement ?? record?.requirement_id ?? null,
+    },
     {
       id: 'expected',
       label: 'Expected value',
@@ -52,7 +75,11 @@ function incidentRows(record: (IncidentRecord & { requirement?: { source_stateme
       value: record && record.evidence_refs.length > 0 ? record.evidence_refs.join(', ') : null,
     },
     { id: 'run', label: 'Run', value: record ? record.run_id : null },
-    { id: 'environment', label: 'Environment version', value: record ? record.environment_version : null },
+    {
+      id: 'environment',
+      label: 'Environment version',
+      value: record ? record.environment_version : null,
+    },
     { id: 'detector', label: 'Detection method', value: record ? record.detector_id : null },
   ]
 }
@@ -82,7 +109,10 @@ function AnomalySection({
 function ProvenanceSection({ runId, incidentId }: { runId: string; incidentId: string }) {
   const services = useMemo(() => createProvenanceService() as ProvenanceService, [])
   const trace = useServiceQuery(() => services.getRunProvenance(runId), [services, runId])
-  const impact = useServiceQuery(() => services.getIncidentImpact(incidentId), [services, incidentId])
+  const impact = useServiceQuery(
+    () => services.getIncidentImpact(incidentId),
+    [services, incidentId],
+  )
   return (
     <Panel
       title="Provenance"
@@ -108,16 +138,25 @@ function IncidentWorkspace({
 }) {
   const services = useMemo(() => createVerificationService() as VerificationService, [])
   const incident = useServiceQuery(() => services.getIncident(incidentId), [services, incidentId])
-  const verification = useServiceQuery(() => services.getVerificationResult(incidentId), [services, incidentId])
+  const verification = useServiceQuery(
+    () => services.getVerificationResult(incidentId),
+    [services, incidentId],
+  )
   const evidence = useServiceQuery(() => services.listEvidence(incidentId), [services, incidentId])
-  const anomalies = useServiceQuery(() => services.listAnomalies(incidentId), [services, incidentId])
+  const anomalies = useServiceQuery(
+    () => services.listAnomalies(incidentId),
+    [services, incidentId],
+  )
   const [suggested, setSuggested] = useState<string | null>(null)
 
   const record = incident.state.state === 'ok' ? unwrapMockData(incident.state.data) : null
   const detail = selected.detail
   const checkpoints = useMemo(() => checkpointChoices(detail?.checkpoints ?? []), [detail])
   const existing = useMemo(
-    () => (detail?.recoveries ?? []).filter((r: { incident_id: string }) => r.incident_id === incidentId),
+    () =>
+      (detail?.recoveries ?? []).filter(
+        (r: { incident_id: string }) => r.incident_id === incidentId,
+      ),
     [detail, incidentId],
   )
   const useOption = useCallback((option: RecoveryOption) => {
@@ -151,7 +190,8 @@ function IncidentWorkspace({
             ) : null}
             {incident.state.state === 'error' ? (
               <p role="alert" className="sh-note sh-note--alert">
-                The incident record could not be loaded: {incident.state.error.detail ?? incident.state.error.message}
+                The incident record could not be loaded:{' '}
+                {incident.state.error.detail ?? incident.state.error.message}
               </p>
             ) : null}
           </Panel>
@@ -212,7 +252,10 @@ export function DiagnosisRecoveryPage() {
   const diagnosis = useMemo(() => createDiagnosisService(), [])
   const runId = selected.run?.run_id ?? null
   const incidents = useServiceQuery(
-    () => (runId === null ? Promise.resolve({ state: 'ok' as const, data: [] }) : diagnosis.listIncidents(runId)),
+    () =>
+      runId === null
+        ? Promise.resolve({ state: 'ok' as const, data: [] })
+        : diagnosis.listIncidents(runId),
     [diagnosis, runId],
   )
 
@@ -228,7 +271,10 @@ export function DiagnosisRecoveryPage() {
 
   const list = incidents.state.state === 'ok' ? incidents.state.data : null
   // An incident id in the URL that does not belong to the selected run's list is not trusted as "selected".
-  const focused = incidentId !== null && list !== null && list.some((i) => i.incident_id === incidentId) ? incidentId : null
+  const focused =
+    incidentId !== null && list !== null && list.some((i) => i.incident_id === incidentId)
+      ? incidentId
+      : null
   const reloadAll = () => incidents.reload()
 
   return (
@@ -267,10 +313,10 @@ export function DiagnosisRecoveryPage() {
           <IncidentWorkspace incidentId={focused} selected={selected} onChanged={reloadAll} />
         ) : (
           <p className="sh-note">
-            Select an incident above to see its verification evidence, run an AI diagnosis, generate a recovery
-            plan and review recovery. A detected incident, a suspected cause and a validated conclusion are
-            separate claims, and recovery is reported successful only after an evaluation meets its acceptance
-            criteria.
+            Select an incident above to see its verification evidence, run an AI diagnosis, generate
+            a recovery plan and review recovery. A detected incident, a suspected cause and a
+            validated conclusion are separate claims, and recovery is reported successful only after
+            an evaluation meets its acceptance criteria.
           </p>
         )}
       </div>
