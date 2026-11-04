@@ -316,3 +316,26 @@ def test_the_history_endpoints_are_the_same_after_an_app_restart(make_client):
     assert second.get(f"{base(pid)}/training-runs").json()["items"][0]["run_id"] == run["run_id"]
     assert second.get(f"{base(pid)}/training-runs/{run['run_id']}").json()["run"] == run
     assert second.get(f"{base(pid)}/training-runs/{run['run_id']}/metrics").json()["episodes_total"] > 0
+
+
+def test_run_detail_links_that_runs_incident_recovery_and_investigation_records_only(client):
+    from backend.provenance.models import IncidentRegistration
+    from backend.recovery.models import RecoveryCreateRequest, RecoveryStrategy
+
+    pid = project(client, "A")
+    older = train_to_completion(client, pid)
+    newer = train_to_completion(client, pid)
+    services = client.app.state.services
+    services.provenance.register_incident(IncidentRegistration(
+        incident_id="inc_hist_1", run_id=older["run_id"], status="detected", requirement_id="req_1",
+        environment_id="cartpole", environment_version="v1", evidence_ids=["episode_1"], summary="reward below target"))
+    services.recovery.create_recovery(
+        "inc_hist_1", RecoveryCreateRequest(recovery_strategy=RecoveryStrategy.evaluate_only, execute=False))
+    old = client.get(f"{base(pid)}/training-runs/{older['run_id']}").json()
+    new = client.get(f"{base(pid)}/training-runs/{newer['run_id']}").json()
+    assert [i["incident_id"] for i in old["incidents"]] == ["inc_hist_1"] and old["incidents"][0]["investigations"] == 0
+    assert [r["incident_id"] for r in old["recoveries"]] == ["inc_hist_1"]
+    assert old["recoveries"][0]["recovery_strategy"] == "evaluate_only" and old["recoveries"][0]["recovery_status"] == "proposed"
+    assert new["incidents"] == [] and new["recoveries"] == []  # the newest run's page is not polluted by the older run's
+    other = project(client, "B")
+    assert client.get(f"{base(other)}/training-runs/{older['run_id']}").status_code == 404
