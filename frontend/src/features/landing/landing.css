@@ -283,12 +283,12 @@
 }
 
 .ls-headline {
-  margin: 0;
+  margin: 14px 0 0; /* with the 26px flex gap: ~40px below the badge */
   font-family: var(--ls-serif);
   font-weight: 400;
-  font-size: clamp(44px, 5vw, 72px);
-  line-height: 1.02;
-  letter-spacing: -0.02em;
+  font-size: clamp(46px, 6vw, 88px);
+  line-height: 1.05;
+  letter-spacing: -0.03em;
   color: #f1f1ef;
 }
 
@@ -310,8 +310,8 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 14px;
-  margin-top: 6px;
+  gap: 16px;
+  margin-top: 22px; /* with the 26px flex gap: ~48px below the headline */
 }
 
 /* ---------- Particle scene ----------
@@ -327,6 +327,9 @@
   height: 100%;
   min-height: 0;
   min-width: 0;
+  /* Optical centring: sit the cluster lower; the padding keeps its bottom edge off the feature bar. */
+  padding-bottom: 24px;
+  transform: translateY(24px);
 }
 
 .ls-scene {
@@ -596,6 +599,8 @@
   }
 
   .ls-hero__scene {
+    padding-bottom: 0;
+    transform: none;
     container-type: inline-size;
     height: auto;
     margin-top: 28px;
@@ -633,5 +638,15 @@
 
   .ls-scene__stage {
     transition: none;
+  }
+}
+
+@media (max-width: 520px) {
+  .ls-headline {
+    margin-top: 6px;
+  }
+
+  .ls-cta {
+    margin-top: 12px;
   }
 }
