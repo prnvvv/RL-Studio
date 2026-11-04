@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { I18nextProvider } from 'react-i18next'
+import { i18n } from '../i18n'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { ThemeProvider } from '../contexts/ThemeContext'
@@ -33,9 +35,11 @@ function renderAt(path: string, theme: 'dark' | 'light') {
   window.localStorage.setItem(THEME_STORAGE_KEY, theme)
   return render(
     <ThemeProvider>
-      <MemoryRouter initialEntries={[path]}>
-        <AppRouter />
-      </MemoryRouter>
+      <I18nextProvider i18n={i18n}>
+        <MemoryRouter initialEntries={[path]}>
+          <AppRouter />
+        </MemoryRouter>
+      </I18nextProvider>
     </ThemeProvider>,
   )
 }
