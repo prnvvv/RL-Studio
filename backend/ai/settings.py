@@ -112,7 +112,7 @@ class AISettings:
             vision_provider=_str(e, "VISION_PROVIDER", "huggingface").lower(),
             vision_model=_str(e, "VISION_MODEL"),
             groq_vision_model=_str(e, "GROQ_VISION_MODEL"),
-            hf_inference_provider=_str(e, "HF_INFERENCE_PROVIDER"),
+            hf_inference_provider=_str(e, "HF_INFERENCE_PROVIDER", "hf-inference"),
             hf_segmentation_model=_str(e, "HF_SEGMENTATION_MODEL"),
             hf_segmentation_endpoint=_str(e, "HF_SEGMENTATION_ENDPOINT"),
             timeout_seconds=float(_int(e.get("AI_PROVIDER_TIMEOUT_SECONDS"), 60)),

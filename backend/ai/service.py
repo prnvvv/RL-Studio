@@ -124,6 +124,8 @@ class AIService:
         # credential gets its own client whose key pool is: dedicated key first, shared keys after.
         self._injected = groq is not None or hf is not None
         self._task_clients: dict[str, GroqClient | HuggingFaceClient] = {}
+        self._vision: Any = None
+        self._segmenter: Any = None
 
     def _keys_for(self, spec: TaskSpec) -> tuple[str, ...]:
         shared = self.settings.groq_api_keys if spec.provider is Provider.GROQ else (
@@ -246,19 +248,49 @@ class AIService:
                 {"type": "text", "text": prompt}, {"type": "image_url", "image_url": {"url": url}}]}]
             out = self._client(spec).chat(spec.model, messages, retries=spec.max_retries,
                                           timeout=spec.timeout_seconds, max_tokens=spec.max_tokens)
-        else:
+        elif self._injected:  # tests inject a scripted HTTP transport; production uses the SDK client below
             out = self._client(spec).vision_chat(spec.model, prompt, image, mime, retries=spec.max_retries,
                                       timeout=spec.timeout_seconds, max_tokens=spec.max_tokens)
+        else:
+            out = self.vision_client(spec).describe(prompt, image=image, content_type=mime, max_tokens=spec.max_tokens)
         return AIResult(spec.task.value, spec.provider.value, out["model"], False,
                         out["request_id"], out["usage"], text=out["text"])
+
+    def vision_client(self, spec: TaskSpec | None = None) -> Any:
+        """The shared, reusable hosted Qwen vision client (OpenAI SDK against the Hugging Face router)."""
+        spec = spec or self._spec(Task.VISION, Modality.VISION)
+        if self._vision is None:
+            from .vision import QwenVisionClient
+
+            self._vision = QwenVisionClient(
+                keys=KeyPool(self._keys_for(spec)), model=spec.model, base_url=self.settings.hf_router_base_url,
+                timeout=spec.timeout_seconds, max_retries=spec.max_retries, max_image_bytes=self.settings.max_image_bytes)
+        return self._vision
+
+    def segmentation_client(self, spec: TaskSpec | None = None) -> Any:
+        """The shared, reusable hosted Mask2Former client (``huggingface_hub.InferenceClient``)."""
+        spec = spec or self._spec(Task.SEGMENTATION, Modality.SEGMENTATION)
+        if self._segmenter is None:
+            from .segmentation import Mask2FormerClient
+
+            self._segmenter = Mask2FormerClient(
+                keys=KeyPool(self._keys_for(spec)), model=spec.model, provider=self.settings.hf_inference_provider,
+                timeout=spec.timeout_seconds, max_retries=spec.max_retries, max_image_bytes=self.settings.max_image_bytes)
+        return self._segmenter
 
     def segment_image(self, image: bytes, content_type: str | None) -> dict[str, Any]:
         spec = self._spec(Task.SEGMENTATION, Modality.SEGMENTATION)
         mime = validate_image(image, content_type, self.settings.max_image_bytes)
-        url = spec.endpoint or f"https://api-inference.huggingface.co/models/{spec.model}"
-        masks = self._client(spec).segment(url, image, mime, model=spec.model or None,
-                                retries=spec.max_retries, timeout=spec.timeout_seconds)
-        return {"task": spec.task.value, "provider": spec.provider.value, "model": spec.model or None, "masks": masks}
+        if spec.endpoint or self._injected or not spec.model:
+            # a dedicated endpoint (HF_SEGMENTATION_ENDPOINT) or a scripted test transport
+            url = spec.endpoint or f"https://api-inference.huggingface.co/models/{spec.model}"
+            masks = self._client(spec).segment(url, image, mime, model=spec.model or None,
+                                    retries=spec.max_retries, timeout=spec.timeout_seconds)
+            return {"task": spec.task.value, "provider": spec.provider.value, "model": spec.model or None, "masks": masks}
+        result = self.segmentation_client(spec).segment(image, mime)
+        return {"task": spec.task.value, "provider": spec.provider.value, "model": spec.model,
+                "inference_provider": result["provider"], "image": result["image"], "masks": result["masks"],
+                "count": result["count"]}
 
 
 @lru_cache(maxsize=1)
