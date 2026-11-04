@@ -621,7 +621,7 @@ def test_no_runtime_module_references_another_inference_provider():
     from pathlib import Path
 
     backend = Path(__file__).resolve().parents[2]
-    banned = ("groq", "huggingface", "hf_token", "mask2former", "qwen", "whisper", "api.openai.com")
+    banned = ("groq", "grok", "x.ai", "xai_", "huggingface", "hf_token", "mask2former", "qwen", "whisper", "api.openai.com")
     offenders = []
     for path in backend.rglob("*.py"):
         rel = path.relative_to(backend).as_posix()

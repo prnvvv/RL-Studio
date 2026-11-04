@@ -21,13 +21,13 @@ from fastapi import APIRouter, HTTPException, Path, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field
 
 from backend.ai.service import AIService, get_ai_service
-from backend.core.config import settings
 from backend.studio.session import store_path
 from backend.studio.store import TrajectoryReader
 from backend.verification.agent.agent_controller import VerificationAgentController
 from backend.verification.exceptions import InputValidationError, VerificationError
 from backend.verification.input.input_adapter import adapt_input
 from backend.verification.lifecycle import LifecycleError, VerificationLifecycle
+from backend.verification.llm.ai_investigator import AIServiceInvestigator
 from backend.verification.storage.verification_store import InMemoryVerificationStore
 
 logger = logging.getLogger(__name__)
@@ -67,14 +67,12 @@ def _model_client(request: Request) -> Any | None:
     override = getattr(request.app.state, "verification_model_client", _UNSET)
     if override is not _UNSET:
         return override
-    if not settings.meta_ai_api_key:
-        return None
     try:
-        from backend.verification.llm.meta_ai import get_meta_ai_provider
-
-        return get_meta_ai_provider()
-    except Exception:  # noqa: BLE001 - provider configuration is optional
-        logger.warning("Meta AI provider is configured but unavailable")
+        ai = getattr(request.app.state, "ai_service", None) or get_ai_service()
+        # Advisory diagnosis uses the shared hosted AI layer (Meta Model API; Muse Wonder for investigation).
+        return AIServiceInvestigator(ai) if ai.client.configured else None
+    except Exception:  # noqa: BLE001 - the advisory provider is optional; deterministic verification stands
+        logger.warning("The hosted AI service is unavailable; diagnosis is not requested")
         return None
 
 
@@ -96,10 +94,10 @@ def verification_status() -> dict[str, Any]:
         "hosted_ai": hosted_ai,
         "status": "ready",
         "deterministic_verification": True,
-        "meta_ai_provider": "configured" if settings.meta_ai_api_key else "unavailable",
-        "provider": "grok" if settings.meta_ai_api_key else "unavailable",
+        "meta_ai_provider": "configured" if (hosted_ai and hosted_ai["config"]["api_key_configured"]) else "unavailable",
+        "provider": "meta" if (hosted_ai and hosted_ai["config"]["api_key_configured"]) else "unavailable",
         "note": (
-            "Deterministic verification works with the Grok/xAI provider "
+            "Deterministic verification works with the Meta Model API "
             "unavailable. A missing provider is reported, never simulated."
         ),
     }
