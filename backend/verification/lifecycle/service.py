@@ -15,6 +15,7 @@ import hashlib
 import json
 import logging
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
@@ -53,6 +54,15 @@ OVERRIDABLE = ("expected_value", "comparison_operator", "tolerance", "metric_nam
                "max_steps", "required_event", "forbidden_event")
 _ENGINE_FIELDS = ("expected_value", "comparison_operator", "tolerance")
 _NS = uuid.NAMESPACE_URL
+
+#: Project-level requirements (written before any run exists) use this pseudo run id. It is a *scope*, not a
+#: run: it never has evidence, so nothing can be verified against it. ``VerificationLifecycle`` resolves it
+#: through the injected ``scope_resolver`` (see ``backend.projects.service``).
+PROJECT_SCOPE_PREFIX = "project:"
+
+
+def is_project_scope(scope_id: str) -> bool:
+    return scope_id.startswith(PROJECT_SCOPE_PREFIX)
 
 
 # ---- errors (mapped to HTTP by the router) -------------------------------------------------------
@@ -116,6 +126,7 @@ class VerificationLifecycle:
         ai: AIService | None = None,
         incident_sink: IncidentSink | None = None,
         allow_fallback: bool = True,
+        scope_resolver: Callable[[str], PreparedEvidence] | None = None,
     ) -> None:
         self.database = database
         self.reader = reader
@@ -124,11 +135,16 @@ class VerificationLifecycle:
         self.ai = ai
         self.interpreter = IntentInterpreter(ai, allow_fallback=allow_fallback) if ai is not None else None
         self.sink: IncidentSink = incident_sink or ProvenanceIncidentSink(provenance)
+        self.scope_resolver = scope_resolver
         self._graphs: Any = None
 
     # ---- evidence ---------------------------------------------------------------------------
     def prepare_evidence(self, run_id: str) -> PreparedEvidence:
         """Persisted Phase 2 evidence for the run. Raises ``RunNotFound``."""
+        if is_project_scope(run_id):
+            if self.scope_resolver is None:
+                raise RunNotFound("the project scope is not available", {"run_id": run_id})
+            return self.scope_resolver(run_id)
         try:
             evidence = build_studio_evidence(run_id, reader=self.reader, provenance=self.provenance)
         except StudioRunNotFoundError as exc:
@@ -177,6 +193,9 @@ class VerificationLifecycle:
         return [self.get_intent(r["intent_id"]) for r in self.store.list_intents(run_id)]
 
     def _require_run(self, run_id: str) -> None:
+        if is_project_scope(run_id):
+            self.prepare_evidence(run_id)  # raises RunNotFound for an unknown or deleted project
+            return
         if self.reader.get_run(run_id) is None:
             raise RunNotFound("the run does not exist", {"run_id": run_id})
 
@@ -572,6 +591,7 @@ def _now() -> str:
 
 
 __all__ = [
-    "Conflict", "InvalidRequest", "LifecycleError", "NotFound", "OVERRIDABLE", "PreparedEvidence", "RunNotFound",
-    "VerificationLifecycle", "evidence_fingerprint", "incident_id_for",
+    "Conflict", "InvalidRequest", "LifecycleError", "NotFound", "OVERRIDABLE", "PROJECT_SCOPE_PREFIX",
+    "PreparedEvidence", "RunNotFound", "VerificationLifecycle", "evidence_fingerprint", "incident_id_for",
+    "is_project_scope",
 ]
