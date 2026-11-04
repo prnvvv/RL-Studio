@@ -254,6 +254,17 @@ class SqliteVerificationStore:
             )
         return self.get_link(verification_id)  # type: ignore[return-value]
 
+    def interim_incidents(self, run_id: str) -> list[dict[str, Any]]:
+        """Incidents already registered from interim verifications of this run, oldest first. A promotion or the
+        final verification joins them for the failures they cover instead of registering a duplicate."""
+        with self.database.read() as conn:
+            rows = conn.execute(
+                "SELECT * FROM verification_incident_links WHERE run_id = ? AND handoff_status = 'created_interim' "
+                "AND incident_id IS NOT NULL ORDER BY rowid",
+                (run_id,),
+            ).fetchall()
+        return [rec for rec in (_row(r, _LINK_JSON) for r in rows) if rec is not None]
+
     def get_link(self, verification_id: str) -> dict[str, Any] | None:
         with self.database.read() as conn:
             row = conn.execute(

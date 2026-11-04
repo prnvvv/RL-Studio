@@ -60,6 +60,14 @@ _NS = uuid.NAMESPACE_URL
 #: through the injected ``scope_resolver`` (see ``backend.projects.service``).
 PROJECT_SCOPE_PREFIX = "project:"
 
+#: Verification finality. ``interim`` = taken while the run is still training (a provisional result).
+FINAL = "final"
+INTERIM = "interim"
+#: Incident-link statuses (``verification_incident_links.handoff_status``) that mean "nothing more to do".
+CREATED_INTERIM = "created_interim"
+DEFERRED_INTERIM = "deferred_interim"
+HANDOFF_DONE = ("created", CREATED_INTERIM, "not_required")
+
 
 def is_project_scope(scope_id: str) -> bool:
     return scope_id.startswith(PROJECT_SCOPE_PREFIX)
@@ -402,9 +410,18 @@ class VerificationLifecycle:
         return self.requirement_view(rec)
 
     # ---- execution ----------------------------------------------------------------------------------
-    def execute(self, run_id: str, requirement_ids: list[str] | None = None, idempotency_key: str | None = None) -> dict[str, Any]:
+    def execute(
+        self, run_id: str, requirement_ids: list[str] | None = None, idempotency_key: str | None = None,
+        *, finality: str = FINAL,
+    ) -> dict[str, Any]:
+        """Verify confirmed requirements. ``finality="interim"`` marks a result taken while the run is still
+        training: it is persisted like any other, but its failures are not handed to Person 4 as ordinary
+        incidents (see ``handoff``). ``"final"`` (the default) is the unchanged behaviour."""
+        if finality not in (FINAL, INTERIM):
+            raise InvalidRequest("finality must be 'final' or 'interim'")
         state = self.graphs.execution.invoke({
-            "run_id": run_id, "requirement_ids": requirement_ids, "idempotency_key": idempotency_key, "trail": [],
+            "run_id": run_id, "requirement_ids": requirement_ids, "idempotency_key": idempotency_key,
+            "finality": finality, "trail": [],
         })
         outcome = state.get("outcome")
         if outcome == "run_not_found":
@@ -468,7 +485,7 @@ class VerificationLifecycle:
 
     def persist_verification(
         self, run_id: str, records: list[dict[str, Any]], prepared: PreparedEvidence, output: dict[str, Any],
-        verification_id: str, key: str,
+        verification_id: str, key: str, finality: str = FINAL,
     ) -> dict[str, Any]:
         payload = prepared.evidence.payload
         ev = payload.get("execution_evidence") or {}
@@ -488,6 +505,9 @@ class VerificationLifecycle:
             "missing_evidence": list(prepared.evidence.missing_evidence),
             "evidence_complete": ev.get("evidence_complete"),
             "warnings": list(prepared.evidence.warnings),
+            # Incident policy inputs, persisted so a retry decides exactly as the first attempt did.
+            "finality": finality,
+            "critical_failed_requirement_ids": self._critical_failures(records, output),
         }
         rec = {
             "verification_id": verification_id, "run_id": run_id,
@@ -501,34 +521,104 @@ class VerificationLifecycle:
         return self.store.save_verification(rec, results)
 
     # ---- incident handoff ------------------------------------------------------------------------------
-    def handoff(self, verification_id: str) -> dict[str, Any]:
-        """Idempotent Person 3 -> Person 4 handoff built from the *persisted* verification."""
+    @staticmethod
+    def _critical_failures(records: list[dict[str, Any]], output: dict[str, Any]) -> list[str]:
+        """Failed requirements the user explicitly flagged ``critical_safety`` (never inferred)."""
+        critical = {r["requirement_id"] for r in records
+                    if ((r.get("requirement") or {}).get("metadata") or {}).get("critical_safety") is True}
+        results = output.get("requirements") or {}
+        return [rid for rid in results if rid in critical and (results[rid] or {}).get("status") in ("fail", "error")]
+
+    def handoff(self, verification_id: str, *, promote: bool = False) -> dict[str, Any]:
+        """Idempotent Person 3 -> Person 4 handoff built from the *persisted* verification.
+
+        Incident policy
+            final verification    any mandatory FAIL/ERROR registers an incident (unchanged behaviour).
+            interim verification  recorded as a provisional result; its failures are NOT registered
+                                  (link status ``deferred_interim``) unless a failed requirement was explicitly
+                                  flagged ``critical_safety`` (immediate, ``created_interim``), or the user
+                                  promotes it (``promote=True``).
+            de-duplication        an incident already registered from an interim result for the same run and a
+                                  superset of the failed requirements is reused, never duplicated, whether the
+                                  later handoff is a promotion or the final verification.
+        """
         ver = self.store.get_verification(verification_id)
         if ver is None:
             raise NotFound("verification not found", {"verification_id": verification_id})
         link = self.store.get_link(verification_id)
-        if link and link["handoff_status"] in ("created", "not_required"):
+        if link and link["handoff_status"] in HANDOFF_DONE:
             return link
+        run_id = ver["run_id"]
         output = ver["output"]
+        interim = (ver.get("traceability") or {}).get("finality") == INTERIM
+        critical = set((ver.get("traceability") or {}).get("critical_failed_requirement_ids") or [])
+        immediate = interim and not promote and bool(critical)
+        if immediate:  # only the explicitly critical violations become an incident now
+            results = output.get("requirements") or {}
+            output = {**output, "requirements": {rid: r for rid, r in results.items()
+                                                 if rid in critical or (r or {}).get("status") not in ("fail", "error")}}
         incident_id = incident_id_for(verification_id)
         try:
-            draft = build_incident_draft(output, run_id=ver["run_id"], incident_id=incident_id)
+            draft = build_incident_draft(output, run_id=run_id, incident_id=incident_id)
         except Exception as exc:  # noqa: BLE001 - never lose the verification
             logger.warning("incident draft failed for %s: %s", verification_id, type(exc).__name__)
-            return self.store.upsert_link(verification_id, ver["run_id"], handoff_status="failed",
+            return self.store.upsert_link(verification_id, run_id, handoff_status="failed",
                                           error_code=type(exc).__name__, attempt=True)
         if draft is None:
-            return self.store.upsert_link(verification_id, ver["run_id"], handoff_status="not_required")
+            return self.store.upsert_link(verification_id, run_id, handoff_status="not_required")
         failed_ids = list(draft.details.get("failed_requirement_ids") or [])
+        if interim and not promote and not immediate:
+            return self.store.upsert_link(verification_id, run_id, handoff_status=DEFERRED_INTERIM,
+                                          failed_requirement_ids=failed_ids)
+        done_status = CREATED_INTERIM if interim else "created"
+        # De-duplicate against incidents already registered from interim results of this run: failures one of them
+        # already covers join it; only the remainder (if any) is registered as a new incident.
+        covering = [c for c in self.store.interim_incidents(run_id) if c["verification_id"] != verification_id]
+        covered = {rid for c in covering for rid in c["failed_requirement_ids"]}
+        remaining = [rid for rid in failed_ids if rid not in covered]
+        if covering and set(failed_ids) & covered:
+            if not remaining:
+                owner = next(c for c in covering if set(failed_ids) & set(c["failed_requirement_ids"]))
+                return self.store.upsert_link(verification_id, run_id, handoff_status=done_status,
+                                              incident_id=owner["incident_id"], failed_requirement_ids=failed_ids,
+                                              attempt=True)
+            results = output.get("requirements") or {}
+            output = {**output, "requirements": {rid: r for rid, r in results.items()
+                                                 if rid in remaining or (r or {}).get("status") not in ("fail", "error")}}
+            try:
+                draft = build_incident_draft(output, run_id=run_id, incident_id=incident_id)
+            except Exception as exc:  # noqa: BLE001
+                return self.store.upsert_link(verification_id, run_id, handoff_status="failed",
+                                              error_code=type(exc).__name__, attempt=True)
+            if draft is None:
+                return self.store.upsert_link(verification_id, run_id, handoff_status="not_required")
+            failed_ids = list(draft.details.get("failed_requirement_ids") or [])
+        if interim:
+            draft.details.update({"finality": INTERIM, "provisional": True, "critical_safety": immediate,
+                                  "promoted": promote})
         try:
             stored = self.sink.record(draft)
         except Exception as exc:  # noqa: BLE001 - incident service failure must not erase the verification
             logger.warning("incident handoff failed for %s: %s", verification_id, type(exc).__name__)
-            return self.store.upsert_link(verification_id, ver["run_id"], handoff_status="failed",
+            return self.store.upsert_link(verification_id, run_id, handoff_status="failed",
                                           failed_requirement_ids=failed_ids, error_code=type(exc).__name__, attempt=True)
-        return self.store.upsert_link(verification_id, ver["run_id"], handoff_status="created",
+        return self.store.upsert_link(verification_id, run_id, handoff_status=done_status,
                                       incident_id=stored.get("incident_id", incident_id),
                                       failed_requirement_ids=failed_ids, attempt=True)
+
+    def promote_interim(self, verification_id: str) -> dict[str, Any]:
+        """Turn a provisional (interim) failure into an incident on the user's explicit request. Idempotent."""
+        ver = self.store.get_verification(verification_id)
+        if ver is None:
+            raise NotFound("verification not found", {"verification_id": verification_id})
+        if (ver.get("traceability") or {}).get("finality") != INTERIM:
+            raise Conflict("only an interim verification can be promoted; final verifications hand off automatically",
+                           {"verification_id": verification_id})
+        if ver["overall_status"] not in ("fail", "error"):
+            raise Conflict("there is no failure to promote", {"verification_id": verification_id,
+                                                              "overall_status": ver["overall_status"]})
+        self.handoff(verification_id, promote=True)
+        return self.get_verification(verification_id)
 
     def retry_handoff(self, verification_id: str) -> dict[str, Any]:
         self.handoff(verification_id)
@@ -570,6 +660,7 @@ class VerificationLifecycle:
             "verification_id": ver["verification_id"], "run_id": ver["run_id"], "intent_id": ver.get("intent_id"),
             "environment_id": ver.get("environment_id"), "environment_version": ver.get("environment_version"),
             "overall_status": ver["overall_status"], "contract_status": ver.get("contract_status"),
+            "finality": (ver["traceability"] or {}).get("finality", FINAL),
             "requirement_ids": ver["requirement_ids"], "traceability": ver["traceability"],
             "incident": None if link is None else {
                 "handoff_status": link["handoff_status"], "incident_id": link.get("incident_id"),

@@ -60,6 +60,7 @@ class ExecutionState(TypedDict, total=False):
     run_id: str
     requirement_ids: list[str] | None
     idempotency_key: str | None
+    finality: str
     trail: Annotated[list[str], operator.add]
     records: list[dict[str, Any]]
     prepared: Any
@@ -218,8 +219,11 @@ def _execution_graph(svc: VerificationLifecycle) -> Any:
 
     def idempotency(s: ExecutionState) -> ExecutionState:
         prepared = s["prepared"]
-        key = s.get("idempotency_key") or svc_mod._sha(
-            s["run_id"], sorted((r["requirement_id"], r["requirement"]) for r in s["records"]), prepared.fingerprint)
+        parts: list[Any] = [s["run_id"], sorted((r["requirement_id"], r["requirement"]) for r in s["records"]),
+                            prepared.fingerprint]
+        if s.get("finality", svc_mod.FINAL) != svc_mod.FINAL:  # a final key is unchanged; interim never collides with it
+            parts.append(s["finality"])
+        key = s.get("idempotency_key") or svc_mod._sha(*parts)
         existing = svc.store.find_verification_by_key(key)
         if existing is not None:
             return {"trail": ["idempotency"], "key": key, "outcome": "replayed", "verification_id": existing["verification_id"]}
@@ -230,7 +234,8 @@ def _execution_graph(svc: VerificationLifecycle) -> Any:
         return {"trail": ["verify"], "output": output, "overall_status": output.get("overall_status", "unknown")}
 
     def persist(s: ExecutionState) -> ExecutionState:
-        saved = svc.persist_verification(s["run_id"], s["records"], s["prepared"], s["output"], s["verification_id"], s["key"])
+        saved = svc.persist_verification(s["run_id"], s["records"], s["prepared"], s["output"], s["verification_id"],
+                                         s["key"], s.get("finality", svc_mod.FINAL))
         return {"trail": ["persist"], "verification_id": saved["verification_id"], "outcome": "stored"}
 
     def handoff(s: ExecutionState) -> ExecutionState:
