@@ -1,8 +1,7 @@
 import type { ComponentType, SVGProps } from 'react'
 import { Link } from 'react-router-dom'
 import { TopNavigation } from '../components/layout/TopNavigation'
-import { WakeGlyph } from '../components/ui/background-ascii-wake'
-import { AmbientWaves } from '../features/landing/AmbientWaves'
+import { LandingBackdrop } from '../features/landing/LandingBackdrop'
 import { FeatureStrip } from '../features/landing/FeatureStrip'
 import { CubeIcon, CycleIcon, PulseIcon } from '../features/landing/icons'
 import { LandingHero } from '../features/landing/LandingHero'
@@ -78,15 +77,13 @@ export function HomePage() {
 
   return (
     <div className="ls-root">
-      <div className="ls-first-screen">
-        <WakeGlyph className="ls-wake" cellSize={16} />
-        <AmbientWaves />
+      <LandingBackdrop>
         <TopNavigation />
         <main className="ls-main">
           <LandingHero />
         </main>
         <FeatureStrip />
-      </div>
+      </LandingBackdrop>
 
       <div className="ls-bridge" aria-hidden="true" />
       <TelemetrySection />
