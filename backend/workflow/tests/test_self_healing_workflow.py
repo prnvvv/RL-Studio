@@ -197,7 +197,10 @@ STRICT = "the final episode reward must be at least 100000"
 
 
 def test_7_a_strict_confirmed_requirement_fails_deterministically_and_opens_one_incident(client: TestClient) -> None:
-    from backend.verification.tests.phase3_support import reward_proposal, statements_json
+    from backend.verification.tests.phase3_support import (
+        reward_proposal,
+        statements_json,
+    )
 
     pid, run = STATE["pid"], STATE["run"]
     provider = ScriptedProvider(statements_json(STRICT), [reward_proposal(STRICT, value=100000)])
