@@ -33,7 +33,7 @@ class DatabaseFoundationTests(unittest.TestCase):
             rows = conn.execute(
                 "SELECT version, name FROM schema_migrations ORDER BY version"
             ).fetchall()
-        self.assertEqual([row["version"] for row in rows], [1, 2, 3])
+        self.assertEqual([row["version"] for row in rows], [1, 2, 3, 4])
         self.assertEqual(rows[0]["name"], "initial_person4_schema")
 
     def test_write_transaction_rolls_back(self) -> None:

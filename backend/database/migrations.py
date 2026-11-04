@@ -480,10 +480,26 @@ MIGRATION_3_STATEMENTS: tuple[str, ...] = (
 )
 
 
+#: Interim-incident policy. One additive table: the user's explicit "critical safety" flag per project requirement.
+#: Only a failed requirement flagged here may raise an incident from an interim (still-training) verification.
+MIGRATION_4_STATEMENTS: tuple[str, ...] = (
+    """
+    CREATE TABLE IF NOT EXISTS project_requirement_policies (
+        requirement_id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL,
+        critical_safety INTEGER NOT NULL DEFAULT 0,
+        updated_at TEXT NOT NULL
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_preqpol_project ON project_requirement_policies(project_id)",
+)
+
+
 MIGRATIONS: tuple[Migration, ...] = (
     Migration(version=1, name="initial_person4_schema", statements=MIGRATION_1_STATEMENTS),
     Migration(version=2, name="person3_verification_lifecycle", statements=MIGRATION_2_STATEMENTS),
     Migration(version=3, name="project_management", statements=MIGRATION_3_STATEMENTS),
+    Migration(version=4, name="project_requirement_policies", statements=MIGRATION_4_STATEMENTS),
 )
 
 
