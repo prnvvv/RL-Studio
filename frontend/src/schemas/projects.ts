@@ -95,6 +95,8 @@ export interface ProjectRequirement {
   clarification_question: string | null
   validation: { reasons?: string[]; warnings?: string[] }
   awaiting_run_evidence: boolean
+  /** Set only by the user. Only such a requirement can raise an incident from an interim result. */
+  critical_safety?: boolean
   conflicts_with: string[]
   latest_verification?: {
     verification_id: string
@@ -159,6 +161,8 @@ export interface RunVerificationView {
   verification_id: string
   run_id: string
   overall_status: string
+  /** "interim" while the run was still training; "final" otherwise (also for records that predate the field). */
+  finality?: 'interim' | 'final'
   results?: VerificationResultRow[]
   incident: {
     handoff_status: string
@@ -174,6 +178,7 @@ export interface VerifyResult {
   state: 'evaluated' | 'waiting_for_evidence'
   stage: ProjectStage
   interim?: boolean
+  finality?: 'interim' | 'final'
   reason?: string
   evaluation_window: Record<string, unknown>
   verification: RunVerificationView | null

@@ -354,4 +354,74 @@ describe('Intent & Verification: during and after training', () => {
     expect(within(history).getByText('FAIL · rev 1')).toBeInTheDocument()
     expect(within(history).getByText('After training')).toBeInTheDocument()
   })
+
+  it('marks a confirmed requirement as a critical safety rule only when the user ticks it', async () => {
+    const confirmedReq = requirement({
+      lifecycle_status: 'confirmed',
+      confirmation_status: 'confirmed',
+      awaiting_run_evidence: false,
+      critical_safety: false,
+    })
+    const service = fakeService({
+      listRequirements: vi.fn(async () => ({ state: 'ok' as const, data: [confirmedReq] })),
+    })
+    renderPage(service)
+    const box = await screen.findByRole('checkbox', { name: /Critical safety rule/ })
+    expect(box).not.toBeChecked()
+    fireEvent.click(box)
+    await waitFor(() => expect(service.setCritical).toHaveBeenCalledWith(PID, 'req_1', true))
+  })
+
+  it('offers no critical-safety toggle for an unconfirmed requirement', async () => {
+    renderPage(
+      fakeService({
+        listRequirements: vi.fn(async () => ({ state: 'ok' as const, data: [requirement()] })),
+      }),
+    )
+    await screen.findByRole('list', { name: 'Project requirements' })
+    expect(screen.queryByRole('checkbox', { name: /Critical safety rule/ })).not.toBeInTheDocument()
+  })
+
+  it('shows an interim failure as provisional and promotes it only on request', async () => {
+    const active = run({ status: 'running' })
+    const confirmedReq = requirement({
+      lifecycle_status: 'confirmed',
+      confirmation_status: 'confirmed',
+      awaiting_run_evidence: false,
+    })
+    const base = verifyResult({
+      stage: 'during_training',
+      interim: true,
+      finality: 'interim',
+      run_id: active.run_id,
+    })
+    const deferred = {
+      ...base,
+      verification: {
+        ...base.verification!,
+        finality: 'interim' as const,
+        incident: { handoff_status: 'deferred_interim', incident_id: null, error_code: null },
+      },
+    }
+    const service = fakeService({
+      listRuns: vi.fn(async () => ({ state: 'ok' as const, data: [active] })),
+      listRequirements: vi.fn(async () => ({ state: 'ok' as const, data: [confirmedReq] })),
+      verify: vi.fn(async () => ({ state: 'ok' as const, data: deferred })),
+    })
+    renderPage(service)
+    fireEvent.change(await screen.findByLabelText('Run'), { target: { value: active.run_id } })
+    fireEvent.click(screen.getByRole('button', { name: 'Verify progress so far' }))
+    expect(await screen.findByText(/Provisional result/)).toHaveTextContent(
+      'no incident was created',
+    )
+    expect(screen.queryByRole('link', { name: 'open the incident' })).not.toBeInTheDocument()
+    expect(service.promote).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: 'Promote to incident' }))
+    await waitFor(() => expect(service.promote).toHaveBeenCalledWith(PID, 'ver_1'))
+    expect(await screen.findByRole('link', { name: 'open the incident' })).toHaveAttribute(
+      'href',
+      '/diagnosis-recovery?incidentId=inc_77',
+    )
+    expect(screen.getByText(/Incident raised from an interim result/)).toBeInTheDocument()
+  })
 })

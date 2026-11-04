@@ -33,11 +33,13 @@ function RequirementRow({
   busy,
   onConfirm,
   onReject,
+  onCritical,
 }: {
   requirement: ProjectRequirement
   busy: boolean
   onConfirm: (overrides?: Record<string, unknown>) => void
   onReject: () => void
+  onCritical: (critical: boolean) => void
 }) {
   const [operator, setOperator] = useState('>=')
   const [value, setValue] = useState('')
@@ -141,6 +143,21 @@ function RequirementRow({
             Reject
           </button>
         </div>
+      ) : null}
+      {r.confirmation_status === 'confirmed' && !r.superseded ? (
+        <label className="pw-line">
+          <input
+            type="checkbox"
+            checked={r.critical_safety === true}
+            disabled={busy}
+            onChange={(e) => onCritical(e.target.checked)}
+          />
+          <span className="pw-text">Critical safety rule</span>
+          <span className="pw-muted">
+            A violation seen while training is still running raises an incident immediately.
+            Otherwise it stays provisional until the run finishes.
+          </span>
+        </label>
       ) : null}
     </li>
   )
@@ -303,6 +320,35 @@ export function ProjectIntentPanel({
     }
     await refresh()
     onChanged?.()
+  }
+
+  async function setCritical(r: ProjectRequirement, critical: boolean) {
+    setBusy(true)
+    setNotice(null)
+    const result = await service.setCritical(projectId, r.requirement_id, critical)
+    setBusy(false)
+    if (result.state === 'error') {
+      setNotice(`The safety rule setting was not saved. ${result.error.message}`)
+      return
+    }
+    await refresh()
+  }
+
+  async function promote(verificationId: string) {
+    setBusy(true)
+    setNotice(null)
+    const result = await service.promote(projectId, verificationId)
+    setBusy(false)
+    if (result.state === 'error') {
+      setNotice(`The failure was not promoted. ${result.error.message}`)
+      return
+    }
+    setVerifyResult((current) =>
+      current && current.verification
+        ? { ...current, verification: { ...current.verification, incident: result.data.incident } }
+        : current,
+    )
+    await refresh()
   }
 
   async function verify() {
@@ -497,7 +543,9 @@ export function ProjectIntentPanel({
               </div>
             </>
           )}
-          {verifyResult ? <VerifyOutcome result={verifyResult} /> : null}
+          {verifyResult ? (
+            <VerifyOutcome result={verifyResult} busy={busy} onPromote={(id) => void promote(id)} />
+          ) : null}
         </div>
       </div>
 
@@ -518,6 +566,7 @@ export function ProjectIntentPanel({
                 busy={busy}
                 onConfirm={(o) => void decide(r, 'confirm', o)}
                 onReject={() => void decide(r, 'reject')}
+                onCritical={(critical) => void setCritical(r, critical)}
               />
             ))}
           </ul>
@@ -563,7 +612,15 @@ export function ProjectIntentPanel({
   )
 }
 
-function VerifyOutcome({ result }: { result: VerifyResult }) {
+function VerifyOutcome({
+  result,
+  busy,
+  onPromote,
+}: {
+  result: VerifyResult
+  busy: boolean
+  onPromote: (verificationId: string) => void
+}) {
   if (result.state === 'waiting_for_evidence') {
     return (
       <p className="pw-note" role="status">
@@ -599,9 +656,26 @@ function VerifyOutcome({ result }: { result: VerifyResult }) {
               </li>
             ))}
           </ul>
+          {v.incident?.handoff_status === 'deferred_interim' ? (
+            <div className="pw-note" role="status">
+              Provisional result. The run is still training, so this failure was saved but no
+              incident was created. It becomes an incident if you promote it, or automatically when
+              a final verification of the finished run fails.{' '}
+              <button
+                type="button"
+                className="pw-button"
+                disabled={busy}
+                onClick={() => onPromote(v.verification_id)}
+              >
+                Promote to incident
+              </button>
+            </div>
+          ) : null}
           {v.incident?.incident_id ? (
             <p className="pw-note">
-              Incident created:{' '}
+              {v.incident.handoff_status === 'created_interim'
+                ? 'Incident raised from an interim result:'
+                : 'Incident created:'}{' '}
               <Link
                 to={`/diagnosis-recovery?incidentId=${encodeURIComponent(v.incident.incident_id)}`}
               >

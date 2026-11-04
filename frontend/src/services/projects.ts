@@ -70,6 +70,14 @@ export interface ProjectService {
     requirementId: string,
     reason?: string,
   ): Promise<ServiceResult<ProjectRequirement>>
+  /** Mark a confirmed requirement as a critical safety rule (or clear it). User-initiated only. */
+  setCritical(
+    projectId: string,
+    requirementId: string,
+    critical: boolean,
+  ): Promise<ServiceResult<ProjectRequirement>>
+  /** Promote a provisional (interim) failure to an incident. Idempotent. */
+  promote(projectId: string, verificationId: string): Promise<ServiceResult<RunVerificationView>>
   listRuns(projectId: string, signal?: AbortSignal): Promise<ServiceResult<ProjectRun[]>>
   verify(projectId: string, request: VerifyRequest): Promise<ServiceResult<VerifyResult>>
   listVerifications(
@@ -230,6 +238,22 @@ export function createProjectService(): ProjectService {
           jsonBody: reason ? { reason } : {},
         }),
         expectRequirement,
+      ),
+
+    setCritical: (id, rid, critical) =>
+      mapped(
+        api.request<unknown>(`${BASE}/${seg(id)}/requirements/${seg(rid)}/critical`, {
+          method: 'PUT',
+          jsonBody: { critical },
+        }),
+        expectRequirement,
+      ),
+
+    promote: (id, vid) =>
+      mapped(api.post<unknown>(`${BASE}/${seg(id)}/verifications/${seg(vid)}/promote`), (d) =>
+        hasString(d, 'verification_id')
+          ? { state: 'ok', data: d as unknown as RunVerificationView }
+          : unexpected(),
       ),
 
     listRuns: (id, signal) =>

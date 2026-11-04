@@ -160,6 +160,21 @@ export function fakeService(overrides: Partial<ProjectService> = {}): ProjectSer
     rejectRequirement: vi.fn(() =>
       ok(requirement({ lifecycle_status: 'rejected', confirmation_status: 'rejected' })),
     ),
+    setCritical: vi.fn(() =>
+      ok(
+        requirement({
+          lifecycle_status: 'confirmed',
+          confirmation_status: 'confirmed',
+          critical_safety: true,
+        }),
+      ),
+    ),
+    promote: vi.fn(() =>
+      ok({
+        ...verifyResult().verification!,
+        incident: { handoff_status: 'created_interim', incident_id: 'inc_77', error_code: null },
+      }),
+    ),
     listRuns: vi.fn(() => ok([])),
     verify: vi.fn(() => ok(verifyResult())),
     listVerifications: vi.fn(() => ok([])),
