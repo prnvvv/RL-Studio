@@ -85,7 +85,7 @@ i18n
             observed: 'Observed',
             tolerance: 'Tolerance',
           },
-          application shell: {
+          "application shell": {
             content: 'Content',
           },
           techstrip: {
