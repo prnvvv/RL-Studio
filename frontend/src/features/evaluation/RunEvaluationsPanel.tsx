@@ -60,7 +60,11 @@ function EvaluationCard({
     <article className="sh-card" aria-label={`Evaluation ${evaluation.run_evaluation_id}`}>
       <div className="sh-card__head">
         <div className="sh-row">
-          <StatusBadge label={evaluation.status} tone={evaluation.status === 'blocked' ? 'quiet' : 'strong'} glyph="none" />
+          <StatusBadge
+            label={evaluation.status}
+            tone={evaluation.status === 'blocked' ? 'quiet' : 'strong'}
+            glyph="none"
+          />
           <span className="sh-text">{PURPOSE_LABEL[evaluation.purpose] ?? evaluation.purpose}</span>
         </div>
         <span className="sh-muted">{formatUtcDate(evaluation.created_at)}</span>
@@ -72,7 +76,9 @@ function EvaluationCard({
             <span className="sh-stat__label">Mean reward</span>
             <span className="sh-stat__value">{num(s.mean_reward)}</span>
             <span className="sh-stat__sub">
-              {ci ? `95% CI ${num(ci.lower, 1)} to ${num(ci.upper, 1)}` : 'No interval (fewer than 2 episodes)'}
+              {ci
+                ? `95% CI ${num(ci.lower, 1)} to ${num(ci.upper, 1)}`
+                : 'No interval (fewer than 2 episodes)'}
             </span>
           </div>
           <div className="sh-stat">
@@ -170,7 +176,8 @@ function EvaluationCard({
           <ul className="sh-list">
             {evaluation.acceptance.checks.map((c) => (
               <li key={c.criterion}>
-                {c.criterion.replace(/_/g, ' ')}: measured {num(c.measured)} against {c.threshold} → {c.outcome}
+                {c.criterion.replace(/_/g, ' ')}: measured {num(c.measured)} against {c.threshold} →{' '}
+                {c.outcome}
               </li>
             ))}
           </ul>
@@ -191,7 +198,12 @@ function EvaluationCard({
       {s ? (
         <div className="sh-stack">
           <div>
-            <button type="button" className="sh-btn" onClick={() => void showEpisodes()} disabled={loading}>
+            <button
+              type="button"
+              className="sh-btn"
+              onClick={() => void showEpisodes()}
+              disabled={loading}
+            >
               {episodes ? 'Reload episodes' : loading ? 'Loading episodes…' : 'Show episodes'}
             </button>
           </div>
@@ -292,8 +304,8 @@ export function RunEvaluationsPanel({
   return (
     <div className="sh-stack">
       <p className="sh-muted">
-        Plays the run&apos;s latest saved checkpoint for the chosen number of deterministic episodes on
-        fresh seeds, in the environment it was trained in. The run is not retrained and every
+        Plays the run&apos;s latest saved checkpoint for the chosen number of deterministic episodes
+        on fresh seeds, in the environment it was trained in. The run is not retrained and every
         evaluation is kept.
       </p>
       <form
@@ -328,7 +340,11 @@ export function RunEvaluationsPanel({
         </label>
         <label className="sh-field" style={{ minWidth: 200 }}>
           <span>Compare with (optional)</span>
-          <select className="sh-select" value={baselineId} onChange={(e) => setBaselineId(e.target.value)}>
+          <select
+            className="sh-select"
+            value={baselineId}
+            onChange={(e) => setBaselineId(e.target.value)}
+          >
             <option value="">No baseline</option>
             {baselines.map((b) => (
               <option key={b.run_evaluation_id} value={b.run_evaluation_id}>
@@ -342,13 +358,18 @@ export function RunEvaluationsPanel({
         </button>
       </form>
       {runActive ? (
-        <p className="sh-note">This run is still training; evaluate its saved policy once it has finished.</p>
+        <p className="sh-note">
+          This run is still training; evaluate its saved policy once it has finished.
+        </p>
       ) : checkpointCount === 0 ? (
-        <p className="sh-note">This run has no registered checkpoint, so there is no saved policy to evaluate.</p>
+        <p className="sh-note">
+          This run has no registered checkpoint, so there is no saved policy to evaluate.
+        </p>
       ) : null}
       {pending ? (
         <p role="status" className="sh-muted">
-          Rolling out {count} episode{count === 1 ? '' : 's'}. This runs the real policy and can take a moment…
+          Rolling out {count} episode{count === 1 ? '' : 's'}. This runs the real policy and can
+          take a moment…
         </p>
       ) : null}
       {error ? (
@@ -368,7 +389,10 @@ export function RunEvaluationsPanel({
       ) : (
         <div className="sh-stack" aria-label="Evaluation history">
           {evaluations.map((e) => (
-            <div key={e.run_evaluation_id} className={e.run_evaluation_id === latest ? 'sh-card--selected' : undefined}>
+            <div
+              key={e.run_evaluation_id}
+              className={e.run_evaluation_id === latest ? 'sh-card--selected' : undefined}
+            >
               <EvaluationCard evaluation={e} service={api} />
             </div>
           ))}
