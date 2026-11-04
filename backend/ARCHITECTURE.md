@@ -761,6 +761,8 @@ The system should be able to investigate incomplete evidence packages, but the r
 
 ## 14. Autonomous Diagnosis Agent
 
+> **Implementation status:** the implemented diagnosis is a bounded, advisory LangGraph workflow in `backend/diagnosis/` (`load_context -> reuse_check -> gate -> reason -> ground -> persist`) exposed by `POST /api/v1/incidents/{incident_id}/investigations` and `/recovery-recommendations`. It makes one evidence-grounded Muse Wonder call per distinct evidence context; it has no autonomous tool loop. The planner, engine and tools files below are not implemented.
+
 **Files:** `diagnosis/investigation_planner.py`, `diagnosis/investigation_engine.py`, `diagnosis/investigation_tools.py`, `diagnosis/meta_ai.py`
 
 The diagnosis agent investigates the incident rather than merely generating a response from a single prompt.
@@ -860,6 +862,8 @@ A stopped investigation must report whether it completed successfully or remaine
 ---
 
 ## 15. Meta AI Integration
+
+> **Implementation status:** there is no `diagnosis/meta_ai.py`. The single provider adapter is `backend/ai/` (`MetaClient` + `AIService`, configured from `MODEL_API_KEY` and `META_*`; Meta Model API is the only hosted AI provider). The verification workflow's advisory investigator is `backend/verification/llm/ai_investigator.py`, a thin adapter over `AIService`.
 
 **File:** `diagnosis/meta_ai.py`
 

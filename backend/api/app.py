@@ -13,6 +13,7 @@ from backend.projects.scope import enforce_project_scope
 from .dependencies import build_services
 from .errors import install_error_handlers
 from .routers import (
+    diagnosis,
     evaluation,
     projects,
     provenance,
@@ -75,6 +76,8 @@ def create_app(config: DatabaseConfig | None = None) -> FastAPI:
     app.include_router(recovery.p4_router, dependencies=scoped)
     app.include_router(evaluation.p4_router, dependencies=scoped)
     app.include_router(verification.router, dependencies=scoped)
+    # Advisory diagnosis is operational (not a documented Person 4 contract endpoint): kept out of the schema.
+    app.include_router(diagnosis.router, include_in_schema=False, dependencies=scoped)
 
     # Operational endpoints are wired but kept out of the documented schema.
     app.include_router(runs.router, include_in_schema=False, dependencies=scoped)
