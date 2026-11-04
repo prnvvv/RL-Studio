@@ -93,7 +93,8 @@ class AISettings:
 
         spark = default_model
         return cls(
-            api_key=_secret(e, "MODEL_API_KEY"),
+            # MODAL_API_KEY is accepted as the name this project's .env uses; MODEL_API_KEY wins when both are set.
+            api_key=_secret(e, "MODEL_API_KEY") or _secret(e, "MODAL_API_KEY"),
             base_url=_str(e, "META_API_BASE_URL", DEFAULT_BASE_URL).rstrip("/"),
             default_model=default_model,
             intent_model=model("META_INTENT_MODEL", spark),
