@@ -3,9 +3,5 @@
     { "source": "/en/:path*", "destination": "/:path*" },
     { "source": "/fr/:path*", "destination": "/:path*" }
   ],
-  "headers": [
-    { "source": "/:path*", "headers": [
-      { "key": "X-Locale", "value": "/:locale" }
-    ]}
-  ]
+  "headers": [{ "source": "/:path*", "headers": [{ "key": "X-Locale", "value": "/:locale" }] }]
 }
