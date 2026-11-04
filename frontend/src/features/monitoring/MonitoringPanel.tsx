@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 
 export type MonitoringIconName =
-  'layers' | 'chart' | 'target' | 'pulse' | 'link' | 'lifecycle' | 'info'
+  'layers' | 'chart' | 'target' | 'pulse' | 'link' | 'lifecycle' | 'info' | 'history' | 'compare'
 
 /** Minimal monochrome line icons, drawn with the same stroke conventions as the stat icons. */
 export function MonitoringIcon({
@@ -46,6 +46,22 @@ export function MonitoringIcon({
         <>
           <circle cx="10" cy="10" r="7" />
           <path d="M10 6v4l2.5 1.5" />
+        </>
+      )}
+      {name === 'history' && (
+        <>
+          <path d="M3 10a7 7 0 107-7 7.2 7.2 0 00-5 2.1" />
+          <path d="M3 3.5v3h3" />
+          <path d="M10 6.5V10l2.5 1.5" />
+        </>
+      )}
+      {name === 'compare' && (
+        <>
+          <path d="M4 16V9" />
+          <path d="M8 16V5" />
+          <path d="M13 16v-4" />
+          <path d="M17 16V7" />
+          <path d="M3 16.5h15" />
         </>
       )}
       {name === 'info' && (
