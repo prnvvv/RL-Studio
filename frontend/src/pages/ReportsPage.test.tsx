@@ -88,7 +88,9 @@ describe('ReportsPage', () => {
 
   it('shows no evaluation panel until a run is selected (evaluations live in the run report)', () => {
     renderPage()
-    expect(screen.queryByRole('region', { name: 'Recovery acceptance record' })).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('region', { name: 'Recovery acceptance record' }),
+    ).not.toBeInTheDocument()
   })
 
   it('displays a connected recovery acceptance record honestly when ids are supplied', async () => {
