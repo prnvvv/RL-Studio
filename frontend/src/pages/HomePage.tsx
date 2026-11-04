@@ -1,5 +1,6 @@
 import type { ComponentType, SVGProps } from 'react'
 import { Link } from 'react-router-dom'
+import { WakeGlyph } from '../components/ui/background-ascii-wake'
 import { AmbientWaves } from '../features/landing/AmbientWaves'
 import { FeatureStrip } from '../features/landing/FeatureStrip'
 import { CubeIcon, CycleIcon, PulseIcon } from '../features/landing/icons'
@@ -75,6 +76,7 @@ export function HomePage() {
   return (
     <div className="ls-root">
       <div className="ls-first-screen">
+        <WakeGlyph className="ls-wake" cellSize={18} />
         <AmbientWaves />
         <LandingNavbar />
         <main className="ls-main">

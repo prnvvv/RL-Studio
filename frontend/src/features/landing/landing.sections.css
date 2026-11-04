@@ -59,6 +59,19 @@
   mask-image: radial-gradient(ellipse 58% 62% at 24% 52%, #000 0%, transparent 74%);
 }
 
+/* ASCII wake background (components/ui/background-ascii-wake.tsx). Behind all content, click-through
+   (the component tracks the pointer on this first-screen container), and kept dim. */
+.ls-wake {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  width: 100%;
+  height: 100%;
+  color: #ffffff;
+  opacity: 0.4;
+  pointer-events: none;
+}
+
 /* Ambient particle waves in the corners (AmbientWaves.tsx). It sits behind all content and takes
    no pointer events; the mask keeps it to the outer corners as a second guard to the
    corner weighting in the particle field. */
