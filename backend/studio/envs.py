@@ -60,7 +60,7 @@ def unavailable_reason(definition: EnvDefinition) -> str | None:
     if definition.requires:
         try:
             importlib.import_module(definition.requires)
-        except Exception:
+        except Exception: # noqa: BLE001
             return f"{definition.requires} is not installed. {definition.requires_hint}".strip()
     return None
 
