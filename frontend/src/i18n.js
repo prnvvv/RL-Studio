@@ -1,108 +1,13 @@
 import i18n from 'i18next'
 import { initReactI18next } from 'react-i18next'
+import en from '../locales/en/translation.json'
 
+// The JSON file is the single source of truth for copy; add new keys there.
 i18n.use(initReactI18next).init({
-  resources: {
-    en: {
-      translation: {
-        landing: {
-          navbar: {
-            tagline: 'Self-healing reinforcement learning',
-            platform: 'Platform',
-            research: 'Research',
-            team: 'Team',
-            open_studio: 'Open Studio',
-          },
-          hero: {
-            title: 'From fault to verified recovery',
-          },
-          features: {
-            fault_detection: 'Fault detection',
-            experience_provenance: 'Experience provenance',
-            adaptive_recovery: 'Adaptive recovery',
-            open_monitoring: 'Open monitoring',
-            open_diagnosis: 'Open diagnosis',
-            open_reports: 'Open reports',
-          },
-        },
-        studio: {
-          brainpanel: {
-            agent_brain: 'Agent brain',
-            waiting: 'Waiting for the first decision…',
-            gaussian_policy: 'Agent brain · Gaussian policy',
-            q_values: 'Agent brain · Q-values (softmax)',
-            action_probabilities: 'Agent brain · action probabilities',
-          },
-          metricspanel: {
-            best_episode: 'Best episode',
-          },
-          simulationviewport: {
-            disconnected: 'Disconnected',
-            manual_control: 'Manual control',
-          },
-          configpanel: {
-            chaos_mode: 'Chaos mode',
-          },
-          experimentspanel: {
-            current_experiment: 'Current experiment',
-          },
-          studioworkspace: {
-            metrics: 'Metrics',
-            backend_unavailable: 'The studio backend is unavailable',
-            back_to_home: 'Back to home',
-          },
-          logconsole: {
-            all_levels: 'All levels',
-            all_categories: 'All categories',
-          },
-          chaospanel: {
-            chaos_mode: 'Chaos mode',
-            intensity: 'Intensity',
-            disturbances: 'Disturbances',
-          },
-          environmentprogress: {
-            episode_step: 'Episode step',
-            collisions: 'Collisions',
-            distance_to_goal: 'Distance to goal',
-            episode_reward: 'Episode reward',
-          },
-        },
-        datatable: {
-          no_records: 'No run records',
-        },
-        expandablesection: {
-          evidence_body: 'Evidence body',
-          analysis_body: 'Analysis body',
-          plan_body: 'Plan body',
-        },
-        reportsection: {
-          loaded_content: 'Loaded content',
-        },
-        verificationvaultcard: {
-          expected: 'Expected',
-          observed: 'Observed',
-          tolerance: 'Tolerance',
-        },
-        'application shell': {
-          content: 'Content',
-        },
-        techstrip: {
-          built_with: 'Built with',
-        },
-        telemetrysection: {
-          live_telemetry: 'Live telemetry',
-        },
-        landingnavbar: {
-          rl_studio: 'RL Studio',
-        },
-      },
-    },
-  },
+  resources: { en: { translation: en } },
   lng: 'en',
   fallbackLng: 'en',
-  interpolation: {
-    escapeValue: false,
-  },
+  interpolation: { escapeValue: false },
 })
 
 export default i18n

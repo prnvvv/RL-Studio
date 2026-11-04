@@ -1,6 +1,7 @@
 {
   "landing": {
     "navbar": {
+      "rl_studio": "RL Studio",
       "tagline": "Self-healing reinforcement learning",
       "platform": "Platform",
       "research": "Research",
@@ -25,7 +26,8 @@
       "waiting": "Waiting for the first decision…",
       "gaussian_policy": "Agent brain · Gaussian policy",
       "q_values": "Agent brain · Q-values (softmax)",
-      "action_probabilities": "Agent brain · action probabilities"
+      "action_probabilities": "Agent brain · action probabilities",
+      "taken": "Taken"
     },
     "metricspanel": {
       "best_episode": "Best episode"
@@ -77,7 +79,7 @@
     "observed": "Observed",
     "tolerance": "Tolerance"
   },
-  "applicationshell": {
+  "application shell": {
     "content": "Content"
   },
   "techstrip": {
@@ -85,8 +87,5 @@
   },
   "telemetrysection": {
     "live_telemetry": "Live telemetry"
-  },
-  "landingnavbar": {
-    "rl_studio": "RL Studio"
   }
 }
