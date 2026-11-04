@@ -17,9 +17,8 @@ describe('ApplicationShell', () => {
     )
 
     expect(screen.getByText('RL Studio')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Home' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Training' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Environments' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Projects' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Studio' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Monitoring' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Reports' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Diagnosis & Recovery' })).toBeInTheDocument()

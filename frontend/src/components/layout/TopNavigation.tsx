@@ -10,44 +10,28 @@ import { useUser, SignOutButton } from '@clerk/react'
 /** Matches the stacking breakpoint already used for page layouts (`src/styles/layout.css`). */
 const NARROW_QUERY = '(max-width: 960px)'
 
-/**
- * `to` may carry a query string. Home and Training are two views of the Studio workspace
- * (`/studio`): Home opens the agent/environment library, Training opens the Configure tab
- * (`?view=training`). The old standalone `/training` page is no longer linked.
- */
 interface NavItem {
   to: string
   label: string
 }
 
+/** Studio is the single workspace entry: it owns the agent/environment library and training. */
 const STUDIO_PATH = '/studio'
-const TRAINING_VIEW = 'training'
 
 const primaryNavItems: NavItem[] = [
   { to: '/projects', label: 'Projects' },
-  { to: STUDIO_PATH, label: 'Home' },
-  { to: `${STUDIO_PATH}?view=${TRAINING_VIEW}`, label: 'Training' },
-  { to: '/environments', label: 'Environments' },
+  { to: STUDIO_PATH, label: 'Studio' },
   { to: '/monitoring', label: 'Monitoring' },
   { to: '/reports', label: 'Reports' },
-]
-
-const secondaryNavItems: NavItem[] = [
   { to: '/diagnosis-recovery', label: 'Diagnosis & Recovery' },
-  { to: '/settings', label: 'Settings' },
 ]
 
-/** Exactly one Studio view (Home or Training) is active; other items match their path and sub-paths. */
-function isItemActive(item: NavItem, pathname: string, search: string): boolean {
-  const [path, query = ''] = item.to.split('?')
-  if (path === STUDIO_PATH) {
-    if (pathname !== STUDIO_PATH) return false
-    const training = new URLSearchParams(search).get('view') === TRAINING_VIEW
-    return new URLSearchParams(query).get('view') === TRAINING_VIEW ? training : !training
-  }
-  return pathname === path || pathname.startsWith(`${path}/`)
-}
+const secondaryNavItems: NavItem[] = [{ to: '/settings', label: 'Settings' }]
 
+/** An item is active on its own path and on any sub-path (so Studio stays active whatever its query). */
+function isItemActive(item: NavItem, pathname: string): boolean {
+  return pathname === item.to || pathname.startsWith(`${item.to}/`)
+}
 function navLinkStyle({ isActive }: { isActive: boolean }): CSSProperties {
   return {
     padding: '6px 12px',
@@ -77,7 +61,7 @@ export function TopNavigation() {
   const user = useUser()
 
   const renderItem = (item: NavItem, onClick?: () => void) => {
-    const active = isItemActive(item, location.pathname, location.search)
+    const active = isItemActive(item, location.pathname)
     return (
       <Link
         key={item.to}
