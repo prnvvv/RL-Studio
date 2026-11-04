@@ -1,0 +1,422 @@
+/* Shared styles for the self-healing surfaces: assistant, evaluations, incidents, diagnosis, recovery, report sections.
+   Uses the Studio tokens only (tokens.css); nothing here introduces a new colour or type scale. */
+
+.sh-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.sh-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.sh-muted {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  line-height: 1.6;
+  color: var(--text-secondary);
+  max-width: 80ch;
+}
+
+.sh-text {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  line-height: 1.6;
+  color: var(--text-primary);
+}
+
+.sh-h3 {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.sh-mono {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  overflow-wrap: anywhere;
+}
+
+.sh-btn {
+  padding: 6px 14px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.sh-btn:hover:not(:disabled) {
+  background: var(--bg-hover);
+}
+
+.sh-btn:focus-visible,
+.sh-input:focus-visible,
+.sh-textarea:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.sh-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.sh-btn--primary {
+  background: var(--text-primary);
+  color: var(--bg-primary);
+  border-color: var(--text-primary);
+}
+
+.sh-btn--primary:hover:not(:disabled) {
+  background: var(--text-primary);
+  opacity: 0.85;
+}
+
+.sh-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.sh-field > span {
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
+.sh-input,
+.sh-textarea,
+.sh-select {
+  padding: 6px 10px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  min-width: 0;
+}
+
+.sh-textarea {
+  resize: vertical;
+  min-height: 44px;
+  line-height: 1.5;
+}
+
+/* ---- cards and grids -------------------------------------------------------------------------------------- */
+
+.sh-card {
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  background: var(--bg-panel-raised, var(--bg-panel));
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.sh-card--selected {
+  border-color: var(--text-primary);
+}
+
+.sh-card__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.sh-grid {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
+.sh-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-3);
+  border: 1px solid var(--border-secondary);
+  border-radius: var(--radius-sm);
+  min-width: 0;
+}
+
+.sh-stat__label {
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
+.sh-stat__value {
+  font-family: var(--font-sans);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+
+.sh-stat__sub {
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
+.sh-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: var(--space-2) var(--space-5);
+  margin: 0;
+}
+
+.sh-facts > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.sh-facts dt {
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
+.sh-facts dd {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+
+.sh-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.sh-chip {
+  padding: 2px 8px;
+  border: 1px solid var(--border-primary);
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+  max-width: 100%;
+}
+
+.sh-list {
+  margin: 0;
+  padding-left: var(--space-5);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  line-height: 1.6;
+  color: var(--text-primary);
+}
+
+.sh-note {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px dashed var(--border-primary);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+.sh-note--alert {
+  border-style: solid;
+  color: var(--text-primary);
+}
+
+.sh-empty {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-5);
+  border: 1px dashed var(--border-primary);
+  border-radius: var(--radius-md);
+}
+
+.sh-empty__title {
+  font-family: var(--font-sans);
+  font-size: var(--text-md);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.sh-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border-secondary);
+  border-radius: var(--radius-sm);
+}
+
+.sh-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+}
+
+.sh-table th,
+.sh-table td {
+  padding: 6px 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--border-secondary);
+  white-space: nowrap;
+}
+
+.sh-table th {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.sh-table td {
+  color: var(--text-primary);
+}
+
+/* ---- section blocks used by the run report ---------------------------------------------------------------- */
+
+.rr {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.rr-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--border-secondary);
+}
+
+.rr-section:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.rr-section__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.rr-section__title {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--text-md);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.rr-two {
+  display: grid;
+  gap: var(--space-5);
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+}
+
+/* ---- assistant -------------------------------------------------------------------------------------------- */
+
+.as {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.as-log {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  max-height: 420px;
+  min-height: 140px;
+  overflow-y: auto;
+  padding: var(--space-3);
+  border: 1px solid var(--border-secondary);
+  border-radius: var(--radius-md);
+  background: var(--bg-input);
+}
+
+.as-msg {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-width: min(78ch, 92%);
+}
+
+.as-msg--user {
+  align-self: flex-end;
+  align-items: flex-end;
+}
+
+.as-msg__who {
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  color: var(--text-muted, var(--text-secondary));
+}
+
+.as-msg__body {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  background: var(--bg-panel);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  line-height: 1.6;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.as-msg--user .as-msg__body {
+  background: var(--text-primary);
+  color: var(--bg-primary);
+  border-color: var(--text-primary);
+}
+
+.as-compose {
+  display: flex;
+  gap: var(--space-2);
+  align-items: flex-end;
+}
+
+.as-compose .sh-textarea {
+  flex: 1;
+}
+
+@media (max-width: 640px) {
+  .as-compose {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .as-msg {
+    max-width: 100%;
+  }
+
+  .sh-card {
+    padding: var(--space-3);
+  }
+}

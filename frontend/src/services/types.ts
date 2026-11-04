@@ -48,6 +48,13 @@ export interface ServiceError {
   message: string
   /** HTTP status when the failure came from a response. */
   status?: number
+  /** Stable backend error code (for example `AI-002`) when the response carried one. */
+  code?: string
+  /**
+   * The backend's own sanitized explanation (never a stack trace or provider body), when the response carried one.
+   * Shown next to `message` so a user learns *why* an action failed (missing key, no credits, no checkpoint...).
+   */
+  detail?: string
 }
 
 export type ServiceResult<T> = { state: 'ok'; data: T } | { state: 'error'; error: ServiceError }

@@ -86,26 +86,19 @@ describe('ReportsPage', () => {
     expect(within(table).queryAllByRole('link')).toHaveLength(0)
   })
 
-  it('shows evaluation comparison as unavailable rather than drawing an empty chart', () => {
+  it('shows no evaluation panel until a run is selected (evaluations live in the run report)', () => {
     renderPage()
-
-    const summary = screen.getByRole('region', { name: 'Evaluation Summary' })
-    expect(summary).toHaveTextContent('No evaluation records')
-    expect(within(summary).queryByRole('img')).not.toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Recovery acceptance record' })).not.toBeInTheDocument()
   })
 
-  it('displays a connected evaluation record honestly when ids are supplied', async () => {
+  it('displays a connected recovery acceptance record honestly when ids are supplied', async () => {
     renderPage('/reports?incidentId=inc_demo&evaluationId=eval_demo')
-
-    // No live evaluation endpoint exists in the test environment, so the
-    // honest mapped failure is shown instead of a fabricated comparison.
-    const summary = await screen.findByRole('region', { name: 'Evaluation Summary' })
+    const summary = await screen.findByRole('region', { name: 'Recovery acceptance record' })
     expect(
       await within(summary).findByText(/The evaluation record could not be loaded/),
     ).toBeInTheDocument()
-    // The empty-state claim no longer applies while a record is connected.
-    expect(within(summary).queryByText('No evaluation records')).not.toBeInTheDocument()
   })
+
   it('presents the redesigned header and marks Reports as the active destination', () => {
     renderPage()
     expect(screen.getByText('Training analytics')).toBeInTheDocument()

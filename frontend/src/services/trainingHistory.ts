@@ -7,6 +7,7 @@
  * empty list or an invented run.
  */
 import { api } from './client'
+import type { RunEvaluation } from './runEvaluation'
 import type { ServiceResult } from './types'
 import { serviceError } from './types'
 
@@ -97,6 +98,8 @@ export interface RunDetail {
     training?: Record<string, unknown>
   }
   checkpoints: Array<Record<string, unknown>>
+  /** Evaluations of this run's saved policy (append-only, newest first; episodes are fetched per record). */
+  evaluations?: RunEvaluation[]
   verifications: Array<{ verification_id: string; overall_status: string; created_at: string }>
   incidents: Array<{
     incident_id: string

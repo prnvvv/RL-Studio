@@ -9,6 +9,8 @@ import {
 } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { TopNavigation } from '../../components/layout/TopNavigation'
+import { useActiveProject } from '../../contexts/ActiveProjectContext'
+import { createProjectService } from '../../services/projects'
 import { ChaosPanel } from './ChaosPanel'
 import { CompareMetrics } from './CompareMetrics'
 import { ComparePanes } from './ComparePanes'
@@ -318,11 +320,60 @@ function WorkspaceBody({ catalog, session }: { catalog: Catalog; session: Sessio
     [battle, compare, session, toast],
   )
 
+  // The project's saved agent/environment are its defaults: they are loaded once per project and never
+  // override a selection the user (or a re-attached session) already made.
+  const { activeProjectId } = useActiveProject()
+  const projectService = useMemo(() => createProjectService(), [])
+  const defaultsAppliedFor = useRef<string | null>(null)
+  useEffect(() => {
+    if (activeProjectId === null || defaultsAppliedFor.current === activeProjectId) return
+    const controller = new AbortController()
+    void (async () => {
+      const result = await projectService.getProject(activeProjectId, controller.signal)
+      if (controller.signal.aborted || result.state !== 'ok') return
+      defaultsAppliedFor.current = activeProjectId
+      const agentKey = result.data.agent?.agent
+      const envKey = result.data.environment?.environment
+      setDraft((current) => {
+        if (current.agent !== null || current.environment !== null) return current
+        let next = current
+        if (typeof envKey === 'string' && findEnvironment(catalog, envKey)) {
+          next = selectEnvironment(catalog, next, envKey)
+        }
+        if (typeof agentKey === 'string' && findAgent(catalog, agentKey)) {
+          next = selectAgent(catalog, next, agentKey)
+        }
+        if (next !== current && next.agent !== null && next.environment !== null) {
+          autoSwitched.current = true
+          setLeftTab('configure')
+        }
+        return next
+      })
+    })()
+    return () => controller.abort()
+  }, [activeProjectId, catalog, projectService])
+
+  // An explicit change updates the project's defaults so they survive a refresh and reopening.
+  const saveDefault = (kind: 'agent' | 'environment', key: string) => {
+    if (activeProjectId === null) return
+    void projectService
+      .updateProject(
+        activeProjectId,
+        kind === 'agent' ? { agent: { agent: key } } : { environment: { environment: key } },
+      )
+      .then((result) => {
+        if (result.state === 'error') {
+          toast.push('error', `The project default could not be saved. ${result.error.message}`)
+        }
+      })
+  }
+
   // Choosing both an agent and an environment moves the user on to configuration, once.
   const choose = (kind: 'agent' | 'environment', key: string) => {
     const next =
       kind === 'agent' ? selectAgent(catalog, draft, key) : selectEnvironment(catalog, draft, key)
     setDraft(next)
+    saveDefault(kind, key)
     if (!autoSwitched.current && next.agent !== null && next.environment !== null) {
       autoSwitched.current = true
       setLeftTab('configure')

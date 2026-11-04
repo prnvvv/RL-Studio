@@ -13,7 +13,7 @@ import { formatUtcDate } from '../utils/datetime'
 import { createEvaluationService, type EvaluationService } from '../services/evaluation'
 import { EvaluationPanel } from '../features/evaluation/EvaluationPanel'
 import { MonitoringPanel } from '../features/monitoring/MonitoringPanel'
-import { ArchiveArt, CompareArt } from '../features/reports/ReportsIcons'
+import { ArchiveArt } from '../features/reports/ReportsIcons'
 import { RunFilter } from '../features/reports/RunFilter'
 import { RunHistoryTable } from '../features/reports/RunHistoryTable'
 import '../features/monitoring/monitoring.css'
@@ -130,32 +130,6 @@ function ConnectedEvaluationSummary({
   )
 }
 
-function EvaluationSummarySection({
-  incidentId,
-  evaluationId,
-}: {
-  incidentId: string | null
-  evaluationId: string | null
-}) {
-  if (incidentId !== null && evaluationId !== null) {
-    return <ConnectedEvaluationSummary incidentId={incidentId} evaluationId={evaluationId} />
-  }
-  return (
-    <div role="status" className="rp-empty">
-      <CompareArt />
-      <span className="rp-empty__title">No evaluation records</span>
-      <span className="rp-empty__text">
-        An evaluation summary shows the evaluation identifier, policy fingerprint, environment
-        version, episode count, seeds, per-metric results, baseline identities, and variability.
-        None of that is available, so no comparison is drawn. Open this page with
-        ?incidentId=&lt;incident&gt;&amp;evaluationId=&lt;record&gt; to display a recorded
-        evaluation from the evaluation service.
-      </span>
-      <span className="rp-empty__meta">Required from: Person 4 — evaluation records</span>
-    </div>
-  )
-}
-
 export function ReportsPage() {
   const [searchParams] = useSearchParams()
   const incidentParam = searchParams.get('incidentId')
@@ -241,19 +215,21 @@ export function ReportsPage() {
           <MonitoringPanel
             title="Run report"
             icon="history"
-            description="Built only from the selected run's persisted records and its own configuration snapshots."
+            description="Built only from the selected run's persisted records, its configuration snapshots and its policy evaluations."
           >
             <RunReportPanel selected={selected} />
           </MonitoringPanel>
         )}
 
-        <MonitoringPanel
-          title="Evaluation Summary"
-          icon="compare"
-          description="Baseline versus recovered comparison for a completed evaluation."
-        >
-          <EvaluationSummarySection incidentId={incidentId} evaluationId={evaluationId} />
-        </MonitoringPanel>
+        {evaluationConnected ? (
+          <MonitoringPanel
+            title="Recovery acceptance record"
+            icon="compare"
+            description="The recorded acceptance evaluation linked from a recovery (opened with incidentId and evaluationId)."
+          >
+            <ConnectedEvaluationSummary incidentId={incidentId} evaluationId={evaluationId} />
+          </MonitoringPanel>
+        ) : null}
       </div>
     </ApplicationShell>
   )
