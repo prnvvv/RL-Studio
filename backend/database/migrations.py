@@ -281,8 +281,112 @@ MIGRATION_1_STATEMENTS: tuple[str, ...] = (
 )
 
 
+#: Phase 3 (Person 3): intent interpretation, requirement lifecycle, persisted verifications and the
+#: verification -> incident association. Additive only; no Person 4 table is altered. Incidents are
+#: still written through ``ProvenanceService.register_incident`` - ``verification_incident_links`` only
+#: records which incident a verification produced (and the handoff outcome).
+MIGRATION_2_STATEMENTS: tuple[str, ...] = (
+    """
+    CREATE TABLE IF NOT EXISTS verification_intents (
+        intent_id TEXT PRIMARY KEY,
+        run_id TEXT NOT NULL,
+        environment_id TEXT,
+        environment_version TEXT,
+        original_text TEXT NOT NULL,
+        context_json TEXT NOT NULL DEFAULT '{}',
+        status TEXT NOT NULL,
+        status_reason TEXT,
+        interpretation_json TEXT NOT NULL DEFAULT '{}',
+        ai_json TEXT NOT NULL DEFAULT '{}',
+        source_refs_json TEXT NOT NULL DEFAULT '{}',
+        idempotency_key TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_vintents_run ON verification_intents(run_id, created_at)",
+    "CREATE INDEX IF NOT EXISTS idx_vintents_key ON verification_intents(idempotency_key)",
+    """
+    CREATE TABLE IF NOT EXISTS verification_requirements (
+        requirement_id TEXT PRIMARY KEY,
+        intent_id TEXT NOT NULL,
+        run_id TEXT NOT NULL,
+        environment_id TEXT,
+        environment_version TEXT,
+        category TEXT NOT NULL,
+        source_statement TEXT NOT NULL,
+        description TEXT NOT NULL,
+        criterion TEXT,
+        comparison_operator TEXT,
+        expected_value_json TEXT,
+        tolerance REAL,
+        evidence_required_json TEXT NOT NULL DEFAULT '[]',
+        lifecycle_status TEXT NOT NULL,
+        validation_status TEXT NOT NULL,
+        validation_json TEXT NOT NULL DEFAULT '{}',
+        requirement_json TEXT NOT NULL,
+        last_verification_id TEXT,
+        last_result_status TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        confirmed_at TEXT
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_vreq_intent ON verification_requirements(intent_id)",
+    "CREATE INDEX IF NOT EXISTS idx_vreq_run ON verification_requirements(run_id, created_at)",
+    """
+    CREATE TABLE IF NOT EXISTS verifications (
+        verification_id TEXT PRIMARY KEY,
+        run_id TEXT NOT NULL,
+        intent_id TEXT,
+        environment_id TEXT,
+        environment_version TEXT,
+        overall_status TEXT NOT NULL,
+        contract_status TEXT,
+        idempotency_key TEXT NOT NULL UNIQUE,
+        requirement_ids_json TEXT NOT NULL DEFAULT '[]',
+        traceability_json TEXT NOT NULL DEFAULT '{}',
+        output_json TEXT NOT NULL,
+        created_at TEXT NOT NULL
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_verifications_run ON verifications(run_id, created_at)",
+    """
+    CREATE TABLE IF NOT EXISTS verification_results (
+        verification_id TEXT NOT NULL,
+        requirement_id TEXT NOT NULL,
+        status TEXT NOT NULL,
+        contract_status TEXT,
+        expected_json TEXT,
+        actual_json TEXT,
+        tolerance REAL,
+        evidence_refs_json TEXT NOT NULL DEFAULT '[]',
+        details_json TEXT NOT NULL DEFAULT '{}',
+        is_mandatory INTEGER NOT NULL DEFAULT 1,
+        created_at TEXT NOT NULL,
+        PRIMARY KEY (verification_id, requirement_id)
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS verification_incident_links (
+        verification_id TEXT PRIMARY KEY,
+        run_id TEXT NOT NULL,
+        incident_id TEXT,
+        handoff_status TEXT NOT NULL,
+        failed_requirement_ids_json TEXT NOT NULL DEFAULT '[]',
+        error_code TEXT,
+        attempts INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_vlinks_incident ON verification_incident_links(incident_id)",
+)
+
+
 MIGRATIONS: tuple[Migration, ...] = (
     Migration(version=1, name="initial_person4_schema", statements=MIGRATION_1_STATEMENTS),
+    Migration(version=2, name="person3_verification_lifecycle", statements=MIGRATION_2_STATEMENTS),
 )
 
 
