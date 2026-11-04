@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
+import { setProjectScope } from '../services/projectScope'
 
 const STORAGE_KEY = 'rl-studio.activeProject'
 const PROJECT_ID = /^prj_[0-9a-f]{16}$/
@@ -39,9 +40,14 @@ function writeStored(projectId: string | null): void {
  * request is validated by the backend, which is what isolates one project's data from another's.
  */
 export function ActiveProjectProvider({ children }: { children: ReactNode }) {
-  const [activeProjectId, setState] = useState<string | null>(readStored)
+  const [activeProjectId, setState] = useState<string | null>(() => {
+    const stored = readStored()
+    setProjectScope(stored) // before any child can request data, so the very first request is already scoped
+    return stored
+  })
 
   const setActiveProjectId = useCallback((projectId: string | null) => {
+    setProjectScope(projectId)
     setState(projectId)
     writeStored(projectId)
   }, [])

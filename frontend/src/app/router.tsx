@@ -1,5 +1,6 @@
 import { Navigate, Routes, Route } from 'react-router-dom'
 import { RouteErrorBoundary } from '../components/feedback/RouteErrorBoundary'
+import { useActiveProject } from '../contexts/ActiveProjectContext'
 import { HomePage } from '../pages/HomePage'
 import { StudioPage } from '../pages/StudioPage'
 import { ProjectsPage } from '../pages/ProjectsPage'
@@ -14,9 +15,11 @@ import { NotFoundPage } from '../pages/NotFoundPage'
 import { LoginPage } from '../pages/LoginPage'
 
 export function AppRouter() {
+  const { activeProjectId } = useActiveProject()
   return (
     <RouteErrorBoundary>
-      <Routes>
+      {/* Switching project remounts every page, so nothing fetched for one project can linger in another. */}
+      <Routes key={activeProjectId ?? 'no-project'}>
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/projects" element={<ProjectsPage />} />

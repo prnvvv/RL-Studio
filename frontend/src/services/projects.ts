@@ -19,6 +19,7 @@ import type {
   VerifyResult,
 } from '../schemas/projects'
 import { buildRequestUrl, kindForStatus, MESSAGES, api } from './client'
+import { projectScopeHeaders } from './projectScope'
 import type { ServiceResult } from './types'
 import { serviceError } from './types'
 
@@ -171,6 +172,7 @@ export function createProjectService(): ProjectService {
             headers: {
               'Content-Type': file.type || 'application/octet-stream',
               Accept: 'application/json',
+              ...projectScopeHeaders(),
             },
             body: file,
             signal: controller.signal,
