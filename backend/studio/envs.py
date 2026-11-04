@@ -57,11 +57,6 @@ def unavailable_reason(definition: EnvDefinition) -> str | None:
     """Why this environment cannot run here, or None when everything it needs is installed."""
     if definition.requires and importlib.util.find_spec(definition.requires) is None:
         return f"{definition.requires} is not installed. {definition.requires_hint}".strip()
-    if definition.requires:
-        try:
-            importlib.import_module(definition.requires)
-        except Exception:
-            return f"{definition.requires} is not installed. {definition.requires_hint}".strip()
     return None
 
 

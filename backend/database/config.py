@@ -40,10 +40,7 @@ class DatabaseConfig:
 
     @classmethod
     def from_env(cls) -> DatabaseConfig:
-        supabase_url = os.environ.get("SUPABASE_URL", "").strip()
-        database_url = supabase_url or os.environ.get("DATABASE_URL", "").strip()
-        use_postgres = database_url != ""
-        
+        use_postgres = os.environ.get("DATABASE_URL", "").strip() != ""
         data_root = _env_path("RL_STUDIO_DATA_ROOT", _repo_root() / "var")
         database_path = _env_path(
             "RL_STUDIO_DB_PATH", data_root / "rl_studio.sqlite3"
@@ -55,7 +52,7 @@ class DatabaseConfig:
         max_artifact_bytes = int(
             os.environ.get("RL_STUDIO_MAX_ARTIFACT_BYTES", str(2 * 1024 * 1024 * 1024))
         )
-        postgres_dsn = database_url
+        postgres_dsn = os.environ.get("DATABASE_URL", "")
         return cls(
             database_path=database_path,
             artifact_root=artifact_root,
