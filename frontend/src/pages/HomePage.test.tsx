@@ -2,16 +2,12 @@ import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { HomePage } from './HomePage'
-import { i18n } from '../i18n'
-import { I18nextProvider } from 'react-i18next'
 
 function renderHome() {
   return render(
-    <I18nextProvider i18n={i18n}>
-      <MemoryRouter initialEntries={['/']}>
-        <HomePage />
-      </MemoryRouter>
-    </I18nextProvider>,
+    <MemoryRouter initialEntries={['/']}>
+      <HomePage />
+    </MemoryRouter>,
   )
 }
 
