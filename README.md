@@ -14,7 +14,7 @@
 
 Self-Healing RL Studio is a full-stack reinforcement learning platform for training agents, verifying that behavior matches developer intent, diagnosing faults, and planning validated recovery.
 
-It combines a FastAPI backend with a React / Vite frontend. Training runs in environments such as the warehouse environment, with Gymnasium, Stable-Baselines3, and SB3 Contrib. Verification converts intent into explicit requirements, runs deterministic checks and anomaly detection, and builds traceable evidence packages. Diagnosis investigates incidents with Meta AI and produces structured findings. Provenance, evaluation, and recovery stages track artifacts, assess impact, and recommend or execute controlled recovery.
+It combines a FastAPI backend with a React / Vite frontend. Training runs in environments such as the warehouse environment, with PPO, TD3, and SB3 Contrib. Verification converts intent into explicit requirements, runs deterministic checks and anomaly detection, and builds traceable evidence packages. Diagnosis investigates incidents with Meta AI and produces structured findings. Provenance, evaluation, and recovery stages track artifacts, assess impact, and recommend or execute controlled recovery.
 
 Exposure is not proof of causal damage, and recovery execution is not recovery success — the system preserves that distinction throughout.
 
