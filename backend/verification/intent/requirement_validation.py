@@ -203,8 +203,12 @@ def validate_proposal(
     out = ValidationOutcome(status=V_VALID)
     md = req.metadata or {}
 
+    # Severity: invalid > needs_clarification > not_evaluable > valid. A threshold the user still has to state
+    # outranks missing evidence (which a run can later supply), so the question is never hidden behind it.
+    severity = {V_VALID: 0, V_NOT_EVALUABLE: 1, V_CLARIFY: 2, V_INVALID: 3}
+
     def fail(status: str, reason: str) -> ValidationOutcome:
-        if out.status == V_VALID or status == V_INVALID:
+        if severity[status] > severity[out.status]:
             out.status = status
         out.reasons.append(reason)
         return out
