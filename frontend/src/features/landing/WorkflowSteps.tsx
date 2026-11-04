@@ -58,11 +58,7 @@ export function WorkflowSteps() {
         data-in={visible ? '' : undefined}
       >
         {STEPS.map((step, i) => (
-          <article
-            key={step.n}
-            className="ls-workflow__row"
-            style={{ ['--i' as string]: i }}
-          >
+          <article key={step.n} className="ls-workflow__row" style={{ ['--i' as string]: i }}>
             <span className="ls-workflow__n" aria-hidden="true">
               {step.n}
             </span>
