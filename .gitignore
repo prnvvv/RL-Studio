@@ -70,7 +70,6 @@ docs/.doctrees
 # Markdown files (excluding README.md which is the public facing doc)
 
 # CRITICAL: Files that must NEVER be ignored
-requirements.txt
 pyproject.toml
 package.json
 package-lock.json
