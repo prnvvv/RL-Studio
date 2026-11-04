@@ -33,9 +33,11 @@ describe('AppRouter', () => {
     destinations.forEach(({ path, heading }) => {
       const { unmount } = render(
         <ThemeProvider>
-          <MemoryRouter initialEntries={[path]}>
-            <AppRouter />
-          </MemoryRouter>
+          <I18nextProvider i18n={i18n}>
+            <MemoryRouter initialEntries={[path]}>
+              <AppRouter />
+            </MemoryRouter>
+          </I18nextProvider>
         </ThemeProvider>,
       )
       expect(screen.getByRole('heading', { level: 1, name: heading })).toBeInTheDocument()
