@@ -3,8 +3,6 @@ import { useFrameSnapshot } from './useFrameSnapshot'
 import type { StudioStore } from './studioStore'
 import { useTranslation } from 'react-i18next'
 
-const { t } = useTranslation()
-
 interface Props {
   store: StudioStore
   renderer: string | null
@@ -16,6 +14,7 @@ interface Props {
  * softmax of the Q-values with the raw Q-values printed alongside.
  */
 export function BrainPanel({ store, renderer }: Props) {
+  const { t } = useTranslation()
   const frame = useFrameSnapshot(store)
   const brain = frame?.brain
 
@@ -34,7 +33,7 @@ export function BrainPanel({ store, renderer }: Props) {
         <strong>{t('studio.brainpanel.gaussian_policy')}</strong>
         {(brain.mean ?? []).map((mean, i) => (
           <div key={i} className="brain-panel__row">
-            <span>Action {i}</span>
+            <span>{t('action.' + i)}</span>
             <span>
               μ {mean.toFixed(3)} · σ {(brain.std?.[i] ?? 0).toFixed(3)}
             </span>
