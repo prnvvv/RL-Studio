@@ -7,7 +7,7 @@
 [![License](https://img.shields.io/badge/license-Proprietary-red.svg)](LICENSE)
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)]()
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
-
+[![Live Demo](https://img.shields.io/badge/Demo-Live_0078D4?style=flat-square&logo=vercel&logoColor=white)](https://meta-rl-studio.vercel.app/)
 </div>
 
 ## Overview / About The Project
@@ -18,9 +18,12 @@ It combines a FastAPI backend with a React / Vite frontend. Training runs in env
 
 Exposure is not proof of causal damage, and recovery execution is not recovery success — the system preserves that distinction throughout.
 
+Deployment Link: https://meta-rl-studio.vercel.app/
+
 <a href="https://www.youtube.com/watch?v=F6x8oJTi0fc"><img width="1600" height="900" alt="WhatsApp Image 2026-11-05 at 07 10 41" src="https://github.com/user-attachments/assets/df5be63b-67f7-4c58-bb8e-e1b5fb639689" />
 <img width="1600" height="900" alt="image" src="https://github.com/user-attachments/assets/9c9639c2-5994-44aa-aa13-6515f17e817a" />
 </a>
+Note: Live training won't be available in the deployment because of resource constraints
 
 ## Key Features
 
